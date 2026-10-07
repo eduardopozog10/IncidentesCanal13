@@ -134,9 +134,24 @@ class Incident(models.Model):
         max_length=150,
         verbose_name="unidad",
     )
+
+    area = models.CharField(
+        max_length=150,
+        blank=True,
+        default="",
+        verbose_name="área",
+    )
+
+    location_context = models.CharField(
+        max_length=150,
+        blank=True,
+        default="",
+        verbose_name="ubicación o contexto",
+    )
+
     equipment = models.CharField(
         max_length=150,
-        verbose_name="equipo",
+        verbose_name="equipo o servicio afectado",
     )
     failure_type = models.CharField(
         max_length=100,
@@ -145,6 +160,13 @@ class Incident(models.Model):
     description = models.TextField(
         verbose_name="descripción",
     )
+
+    operational_impact = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="impacto operacional",
+    )
+
     priority = models.CharField(
         max_length=20,
         choices=Priority.choices,
