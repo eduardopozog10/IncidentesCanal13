@@ -110,6 +110,17 @@ class TechnicianChannel(models.Model):
 
 
 class Incident(models.Model):
+    class AssetCategory(models.TextChoices):
+        VIDEO_CAMERAS = "video_cameras", "Video / Cámaras"
+        AUDIO = "audio", "Audio"
+        STUDIOS_PRODUCTION = "studios_production", "Estudios / Producción"
+        SIGNAL_TRANSMISSION = "signal_transmission", "Señal / Transmisión"
+        MOBILE_FIELD = "mobile_field", "Móviles / Terreno"
+        NETWORKS = "networks", "Redes"
+        SYSTEMS = "systems", "Sistemas"
+        DIGITAL_STREAMING = "digital_streaming", "Digital / Streaming"
+        INFRASTRUCTURE = "infrastructure", "Infraestructura"
+
     class Priority(models.TextChoices):
         LOW = "low", "Baja"
         MEDIUM = "medium", "Media"
@@ -147,6 +158,14 @@ class Incident(models.Model):
         blank=True,
         default="",
         verbose_name="ubicación o contexto",
+    )
+
+    asset_category = models.CharField(
+        max_length=30,
+        choices=AssetCategory.choices,
+        blank=True,
+        default="",
+        verbose_name="familia de equipo o servicio",
     )
 
     equipment = models.CharField(
