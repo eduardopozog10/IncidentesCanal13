@@ -1,0 +1,12 @@
+[project]
+name = "tvtel-incidentes"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "django>=5.2,<5.3",
+    "django-environ>=0.14.0",
+    "djangorestframework>=3.18.1",
+    "google-genai>=2.25.0",
+    "httpx>=0.28.1",
+    "psycopg[binary]>=3.3.6",
+]

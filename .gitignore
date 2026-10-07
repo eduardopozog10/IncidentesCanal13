@@ -1,0 +1,36 @@
+# Variables y credenciales privadas
+.env
+.env.*
+!.env.example
+
+# Entornos virtuales de Python
+.venv/
+venv/
+env/
+
+# Caché y archivos generados por Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Archivos locales de Django
+db.sqlite3
+*.sqlite3
+media/
+staticfiles/
+
+# Pruebas y cobertura
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Registros
+*.log
+
+# Editores
+.vscode/
+.idea/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db

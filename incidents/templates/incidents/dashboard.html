@@ -1,0 +1,2105 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>TVTEL - Gestión de Incidentes</title>
+
+    <link
+        rel="stylesheet"
+        href="{% static 'incidents/dashboard.css' %}"
+    >
+</head>
+
+<body>
+    <form hidden>
+        {% csrf_token %}
+    </form>
+
+    <main>
+        <header>
+            <h1>Gestión de Incidentes TVTEL</h1>
+
+            <p>
+                Centro de monitoreo, análisis y seguimiento de reportes técnicos.
+            </p>
+        </header>
+
+        <section>
+            <h2>Resumen operativo</h2>
+
+            <form
+                id="period-controls"
+                autocomplete="off"
+            >
+                <label for="period-filter">
+                    <strong>Período</strong>
+                </label>
+
+                <select id="period-filter">
+                    <option value="today">
+                        Hoy
+                    </option>
+
+                    <option value="last_7_days">
+                        Últimos 7 días
+                    </option>
+
+                    <option value="last_30_days">
+                        Últimos 30 días
+                    </option>
+
+                    <option value="this_month" selected>
+                        Este mes
+                    </option>
+
+                    <option value="previous_month">
+                        Mes anterior
+                    </option>
+
+                    <option value="all">
+                        Todo el historial
+                    </option>
+
+                    <option value="custom">
+                        Rango personalizado
+                    </option>
+                </select>
+
+                <label
+                    id="date-from-label"
+                    for="date-from"
+                    hidden
+                >
+                    Desde
+                </label>
+
+                <input
+                    id="date-from"
+                    type="date"
+                    hidden
+                >
+
+                <label
+                    id="date-to-label"
+                    for="date-to"
+                    hidden
+                >
+                    Hasta
+                </label>
+
+                <input
+                    id="date-to"
+                    type="date"
+                    hidden
+                >
+            </form>
+
+            <div>
+                <article>
+                    <span>Total de incidentes</span>
+                    <strong id="metric-total">0</strong>
+                </article>
+
+                <article>
+                    <span>Incidentes abiertos</span>
+                    <strong id="metric-open">0</strong>
+                </article>
+
+                <article>
+                    <span>Resueltos</span>
+                    <strong id="metric-resolved">0</strong>
+                </article>
+
+                <article>
+                    <span>Prioridad crítica</span>
+                    <strong id="metric-critical">0</strong>
+                </article>
+
+                <article>
+                    <span>Resolución promedio</span>
+                    <strong id="metric-average-resolution">-</strong>
+                </article>
+            </div>
+        </section>
+
+        <div class="attention-panel">
+            <div class="attention-item attention-item--danger">
+                <div>
+                    <strong id="attention-critical-open">
+                        0
+                    </strong>
+
+                    <div>
+                        Incidentes críticos actualmente abiertos
+                    </div>
+                </div>
+            </div>
+
+            <div class="attention-item attention-item--warning">
+                <div>
+                    <strong id="attention-over-24-hours">
+                        0
+                    </strong>
+
+                    <div>
+                        Incidentes abiertos por más de 24 horas
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="analytics-grid">
+            <div
+                class="analytics-card"
+                style="grid-column: 1 / -1;"
+            >
+                <div class="analytics-card-header">
+                    <div>
+                        <h3 class="analytics-card-title">
+                            Evolución de incidentes
+                        </h3>
+
+                        <p class="analytics-card-description">
+                            Cantidad de incidentes registrados por día
+                            durante el período seleccionado.
+                        </p>
+                    </div>
+                </div>
+
+                <div
+                    id="trend-chart"
+                    class="chart-container"
+                ></div>
+            </div>
+
+            <div class="analytics-card">
+                <div class="analytics-card-header">
+                    <div>
+                        <h3 class="analytics-card-title">
+                            Equipos con más incidentes
+                        </h3>
+
+                        <p class="analytics-card-description">
+                            Permite detectar equipos con fallas recurrentes.
+                        </p>
+                    </div>
+                </div>
+
+                <div
+                    id="equipment-chart"
+                    class="chart-container"
+                ></div>
+            </div>
+
+            <div class="analytics-card">
+                <div class="analytics-card-header">
+                    <div>
+                        <h3 class="analytics-card-title">
+                            Unidades más afectadas
+                        </h3>
+
+                        <p class="analytics-card-description">
+                            Unidades que concentran la mayor cantidad
+                            de reportes.
+                        </p>
+                    </div>
+                </div>
+
+                <div
+                    id="unit-chart"
+                    class="chart-container"
+                ></div>
+            </div>
+
+            <div class="analytics-card">
+                <div class="analytics-card-header">
+                    <div>
+                        <h3 class="analytics-card-title">
+                            Incidentes por estado
+                        </h3>
+
+                        <p class="analytics-card-description">
+                            Distribución actual del flujo operativo.
+                        </p>
+                    </div>
+                </div>
+
+                <div
+                    id="status-chart"
+                    class="chart-container"
+                ></div>
+            </div>
+
+            <div class="analytics-card">
+                <div class="analytics-card-header">
+                    <div>
+                        <h3 class="analytics-card-title">
+                            Incidentes por prioridad
+                        </h3>
+
+                        <p class="analytics-card-description">
+                            Nivel de severidad de los incidentes
+                            registrados.
+                        </p>
+                    </div>
+                </div>
+
+                <div
+                    id="priority-chart"
+                    class="chart-container"
+                ></div>
+            </div>
+        </div>
+
+        <section>
+            <h2>Incidentes</h2>
+
+            <div>
+                <input
+                    id="search-input"
+                    type="search"
+                    placeholder="Buscar por código, unidad, equipo, falla o técnico..."
+                >
+
+                <select id="status-filter">
+                    <option value="">
+                        Todos los estados
+                    </option>
+
+                    <option value="reported">
+                        Reportado
+                    </option>
+
+                    <option value="under_review">
+                        En revisión
+                    </option>
+
+                    <option value="in_progress">
+                        En progreso
+                    </option>
+
+                    <option value="resolved">
+                        Resuelto
+                    </option>
+
+                    <option value="closed">
+                        Cerrado
+                    </option>
+
+                    <option value="cancelled">
+                        Cancelado
+                    </option>
+                </select>
+
+                <select id="priority-filter">
+                    <option value="">
+                        Todas las prioridades
+                    </option>
+
+                    <option value="low">
+                        Baja
+                    </option>
+
+                    <option value="medium">
+                        Media
+                    </option>
+
+                    <option value="high">
+                        Alta
+                    </option>
+
+                    <option value="critical">
+                        Crítica
+                    </option>
+                </select>
+            </div>
+
+            <div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Unidad</th>
+                            <th>Equipo</th>
+                            <th>Falla</th>
+                            <th>Prioridad</th>
+                            <th>Estado</th>
+                            <th>Técnico</th>
+                            <th>Fecha</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="incident-table-body">
+                    </tbody>
+                </table>
+            </div>
+
+            <p
+                id="incident-empty-message"
+                hidden
+            >
+                No se encontraron incidentes.
+            </p>
+        </section>
+
+        <section>
+            <h2>Detalle del incidente</h2>
+
+            <div id="incident-detail">
+                Selecciona un incidente para ver su detalle.
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const NEW_INCIDENT_CHECK_INTERVAL_MS = 5000;
+        const NEW_INCIDENT_HIGHLIGHT_MS = 7000;
+
+        const metricTotal = document.getElementById(
+            "metric-total"
+        );
+
+        const metricOpen = document.getElementById(
+            "metric-open"
+        );
+
+        const metricResolved = document.getElementById(
+            "metric-resolved"
+        );
+
+        const metricCritical = document.getElementById(
+            "metric-critical"
+        );
+
+        const metricAverageResolution = document.getElementById(
+            "metric-average-resolution"
+        );
+
+        const attentionCriticalOpen = document.getElementById(
+            "attention-critical-open"
+        );
+
+        const attentionOver24Hours = document.getElementById(
+            "attention-over-24-hours"
+        );
+
+        const trendChart = document.getElementById(
+            "trend-chart"
+        );
+
+        const equipmentChart = document.getElementById(
+            "equipment-chart"
+        );
+
+        const unitChart = document.getElementById(
+            "unit-chart"
+        );
+
+        const statusChart = document.getElementById(
+            "status-chart"
+        );
+
+        const priorityChart = document.getElementById(
+            "priority-chart"
+        );
+
+        const periodFilter = document.getElementById(
+            "period-filter"
+        );
+
+        const dateFromInput = document.getElementById(
+            "date-from"
+        );
+
+        const dateToInput = document.getElementById(
+            "date-to"
+        );
+
+        const dateFromLabel = document.getElementById(
+            "date-from-label"
+        );
+
+        const dateToLabel = document.getElementById(
+            "date-to-label"
+        );
+
+        const searchInput = document.getElementById(
+            "search-input"
+        );
+
+        const statusFilter = document.getElementById(
+            "status-filter"
+        );
+
+        const priorityFilter = document.getElementById(
+            "priority-filter"
+        );
+
+        const incidentTableBody = document.getElementById(
+            "incident-table-body"
+        );
+
+        const incidentEmptyMessage = document.getElementById(
+            "incident-empty-message"
+        );
+
+        const incidentDetail = document.getElementById(
+            "incident-detail"
+        );
+
+        let selectedIncidentId = null;
+        let refreshInProgress = false;
+        let lastKnownIncidentCount = null;
+
+        let knownIncidentIds = new Set();
+        let highlightNewIncidentsOnNextLoad = false;
+        let incidentBaselineReady = false;
+
+        function escapeHtml(value) {
+            if (
+                value === null
+                || value === undefined
+            ) {
+                return "";
+            }
+
+            return String(value)
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
+
+        function getCssVariable(name) {
+            return getComputedStyle(
+                document.documentElement
+            ).getPropertyValue(
+                name
+            ).trim();
+        }
+
+        function getPriorityColor(priority) {
+            const colors = {
+                low: "#15803d",
+                medium: "#ca8a04",
+                high: "#ea580c",
+                critical: "#b91c1c",
+            };
+
+            return (
+                colors[priority]
+                || getCssVariable("--text-secondary")
+            );
+        }
+
+        function getStatusColor(status) {
+            const colors = {
+                reported: "#0284c7",
+                under_review: "#7c3aed",
+                in_progress: "#d97706",
+                resolved: "#15803d",
+                closed: "#64748b",
+                cancelled: "#b91c1c",
+            };
+
+            return (
+                colors[status]
+                || getCssVariable("--text-secondary")
+            );
+        }
+
+        function formatDate(value) {
+            if (!value) {
+                return "-";
+            }
+
+            return new Intl.DateTimeFormat(
+                "es-CL",
+                {
+                    dateStyle: "short",
+                    timeStyle: "short",
+                }
+            ).format(
+                new Date(value)
+            );
+        }
+
+        function formatShortDate(value) {
+            if (!value) {
+                return "";
+            }
+
+            const parts = value.split("-");
+
+            if (parts.length !== 3) {
+                return value;
+            }
+
+            const date = new Date(
+                Number(parts[0]),
+                Number(parts[1]) - 1,
+                Number(parts[2])
+            );
+
+            return new Intl.DateTimeFormat(
+                "es-CL",
+                {
+                    day: "2-digit",
+                    month: "short",
+                }
+            ).format(date);
+        }
+
+        function formatDuration(seconds) {
+            if (
+                seconds === null
+                || seconds === undefined
+            ) {
+                return "Sin datos";
+            }
+
+            if (seconds < 60) {
+                return `${seconds} s`;
+            }
+
+            const totalMinutes = Math.round(
+                seconds / 60
+            );
+
+            if (totalMinutes < 60) {
+                return `${totalMinutes} min`;
+            }
+
+            const hours = Math.floor(
+                totalMinutes / 60
+            );
+
+            const minutes = (
+                totalMinutes % 60
+            );
+
+            if (hours < 24) {
+                if (minutes === 0) {
+                    return `${hours} h`;
+                }
+
+                return `${hours} h ${minutes} min`;
+            }
+
+            const days = Math.floor(
+                hours / 24
+            );
+
+            const remainingHours = (
+                hours % 24
+            );
+
+            if (remainingHours === 0) {
+                return `${days} d`;
+            }
+
+            return `${days} d ${remainingHours} h`;
+        }
+
+        function formatDateForApi(date) {
+            const year = date.getFullYear();
+
+            const month = String(
+                date.getMonth() + 1
+            ).padStart(
+                2,
+                "0"
+            );
+
+            const day = String(
+                date.getDate()
+            ).padStart(
+                2,
+                "0"
+            );
+
+            return `${year}-${month}-${day}`;
+        }
+
+        function getToday() {
+            const today = new Date();
+
+            return new Date(
+                today.getFullYear(),
+                today.getMonth(),
+                today.getDate()
+            );
+        }
+
+        function getDateRange() {
+            const period = periodFilter.value;
+            const today = getToday();
+
+            let dateFrom = null;
+            let dateTo = null;
+
+            if (period === "today") {
+                dateFrom = new Date(today);
+                dateTo = new Date(today);
+            }
+
+            if (period === "last_7_days") {
+                dateFrom = new Date(today);
+
+                dateFrom.setDate(
+                    dateFrom.getDate() - 6
+                );
+
+                dateTo = new Date(today);
+            }
+
+            if (period === "last_30_days") {
+                dateFrom = new Date(today);
+
+                dateFrom.setDate(
+                    dateFrom.getDate() - 29
+                );
+
+                dateTo = new Date(today);
+            }
+
+            if (period === "this_month") {
+                dateFrom = new Date(
+                    today.getFullYear(),
+                    today.getMonth(),
+                    1
+                );
+
+                dateTo = new Date(today);
+            }
+
+            if (period === "previous_month") {
+                dateFrom = new Date(
+                    today.getFullYear(),
+                    today.getMonth() - 1,
+                    1
+                );
+
+                dateTo = new Date(
+                    today.getFullYear(),
+                    today.getMonth(),
+                    0
+                );
+            }
+
+            if (period === "custom") {
+                return {
+                    dateFrom: (
+                        dateFromInput.value
+                        || null
+                    ),
+
+                    dateTo: (
+                        dateToInput.value
+                        || null
+                    ),
+                };
+            }
+
+            if (period === "all") {
+                return {
+                    dateFrom: null,
+                    dateTo: null,
+                };
+            }
+
+            return {
+                dateFrom: (
+                    dateFrom
+                        ? formatDateForApi(dateFrom)
+                        : null
+                ),
+
+                dateTo: (
+                    dateTo
+                        ? formatDateForApi(dateTo)
+                        : null
+                ),
+            };
+        }
+
+        function appendDateRange(params) {
+            const {
+                dateFrom,
+                dateTo,
+            } = getDateRange();
+
+            if (dateFrom) {
+                params.set(
+                    "date_from",
+                    dateFrom
+                );
+            }
+
+            if (dateTo) {
+                params.set(
+                    "date_to",
+                    dateTo
+                );
+            }
+        }
+
+        function updateCustomDateVisibility() {
+            const isCustom = (
+                periodFilter.value === "custom"
+            );
+
+            dateFromInput.hidden = !isCustom;
+            dateToInput.hidden = !isCustom;
+
+            dateFromLabel.hidden = !isCustom;
+            dateToLabel.hidden = !isCustom;
+
+            if (
+                isCustom
+                && !dateFromInput.value
+                && !dateToInput.value
+            ) {
+                const today = getToday();
+
+                const firstDayOfMonth = new Date(
+                    today.getFullYear(),
+                    today.getMonth(),
+                    1
+                );
+
+                dateFromInput.value = formatDateForApi(
+                    firstDayOfMonth
+                );
+
+                dateToInput.value = formatDateForApi(
+                    today
+                );
+            }
+        }
+
+        function getCsrfToken() {
+            const input = document.querySelector(
+                "[name=csrfmiddlewaretoken]"
+            );
+
+            return input ? input.value : "";
+        }
+
+        function buildAnalyticsUrl() {
+            const params = new URLSearchParams();
+
+            appendDateRange(params);
+
+            const query = params.toString();
+
+            if (!query) {
+                return "/api/v1/incidents/analytics/";
+            }
+
+            return (
+                "/api/v1/incidents/analytics/?"
+                + query
+            );
+        }
+
+        function buildSummaryUrl() {
+            const params = new URLSearchParams();
+
+            appendDateRange(params);
+
+            const query = params.toString();
+
+            if (!query) {
+                return "/api/v1/incidents/summary/";
+            }
+
+            return (
+                "/api/v1/incidents/summary/?"
+                + query
+            );
+        }
+
+        function buildIncidentUrl() {
+            const params = new URLSearchParams();
+
+            const search = searchInput.value.trim();
+            const status = statusFilter.value;
+            const priority = priorityFilter.value;
+
+            appendDateRange(params);
+
+            if (search) {
+                params.set(
+                    "search",
+                    search
+                );
+            }
+
+            if (status) {
+                params.set(
+                    "status",
+                    status
+                );
+            }
+
+            if (priority) {
+                params.set(
+                    "priority",
+                    priority
+                );
+            }
+
+            params.set(
+                "ordering",
+                "-created_at"
+            );
+
+            return (
+                "/api/v1/incidents/?"
+                + params.toString()
+            );
+        }
+
+        function renderEmptyChart(
+            container,
+            message
+        ) {
+            container.innerHTML = `
+                <div
+                    style="
+                        min-height: 250px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        color: var(--text-soft);
+                        font-size: 14px;
+                        text-align: center;
+                        padding: 24px;
+                    "
+                >
+                    ${escapeHtml(message)}
+                </div>
+            `;
+        }
+
+        function renderHorizontalBarChart(
+            container,
+            data,
+            labelKey,
+            color
+        ) {
+            if (!data.length) {
+                renderEmptyChart(
+                    container,
+                    "No hay información disponible en este período."
+                );
+
+                return;
+            }
+
+            const items = data.slice(
+                0,
+                6
+            );
+
+            const maxValue = Math.max(
+                ...items.map(
+                    (item) => item.count
+                ),
+                1
+            );
+
+            const width = 720;
+            const rowHeight = 44;
+            const labelWidth = 210;
+            const chartWidth = 420;
+            const height = (
+                items.length * rowHeight
+                + 24
+            );
+
+            const elements = items.map(
+                (item, index) => {
+                    const y = (
+                        14
+                        + index * rowHeight
+                    );
+
+                    const barWidth = Math.max(
+                        4,
+                        (
+                            item.count
+                            / maxValue
+                        ) * chartWidth
+                    );
+
+                    const label = escapeHtml(
+                        item[labelKey]
+                    );
+
+                    return `
+                        <text
+                            x="0"
+                            y="${y + 17}"
+                            font-size="13"
+                            fill="${getCssVariable("--text-secondary")}"
+                        >
+                            ${label}
+                        </text>
+
+                        <rect
+                            x="${labelWidth}"
+                            y="${y}"
+                            width="${chartWidth}"
+                            height="24"
+                            rx="7"
+                            fill="${getCssVariable("--surface-muted")}"
+                        ></rect>
+
+                        <rect
+                            x="${labelWidth}"
+                            y="${y}"
+                            width="${barWidth}"
+                            height="24"
+                            rx="7"
+                            fill="${color}"
+                            opacity="0.88"
+                        ></rect>
+
+                        <text
+                            x="${labelWidth + chartWidth + 18}"
+                            y="${y + 17}"
+                            font-size="13"
+                            font-weight="700"
+                            fill="${getCssVariable("--text")}"
+                        >
+                            ${item.count}
+                        </text>
+                    `;
+                }
+            ).join("");
+
+            container.innerHTML = `
+                <svg
+                    viewBox="0 0 ${width} ${height}"
+                    width="100%"
+                    height="100%"
+                    role="img"
+                    aria-label="Gráfico de barras"
+                >
+                    ${elements}
+                </svg>
+            `;
+        }
+
+        function renderCategoricalBarChart(
+            container,
+            data,
+            colors
+        ) {
+            if (!data.length) {
+                renderEmptyChart(
+                    container,
+                    "No hay información disponible en este período."
+                );
+
+                return;
+            }
+
+            const items = data.slice(
+                0,
+                6
+            );
+
+            const maxValue = Math.max(
+                ...items.map(
+                    (item) => item.count
+                ),
+                1
+            );
+
+            const width = 720;
+            const rowHeight = 44;
+            const labelWidth = 190;
+            const chartWidth = 440;
+            const height = (
+                items.length * rowHeight
+                + 24
+            );
+
+            const elements = items.map(
+                (item, index) => {
+                    const y = (
+                        14
+                        + index * rowHeight
+                    );
+
+                    const barWidth = Math.max(
+                        4,
+                        (
+                            item.count
+                            / maxValue
+                        ) * chartWidth
+                    );
+
+                    const color = (
+                        colors[item.value]
+                        || getCssVariable("--primary")
+                    );
+
+                    return `
+                        <text
+                            x="0"
+                            y="${y + 17}"
+                            font-size="13"
+                            fill="${getCssVariable("--text-secondary")}"
+                        >
+                            ${escapeHtml(item.label)}
+                        </text>
+
+                        <rect
+                            x="${labelWidth}"
+                            y="${y}"
+                            width="${chartWidth}"
+                            height="24"
+                            rx="7"
+                            fill="${getCssVariable("--surface-muted")}"
+                        ></rect>
+
+                        <rect
+                            x="${labelWidth}"
+                            y="${y}"
+                            width="${barWidth}"
+                            height="24"
+                            rx="7"
+                            fill="${color}"
+                            opacity="0.88"
+                        ></rect>
+
+                        <text
+                            x="${labelWidth + chartWidth + 18}"
+                            y="${y + 17}"
+                            font-size="13"
+                            font-weight="700"
+                            fill="${getCssVariable("--text")}"
+                        >
+                            ${item.count}
+                        </text>
+                    `;
+                }
+            ).join("");
+
+            container.innerHTML = `
+                <svg
+                    viewBox="0 0 ${width} ${height}"
+                    width="100%"
+                    height="100%"
+                    role="img"
+                    aria-label="Gráfico de distribución"
+                >
+                    ${elements}
+                </svg>
+            `;
+        }
+
+        function normalizeTrendData(data) {
+            if (!data.length) {
+                return [];
+            }
+
+            const range = getDateRange();
+
+            const firstDate = (
+                range.dateFrom
+                || data[0].date
+            );
+
+            const lastDate = (
+                range.dateTo
+                || data[data.length - 1].date
+            );
+
+            if (
+                !firstDate
+                || !lastDate
+            ) {
+                return data;
+            }
+
+            const start = new Date(
+                `${firstDate}T00:00:00`
+            );
+
+            const end = new Date(
+                `${lastDate}T00:00:00`
+            );
+
+            const daysDifference = Math.round(
+                (
+                    end.getTime()
+                    - start.getTime()
+                )
+                / 86400000
+            );
+
+            if (
+                daysDifference < 0
+                || daysDifference > 90
+            ) {
+                return data;
+            }
+
+            const values = new Map(
+                data.map(
+                    (item) => [
+                        item.date,
+                        item.count,
+                    ]
+                )
+            );
+
+            const normalized = [];
+            const cursor = new Date(start);
+
+            while (
+                cursor <= end
+            ) {
+                const date = formatDateForApi(
+                    cursor
+                );
+
+                normalized.push(
+                    {
+                        date,
+                        count: (
+                            values.get(date)
+                            || 0
+                        ),
+                    }
+                );
+
+                cursor.setDate(
+                    cursor.getDate() + 1
+                );
+            }
+
+            return normalized;
+        }
+
+        function renderTrendChart(
+            container,
+            rawData
+        ) {
+            const data = normalizeTrendData(
+                rawData
+            );
+
+            if (!data.length) {
+                renderEmptyChart(
+                    container,
+                    "No hay incidentes registrados en este período."
+                );
+
+                return;
+            }
+
+            const width = 1100;
+            const height = 300;
+
+            const padding = {
+                top: 24,
+                right: 36,
+                bottom: 52,
+                left: 48,
+            };
+
+            const chartWidth = (
+                width
+                - padding.left
+                - padding.right
+            );
+
+            const chartHeight = (
+                height
+                - padding.top
+                - padding.bottom
+            );
+
+            const maxValue = Math.max(
+                ...data.map(
+                    (item) => item.count
+                ),
+                1
+            );
+
+            const yMax = Math.max(
+                4,
+                Math.ceil(
+                    maxValue / 4
+                ) * 4
+            );
+
+            const points = data.map(
+                (item, index) => {
+                    const x = (
+                        data.length === 1
+                            ? (
+                                padding.left
+                                + chartWidth / 2
+                            )
+                            : (
+                                padding.left
+                                + (
+                                    index
+                                    / (
+                                        data.length - 1
+                                    )
+                                ) * chartWidth
+                            )
+                    );
+
+                    const y = (
+                        padding.top
+                        + chartHeight
+                        - (
+                            item.count
+                            / yMax
+                        ) * chartHeight
+                    );
+
+                    return {
+                        ...item,
+                        x,
+                        y,
+                    };
+                }
+            );
+
+            const linePoints = points.map(
+                (point) => (
+                    `${point.x},${point.y}`
+                )
+            ).join(" ");
+
+            const primary = getCssVariable(
+                "--primary"
+            );
+
+            const gridColor = getCssVariable(
+                "--border"
+            );
+
+            const textColor = getCssVariable(
+                "--text-soft"
+            );
+
+            let grid = "";
+
+            for (
+                let index = 0;
+                index <= 4;
+                index += 1
+            ) {
+                const y = (
+                    padding.top
+                    + (
+                        chartHeight
+                        / 4
+                    ) * index
+                );
+
+                const value = Math.round(
+                    yMax
+                    - (
+                        yMax / 4
+                    ) * index
+                );
+
+                grid += `
+                    <line
+                        x1="${padding.left}"
+                        y1="${y}"
+                        x2="${width - padding.right}"
+                        y2="${y}"
+                        stroke="${gridColor}"
+                        stroke-width="1"
+                    ></line>
+
+                    <text
+                        x="${padding.left - 14}"
+                        y="${y + 4}"
+                        text-anchor="end"
+                        font-size="11"
+                        fill="${textColor}"
+                    >
+                        ${value}
+                    </text>
+                `;
+            }
+
+            const labelStep = Math.max(
+                1,
+                Math.ceil(
+                    points.length / 8
+                )
+            );
+
+            const xLabels = points.map(
+                (point, index) => {
+                    const shouldShow = (
+                        index % labelStep === 0
+                        || index === points.length - 1
+                    );
+
+                    if (!shouldShow) {
+                        return "";
+                    }
+
+                    return `
+                        <text
+                            x="${point.x}"
+                            y="${height - 18}"
+                            text-anchor="middle"
+                            font-size="11"
+                            fill="${textColor}"
+                        >
+                            ${escapeHtml(
+                                formatShortDate(
+                                    point.date
+                                )
+                            )}
+                        </text>
+                    `;
+                }
+            ).join("");
+
+            const circles = points.map(
+                (point) => `
+                    <circle
+                        cx="${point.x}"
+                        cy="${point.y}"
+                        r="4"
+                        fill="${primary}"
+                        stroke="#ffffff"
+                        stroke-width="2"
+                    >
+                        <title>
+                            ${escapeHtml(
+                                formatShortDate(
+                                    point.date
+                                )
+                            )}: ${point.count}
+                        </title>
+                    </circle>
+                `
+            ).join("");
+
+            container.innerHTML = `
+                <svg
+                    viewBox="0 0 ${width} ${height}"
+                    width="100%"
+                    height="100%"
+                    role="img"
+                    aria-label="Evolución diaria de incidentes"
+                >
+                    ${grid}
+
+                    <polyline
+                        points="${linePoints}"
+                        fill="none"
+                        stroke="${primary}"
+                        stroke-width="4"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    ></polyline>
+
+                    ${circles}
+                    ${xLabels}
+                </svg>
+            `;
+        }
+
+        async function loadAnalytics() {
+            try {
+                const response = await fetch(
+                    buildAnalyticsUrl(),
+                    {
+                        cache: "no-store",
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(
+                        "No fue posible cargar la analítica."
+                    );
+                }
+
+                const data = await response.json();
+
+                lastKnownIncidentCount = (
+                    data.metrics.total
+                );
+
+                metricTotal.textContent = (
+                    data.metrics.total
+                );
+
+                metricOpen.textContent = (
+                    data.metrics.open
+                );
+
+                metricResolved.textContent = (
+                    data.metrics.resolved
+                );
+
+                metricCritical.textContent = (
+                    data.metrics.critical
+                );
+
+                metricAverageResolution.textContent = (
+                    formatDuration(
+                        data.metrics
+                            .average_resolution_seconds
+                    )
+                );
+
+                attentionCriticalOpen.textContent = (
+                    data.metrics.critical_open
+                );
+
+                attentionOver24Hours.textContent = (
+                    data.metrics.open_over_24_hours
+                );
+
+                renderTrendChart(
+                    trendChart,
+                    data.daily_trend
+                );
+
+                renderHorizontalBarChart(
+                    equipmentChart,
+                    data.by_equipment,
+                    "equipment",
+                    getCssVariable("--primary")
+                );
+
+                renderHorizontalBarChart(
+                    unitChart,
+                    data.by_unit,
+                    "unit",
+                    getCssVariable("--purple")
+                );
+
+                renderCategoricalBarChart(
+                    statusChart,
+                    data.by_status,
+                    {
+                        reported: "#0284c7",
+                        under_review: "#7c3aed",
+                        in_progress: "#d97706",
+                        resolved: "#15803d",
+                        closed: "#475569",
+                        cancelled: "#b91c1c",
+                    }
+                );
+
+                renderCategoricalBarChart(
+                    priorityChart,
+                    data.by_priority,
+                    {
+                        low: "#15803d",
+                        medium: "#0284c7",
+                        high: "#d97706",
+                        critical: "#b91c1c",
+                    }
+                );
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        async function loadIncidents() {
+            incidentEmptyMessage.hidden = true;
+
+            try {
+                const response = await fetch(
+                    buildIncidentUrl(),
+                    {
+                        cache: "no-store",
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(
+                        "No fue posible cargar los incidentes."
+                    );
+                }
+
+                const data = await response.json();
+                const incidents = data.results;
+
+                const isDefaultIncidentView = (
+                    searchInput.value.trim() === ""
+                    && statusFilter.value === ""
+                    && priorityFilter.value === ""
+                );
+
+                const currentIncidentIds = new Set(
+                    incidents.map(
+                        (incident) => incident.id
+                    )
+                );
+
+                const newIncidentIds = new Set();
+
+                if (
+                    isDefaultIncidentView
+                    && incidentBaselineReady
+                    && highlightNewIncidentsOnNextLoad
+                ) {
+                    incidents.forEach(
+                        (incident) => {
+                            if (!knownIncidentIds.has(incident.id)) {
+                                newIncidentIds.add(
+                                    incident.id
+                                );
+                            }
+                        }
+                    );
+                }
+
+                if (isDefaultIncidentView) {
+                    knownIncidentIds = currentIncidentIds;
+                    incidentBaselineReady = true;
+                }
+
+                highlightNewIncidentsOnNextLoad = false;
+
+                if (incidents.length === 0) {
+                    incidentTableBody.replaceChildren();
+
+                    incidentEmptyMessage.hidden = false;
+
+                    return;
+                }
+
+                const fragment = (
+                    document.createDocumentFragment()
+                );
+
+                incidents.forEach(
+                    (incident) => {
+                        const row = document.createElement(
+                            "tr"
+                        );
+
+                        row.dataset.incidentId = incident.id;
+
+                        if (incident.id === selectedIncidentId) {
+                            row.classList.add("is-selected");
+                        }
+
+                        if (newIncidentIds.has(incident.id)) {
+                            row.classList.add(
+                                "is-new"
+                            );
+
+                            window.setTimeout(
+                                () => {
+                                    row.classList.remove(
+                                        "is-new"
+                                    );
+                                },
+                                NEW_INCIDENT_HIGHLIGHT_MS
+                            );
+                        }
+
+                        row.innerHTML = `
+                            <td>
+                                ${escapeHtml(incident.code)}
+                            </td>
+
+                            <td>
+                                ${escapeHtml(incident.unit)}
+                            </td>
+
+                            <td>
+                                ${escapeHtml(incident.equipment)}
+                            </td>
+
+                            <td>
+                                ${escapeHtml(
+                                    incident.failure_type
+                                )}
+                            </td>
+
+                            <td>
+                                <span
+                                    style="
+                                        color: ${getPriorityColor(incident.priority)};
+                                        font-weight: 700;
+                                    "
+                                >
+                                    ${escapeHtml(
+                                        incident.priority_display
+                                    )}
+                                </span>
+                            </td>
+
+                            <td>
+                                <span
+                                    style="
+                                        color: ${getStatusColor(incident.status)};
+                                        font-weight: 700;
+                                    "
+                                >
+                                    ${escapeHtml(
+                                        incident.status_display
+                                    )}
+                                </span>
+                            </td>
+
+                            <td>
+                                ${escapeHtml(
+                                    incident.technician_name
+                                )}
+                            </td>
+
+                            <td>
+                                ${escapeHtml(
+                                    formatDate(
+                                        incident.created_at
+                                    )
+                                )}
+                            </td>
+                        `;
+
+                        row.addEventListener(
+                            "click",
+                            () => {
+                                selectedIncidentId = incident.id;
+
+                                incidentTableBody
+                                    .querySelectorAll("tr")
+                                    .forEach(
+                                        (tableRow) => {
+                                            tableRow.classList.remove(
+                                                "is-selected"
+                                            );
+                                        }
+                                    );
+
+                                row.classList.add(
+                                    "is-selected"
+                                );
+
+                                loadIncidentDetail(
+                                    incident.id
+                                );
+                            }
+                        );
+
+                        fragment.appendChild(
+                            row
+                        );
+                    }
+                );
+
+                incidentTableBody.replaceChildren(
+                    fragment
+                );
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        async function loadIncidentDetail(
+            incidentId
+        ) {
+            selectedIncidentId = incidentId;
+
+            try {
+                const response = await fetch(
+                    `/api/v1/incidents/${incidentId}/`
+                );
+
+                if (!response.ok) {
+                    throw new Error(
+                        "No fue posible cargar el detalle."
+                    );
+                }
+
+                const incident = await response.json();
+
+                incidentDetail.innerHTML = `
+                    <p>
+                        <strong>Código:</strong>
+                        ${escapeHtml(incident.code)}
+                    </p>
+
+                    <p>
+                        <strong>Unidad:</strong>
+                        ${escapeHtml(incident.unit)}
+                    </p>
+
+                    <p>
+                        <strong>Equipo:</strong>
+                        ${escapeHtml(incident.equipment)}
+                    </p>
+
+                    <p>
+                        <strong>Tipo de falla:</strong>
+                        ${escapeHtml(
+                            incident.failure_type
+                        )}
+                    </p>
+
+                    <p>
+                        <strong>Descripción:</strong>
+                        ${escapeHtml(
+                            incident.description
+                        )}
+                    </p>
+
+                    <p>
+                        <strong>Prioridad:</strong>
+                        <span
+                            style="
+                                color: ${getPriorityColor(incident.priority)};
+                                font-weight: 700;
+                            "
+                        >
+                            ${escapeHtml(
+                                incident.priority_display
+                            )}
+                        </span>
+                    </p>
+
+                    <p>
+                        <strong>Estado:</strong>
+                        <span
+                            style="
+                                color: ${getStatusColor(incident.status)};
+                                font-weight: 700;
+                            "
+                        >
+                            ${escapeHtml(
+                                incident.status_display
+                            )}
+                        </span>
+                    </p>
+
+                    <p>
+                        <strong>Técnico:</strong>
+                        ${escapeHtml(
+                            incident.technician_name
+                        )}
+                    </p>
+
+                    <p>
+                        <strong>Fecha de creación:</strong>
+                        ${escapeHtml(
+                            formatDate(
+                                incident.created_at
+                            )
+                        )}
+                    </p>
+
+                    <p>
+                        <strong>Fecha de resolución:</strong>
+                        ${escapeHtml(
+                            formatDate(
+                                incident.resolved_at
+                            )
+                        )}
+                    </p>
+
+                    <p>
+                        <strong>Mensaje original:</strong>
+                        ${escapeHtml(
+                            incident.original_message
+                        )}
+                    </p>
+
+                    <hr>
+
+                    <div>
+                        <label for="incident-status-select">
+                            <strong>
+                                Cambiar estado
+                            </strong>
+                        </label>
+
+                        <select id="incident-status-select">
+                            <option value="reported">
+                                Reportado
+                            </option>
+
+                            <option value="under_review">
+                                En revisión
+                            </option>
+
+                            <option value="in_progress">
+                                En progreso
+                            </option>
+
+                            <option value="resolved">
+                                Resuelto
+                            </option>
+
+                            <option value="closed">
+                                Cerrado
+                            </option>
+
+                            <option value="cancelled">
+                                Cancelado
+                            </option>
+                        </select>
+
+                        <button
+                            id="update-status-button"
+                            type="button"
+                        >
+                            Actualizar estado
+                        </button>
+
+                        <span
+                            id="status-update-message"
+                        ></span>
+                    </div>
+                `;
+
+                const statusSelect = document.getElementById(
+                    "incident-status-select"
+                );
+
+                statusSelect.value = incident.status;
+
+                const updateButton = document.getElementById(
+                    "update-status-button"
+                );
+
+                updateButton.addEventListener(
+                    "click",
+                    updateIncidentStatus
+                );
+            } catch (error) {
+                console.error(error);
+
+                incidentDetail.textContent = (
+                    "No fue posible cargar el detalle "
+                    + "del incidente."
+                );
+            }
+        }
+
+        async function updateIncidentStatus() {
+            if (!selectedIncidentId) {
+                return;
+            }
+
+            const statusSelect = document.getElementById(
+                "incident-status-select"
+            );
+
+            const updateButton = document.getElementById(
+                "update-status-button"
+            );
+
+            const message = document.getElementById(
+                "status-update-message"
+            );
+
+            const newStatus = statusSelect.value;
+
+            updateButton.disabled = true;
+            message.textContent = "Actualizando...";
+
+            try {
+                const response = await fetch(
+                    `/api/v1/incidents/${selectedIncidentId}/`,
+                    {
+                        method: "PATCH",
+
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-CSRFToken": getCsrfToken(),
+                        },
+
+                        body: JSON.stringify(
+                            {
+                                status: newStatus,
+                            }
+                        ),
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(
+                        "No fue posible actualizar el estado."
+                    );
+                }
+
+                await refreshDashboardData();
+
+                await loadIncidentDetail(
+                    selectedIncidentId
+                );
+            } catch (error) {
+                console.error(error);
+
+                message.textContent = (
+                    "No fue posible actualizar el estado."
+                );
+
+                updateButton.disabled = false;
+            }
+        }
+
+        async function refreshDashboardData() {
+            if (refreshInProgress) {
+                return;
+            }
+
+            refreshInProgress = true;
+
+            try {
+                await Promise.all([
+                    loadAnalytics(),
+                    loadIncidents(),
+                ]);
+            } finally {
+                refreshInProgress = false;
+            }
+        }
+
+        async function checkForNewIncidents() {
+            if (refreshInProgress) {
+                return;
+            }
+
+            try {
+                const response = await fetch(
+                    buildSummaryUrl(),
+                    {
+                        cache: "no-store",
+                    }
+                );
+
+                if (!response.ok) {
+                    return;
+                }
+
+                const data = await response.json();
+
+                if (
+                    lastKnownIncidentCount === null
+                ) {
+                    lastKnownIncidentCount = data.total;
+
+                    return;
+                }
+
+                if (
+                    data.total
+                    > lastKnownIncidentCount
+                ) {
+                    await refreshDashboardData();
+                }
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        let searchTimeout = null;
+
+        searchInput.addEventListener(
+            "input",
+            () => {
+                clearTimeout(
+                    searchTimeout
+                );
+
+                searchTimeout = setTimeout(
+                    loadIncidents,
+                    300
+                );
+            }
+        );
+
+        statusFilter.addEventListener(
+            "change",
+            loadIncidents
+        );
+
+        priorityFilter.addEventListener(
+            "change",
+            loadIncidents
+        );
+
+        periodFilter.addEventListener(
+            "change",
+            async () => {
+                updateCustomDateVisibility();
+
+                lastKnownIncidentCount = null;
+
+                await refreshDashboardData();
+            }
+        );
+
+        dateFromInput.addEventListener(
+            "change",
+            async () => {
+                if (
+                    periodFilter.value
+                    === "custom"
+                ) {
+                    lastKnownIncidentCount = null;
+
+                    await refreshDashboardData();
+                }
+            }
+        );
+
+        dateToInput.addEventListener(
+            "change",
+            async () => {
+                if (
+                    data.total
+                    > lastKnownIncidentCount
+                ) {
+                    highlightNewIncidentsOnNextLoad = true;
+
+                    await refreshDashboardData();
+                }
+            }
+        );
+
+        async function initializeDashboard() {
+            updateCustomDateVisibility();
+
+            await refreshDashboardData();
+
+            window.setInterval(
+                checkForNewIncidents,
+                NEW_INCIDENT_CHECK_INTERVAL_MS
+            );
+        }
+
+        initializeDashboard();
+    </script>
+</body>
+
+</html>
