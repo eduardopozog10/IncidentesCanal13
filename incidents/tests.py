@@ -1225,11 +1225,8 @@ class IncidentDetailViewTests(TestCase):
         )
 
         self.assertEqual(
-
             data["status_display"],
-
-            "En progreso",
-
+            "En atención",
         )
 
 

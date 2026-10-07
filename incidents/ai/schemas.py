@@ -8,9 +8,13 @@ class IncidentExtractionResult:
     conversation_reply: str | None = None
 
     unit: str | None = None
+    area: str | None = None
+    location_context: str | None = None
+    asset_category: str | None = None
     equipment: str | None = None
     failure_type: str | None = None
     description: str | None = None
+    operational_impact: str | None = None
     priority: str | None = None
 
     missing_fields: list[str] = field(default_factory=list)

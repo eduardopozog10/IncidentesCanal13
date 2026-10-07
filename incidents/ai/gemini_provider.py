@@ -50,8 +50,32 @@ class GeminiAIProvider(AIProvider):
             "unit": {
                 "type": ["string", "null"],
                 "description": (
-                    "Unidad, móvil, estudio o ubicación donde ocurrió "
-                    "la falla."
+                    "Campo heredado temporal para compatibilidad con "
+                    "el flujo anterior."
+                ),
+            },
+            "area": {
+                "type": ["string", "null"],
+                "description": (
+                    "Área operacional o técnica explícitamente indicada "
+                    "por el usuario."
+                ),
+            },
+            "location_context": {
+                "type": ["string", "null"],
+                "description": (
+                    "Ubicación o contexto explícito del incidente, por "
+                    "ejemplo estudio, móvil, sala u otra ubicación."
+                ),
+            },
+            "asset_category": {
+                "type": ["string", "null"],
+                "description": (
+                    "Familia del equipo o servicio afectado. Valores "
+                    "esperados: video_cameras, audio, "
+                    "studios_production, signal_transmission, "
+                    "mobile_field, networks, systems, "
+                    "digital_streaming o infrastructure."
                 ),
             },
             "equipment": {
@@ -68,7 +92,14 @@ class GeminiAIProvider(AIProvider):
             "description": {
                 "type": ["string", "null"],
                 "description": (
-                    "Descripción objetiva de lo reportado por el técnico."
+                    "Descripción objetiva de lo reportado por el usuario."
+                ),
+            },
+            "operational_impact": {
+                "type": ["string", "null"],
+                "description": (
+                    "Impacto operacional explícitamente informado por "
+                    "el usuario, sin deducir consecuencias no mencionadas."
                 ),
             },
             "priority": {
@@ -91,9 +122,13 @@ class GeminiAIProvider(AIProvider):
             "intent",
             "conversation_reply",
             "unit",
+            "area",
+            "location_context",
+            "asset_category",
             "equipment",
             "failure_type",
             "description",
+            "operational_impact",
             "priority",
             "clarification_question",
         ],
@@ -180,6 +215,21 @@ class GeminiAIProvider(AIProvider):
             or previous_data.get("unit")
         )
 
+        area = (
+            self._clean_text(response_data.get("area"))
+            or previous_data.get("area")
+        )
+
+        location_context = (
+            self._clean_text(response_data.get("location_context"))
+            or previous_data.get("location_context")
+        )
+
+        asset_category = (
+            self._clean_text(response_data.get("asset_category"))
+            or previous_data.get("asset_category")
+        )
+
         equipment = (
             self._clean_text(response_data.get("equipment"))
             or previous_data.get("equipment")
@@ -195,6 +245,11 @@ class GeminiAIProvider(AIProvider):
             or previous_data.get("description")
         )
 
+        operational_impact = (
+            self._clean_text(response_data.get("operational_impact"))
+            or previous_data.get("operational_impact")
+        )
+
         priority = self._normalize_priority(
             response_data.get("priority")
             or previous_data.get("priority")
@@ -202,9 +257,13 @@ class GeminiAIProvider(AIProvider):
 
         extracted_data = {
             "unit": unit,
+            "area": area,
+            "location_context": location_context,
+            "asset_category": asset_category,
             "equipment": equipment,
             "failure_type": failure_type,
             "description": description,
+            "operational_impact": operational_impact,
             "priority": priority,
         }
 
@@ -232,9 +291,13 @@ class GeminiAIProvider(AIProvider):
             intent=intent,
             conversation_reply=None,
             unit=unit,
+            area=area,
+            location_context=location_context,
+            asset_category=asset_category,
             equipment=equipment,
             failure_type=failure_type,
             description=description,
+            operational_impact=operational_impact,
             priority=priority,
             missing_fields=missing_fields,
             clarification_question=clarification_question,

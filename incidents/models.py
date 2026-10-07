@@ -130,7 +130,7 @@ class Incident(models.Model):
     class Status(models.TextChoices):
         REPORTED = "reported", "Reportado"
         UNDER_REVIEW = "under_review", "En revisión"
-        IN_PROGRESS = "in_progress", "En progreso"
+        IN_PROGRESS = "in_progress", "En atención"
         RESOLVED = "resolved", "Resuelto"
         CLOSED = "closed", "Cerrado"
         CANCELLED = "cancelled", "Cancelado"
