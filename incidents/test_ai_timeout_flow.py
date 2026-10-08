@@ -75,7 +75,7 @@ class AITimeoutFlowTests(TestCase):
             )
         )
 
-    def test_timeout_keeps_message_and_allows_resume(self):
+    def test_initial_timeout_does_not_create_draft_and_allows_retry(self):
         original_text = (
             "El router de OB7 no tiene conexión"
         )
@@ -100,8 +100,19 @@ class AITimeoutFlowTests(TestCase):
         self.assertFalse(
             first_processing["incident_created"],
         )
+        self.assertIsNone(
+            first_processing["draft_id"],
+        )
+        self.assertEqual(
+            first_processing["missing_fields"],
+            [],
+        )
         self.assertEqual(
             Incident.objects.count(),
+            0,
+        )
+        self.assertEqual(
+            IncidentDraft.objects.count(),
             0,
         )
 
@@ -113,18 +124,8 @@ class AITimeoutFlowTests(TestCase):
             first_message.status,
             ChannelMessage.Status.PROCESSED,
         )
-
-        draft = IncidentDraft.objects.get(
-            pk=first_processing["draft_id"],
-        )
-
-        self.assertEqual(
-            draft.status,
-            IncidentDraft.Status.COLLECTING,
-        )
-        self.assertEqual(
-            draft.extracted_data["_pending_messages"],
-            [original_text],
+        self.assertIsNone(
+            first_message.draft,
         )
 
         second_result = self.service.process_text(
@@ -132,7 +133,7 @@ class AITimeoutFlowTests(TestCase):
             external_user_id="timeout-test-user",
             external_chat_id="timeout-test-chat",
             external_message_id="timeout-test-2",
-            text="continuar",
+            text=original_text,
             raw_payload={
                 "test": True,
             },
@@ -143,6 +144,9 @@ class AITimeoutFlowTests(TestCase):
         self.assertEqual(
             second_processing["action"],
             "ask_clarification",
+        )
+        self.assertFalse(
+            second_processing["incident_created"],
         )
         self.assertEqual(
             second_processing["missing_fields"],
@@ -159,6 +163,19 @@ class AITimeoutFlowTests(TestCase):
         self.assertEqual(
             Incident.objects.count(),
             0,
+        )
+        self.assertEqual(
+            IncidentDraft.objects.count(),
+            1,
+        )
+
+        draft = IncidentDraft.objects.get(
+            pk=second_processing["draft_id"],
+        )
+
+        self.assertEqual(
+            draft.status,
+            IncidentDraft.Status.COLLECTING,
         )
 
         third_result = self.service.process_text(

@@ -372,7 +372,7 @@ class IncomingMessageServiceTests(TestCase):
             processing["incident_created"],
         )
         self.assertIn(
-            "unit",
+            "location_context",
             processing["missing_fields"],
         )
         self.assertIn(
@@ -392,7 +392,7 @@ class IncomingMessageServiceTests(TestCase):
             IncidentDraft.Status.COLLECTING,
         )
         self.assertIn(
-            "unit",
+            "location_context",
             draft.missing_fields,
         )
         self.assertIn(

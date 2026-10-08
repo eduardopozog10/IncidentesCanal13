@@ -13,7 +13,7 @@ from incidents.models import (
 
 class IncidentProcessor:
     REQUIRED_FIELDS = (
-        "unit",
+        "location_context",
         "equipment",
         "failure_type",
         "description",
@@ -23,7 +23,11 @@ class IncidentProcessor:
     PENDING_MESSAGES_KEY = "_pending_messages"
 
     FALLBACK_QUESTIONS = {
-        "unit": "¿En qué unidad ocurrió la falla?",
+        "location_context": (
+            "¿Dónde está ocurriendo la falla? Indica la ubicación "
+            "o contexto operacional, por ejemplo: Estudio 2, "
+            "Control Central, Móvil 7 o plataforma digital."
+        ),
         "equipment": "¿Qué equipo presenta la falla?",
         "failure_type": (
             "¿Qué problema presenta exactamente el equipo? "
@@ -77,6 +81,12 @@ class IncidentProcessor:
         "siguiente dato; no es necesario repetir lo anterior."
     )
 
+    AI_TIMEOUT_INITIAL_REPLY = (
+        "El procesamiento está tardando más de lo esperado y no pude "
+        "determinar si tu mensaje corresponde a un incidente. "
+        "Por favor, vuelve a enviar el reporte en unos segundos."
+    )
+
     CONFIRMATION_POSITIVE = {
         "si",
         "si confirmo",
@@ -103,7 +113,7 @@ class IncidentProcessor:
     def process(self, message: ChannelMessage):
         if message.technician is None:
             raise ValueError(
-                "El mensaje debe estar asociado a un técnico."
+                "El mensaje debe estar asociado a un reportante."
             )
 
         message.status = ChannelMessage.Status.PROCESSING
@@ -313,6 +323,17 @@ class IncidentProcessor:
             clarification_question = (
                 extraction.clarification_question
             )
+
+        location_context = (
+            extracted_data.get("location_context")
+            or extracted_data.get("unit")
+        )
+
+        if location_context:
+            extracted_data["location_context"] = location_context
+
+            if not extracted_data.get("unit"):
+                extracted_data["unit"] = location_context
 
         details_were_generic = self._sanitize_incident_details(
             extracted_data
@@ -574,10 +595,15 @@ class IncidentProcessor:
 
         incident = Incident.objects.create(
             technician=message.technician,
-            unit=extracted_data["unit"],
+            unit=(
+                extracted_data.get("unit")
+                or extracted_data["location_context"]
+            ),
             area=extracted_data.get("area") or "",
             location_context=(
-                extracted_data.get("location_context") or ""
+                extracted_data.get("location_context")
+                or extracted_data.get("unit")
+                or ""
             ),
             asset_category=(
                 extracted_data.get("asset_category") or ""
@@ -698,6 +724,25 @@ class IncidentProcessor:
         previous_data: dict,
         pending_messages: list[str],
     ):
+        if draft is None:
+            message.status = ChannelMessage.Status.PROCESSED
+            message.processed_at = timezone.now()
+            message.save(
+                update_fields=[
+                    "status",
+                    "processed_at",
+                ]
+            )
+
+            return {
+                "action": "ai_timeout",
+                "incident_created": False,
+                "draft_id": None,
+                "missing_fields": [],
+                "reply": self.AI_TIMEOUT_INITIAL_REPLY,
+                "extracted_data": previous_data,
+            }
+
         saved_pending_messages = list(pending_messages)
 
         if self._should_store_pending_message(message.content):
@@ -716,29 +761,19 @@ class IncidentProcessor:
             if not previous_data.get(field_name)
         ]
 
-        if draft is None:
-            draft = IncidentDraft.objects.create(
-                technician=message.technician,
-                initial_message=message,
-                extracted_data=timeout_data,
-                missing_fields=missing_fields,
-                last_question=self.AI_TIMEOUT_REPLY,
-                status=IncidentDraft.Status.COLLECTING,
-            )
-        else:
-            draft.extracted_data = timeout_data
-            draft.missing_fields = missing_fields
-            draft.last_question = self.AI_TIMEOUT_REPLY
-            draft.status = IncidentDraft.Status.COLLECTING
-            draft.save(
-                update_fields=[
-                    "extracted_data",
-                    "missing_fields",
-                    "last_question",
-                    "status",
-                    "updated_at",
-                ]
-            )
+        draft.extracted_data = timeout_data
+        draft.missing_fields = missing_fields
+        draft.last_question = self.AI_TIMEOUT_REPLY
+        draft.status = IncidentDraft.Status.COLLECTING
+        draft.save(
+            update_fields=[
+                "extracted_data",
+                "missing_fields",
+                "last_question",
+                "status",
+                "updated_at",
+            ]
+        )
 
         message.draft = draft
         message.status = ChannelMessage.Status.PROCESSED
@@ -805,10 +840,10 @@ class IncidentProcessor:
         )
 
         return (
-            "Mensajes anteriores del técnico que quedaron "
+            "Mensajes anteriores del reportante que quedaron "
             "pendientes de procesamiento:\n"
             f"{pending_text}\n\n"
-            "Mensaje actual del técnico:\n"
+            "Mensaje actual del reportante:\n"
             f"{current_message}"
         )
 
