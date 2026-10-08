@@ -16,10 +16,12 @@ logger = logging.getLogger(__name__)
 
 class GeminiAIProvider(AIProvider):
     REQUIRED_FIELDS = (
+        "area",
         "location_context",
         "equipment",
         "failure_type",
         "description",
+        "operational_impact",
         "priority",
     )
 
@@ -669,29 +671,38 @@ IMPORTANTE:
 
 Compatibilidad temporal del flujo:
 - Para determinar si puede completar el registro, el flujo requiere:
+  - area
   - location_context
   - equipment
   - failure_type
   - description
+  - operational_impact
   - priority
 - unit es un campo heredado temporal y NO debe considerarse un dato
   adicional que el reportante deba entregar.
 - Si existe location_context, puedes conservar ese mismo valor en unit
   únicamente por compatibilidad técnica.
-- area, asset_category y operational_impact deben extraerse y
-  conservarse cuando estén disponibles, pero su ausencia todavía no
-  debe generar por sí sola una pregunta adicional.
+- asset_category debe extraerse y conservarse cuando pueda clasificarse
+  razonablemente a partir del equipo o servicio informado, pero su
+  ausencia no debe generar por sí sola una pregunta adicional.
+- Si falta area u operational_impact, deben solicitarse al reportante.
 - No inventes ningún campo para completar el incidente.
 
 Preguntas de aclaración:
 - Pregunta solamente un dato a la vez.
 - No vuelvas a pedir información ya entregada.
 - Prioriza el primer dato realmente necesario que falte.
+- Si falta area, pregunta a qué área operacional o técnica corresponde
+  el incidente.
 - Si falta failure_type, pregunta por el síntoma o comportamiento
   concreto.
+- Si falta operational_impact, pregunta qué efecto está generando la
+  falla sobre la operación.
+- No deduzcas operational_impact a partir del equipo, el síntoma o la
+  prioridad.
 - Si falta priority, solicita explícitamente elegir:
   Baja, Media, Alta o Crítica.
-- Si no falta ningún dato requerido actualmente,
+- Si no falta ningún dato requerido,
   clarification_question=null.
 
 Ejemplos:
@@ -829,6 +840,11 @@ Mensaje actual:
             return None
 
         questions = {
+            "area": (
+                "¿A qué área corresponde el incidente? Indica el área "
+                "operacional o técnica asociada, por ejemplo: Producción, "
+                "Audio, Redes o Sistemas."
+            ),
             "location_context": (
                 "¿Dónde está ocurriendo la falla? Indica la ubicación "
                 "o contexto operacional, por ejemplo: Estudio 2, "
@@ -842,6 +858,11 @@ Mensaje actual:
             ),
             "description": (
                 "¿Puedes describirme brevemente qué ocurrió?"
+            ),
+            "operational_impact": (
+                "¿Qué impacto operacional está generando la falla? "
+                "Por ejemplo: detiene una producción, afecta la señal, "
+                "obliga a usar un respaldo o permite continuar operando."
             ),
             "priority": (
                 "Para completar el reporte, ¿qué prioridad le asignas: "

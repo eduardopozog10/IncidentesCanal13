@@ -67,8 +67,16 @@ class IncidentSerializer(serializers.ModelSerializer):
     code = serializers.CharField(
         read_only=True,
     )
+    reporter_name = serializers.CharField(
+        source="technician.full_name",
+        read_only=True,
+    )
     technician_name = serializers.CharField(
         source="technician.full_name",
+        read_only=True,
+    )
+    asset_category_display = serializers.CharField(
+        source="get_asset_category_display",
         read_only=True,
     )
     priority_display = serializers.CharField(
@@ -85,11 +93,17 @@ class IncidentSerializer(serializers.ModelSerializer):
         fields = (
             "id",
             "code",
+            "reporter_name",
             "technician_name",
+            "area",
+            "location_context",
             "unit",
+            "asset_category",
+            "asset_category_display",
             "equipment",
             "failure_type",
             "description",
+            "operational_impact",
             "priority",
             "priority_display",
             "status",
