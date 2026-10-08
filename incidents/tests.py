@@ -1846,3 +1846,136 @@ class IncidentSummaryViewTests(TestCase):
             1,
 
         )
+
+class IncidentAnalyticsViewTests(TestCase):
+    def setUp(self):
+        self.technician = Technician.objects.create(
+            full_name="Reportante Analytics",
+            is_active=True,
+        )
+
+        Incident.objects.create(
+            technician=self.technician,
+            unit="Control Central",
+            area="Redes",
+            location_context="Control Central",
+            asset_category=Incident.AssetCategory.NETWORKS,
+            equipment="Router principal",
+            failure_type="Sin conexión",
+            description="El router principal quedó sin conexión.",
+            operational_impact="Obliga a usar un respaldo",
+            priority=Incident.Priority.HIGH,
+            status=Incident.Status.REPORTED,
+            original_message=(
+                "Área Redes, el router principal de Control Central "
+                "quedó sin conexión y obliga a usar un respaldo."
+            ),
+        )
+
+        Incident.objects.create(
+            technician=self.technician,
+            unit="Control Central",
+            area="Redes",
+            location_context="Control Central",
+            asset_category=Incident.AssetCategory.NETWORKS,
+            equipment="Switch principal",
+            failure_type="Pérdida intermitente de conexión",
+            description=(
+                "El switch principal presenta pérdida intermitente "
+                "de conexión."
+            ),
+            operational_impact="Permite continuar operando",
+            priority=Incident.Priority.MEDIUM,
+            status=Incident.Status.UNDER_REVIEW,
+            original_message=(
+                "Área Redes, el switch principal de Control Central "
+                "pierde conexión de forma intermitente."
+            ),
+        )
+
+        Incident.objects.create(
+            technician=self.technician,
+            unit="Estudio 2",
+            area="Producción",
+            location_context="Estudio 2",
+            asset_category=Incident.AssetCategory.VIDEO_CAMERAS,
+            equipment="Cámara 3",
+            failure_type="Sin imagen",
+            description="La Cámara 3 del Estudio 2 quedó sin imagen.",
+            operational_impact="Detiene la producción",
+            priority=Incident.Priority.CRITICAL,
+            status=Incident.Status.REPORTED,
+            original_message=(
+                "Área Producción, la Cámara 3 del Estudio 2 quedó "
+                "sin imagen y detiene la producción."
+            ),
+        )
+
+    def test_returns_canal13_incident_analytics(self):
+        response = self.client.get(
+            "/api/v1/incidents/analytics/",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        data = response.json()
+
+        self.assertEqual(
+            data["metrics"]["total"],
+            3,
+        )
+
+        self.assertEqual(
+            data["by_area"],
+            [
+                {
+                    "area": "Redes",
+                    "count": 2,
+                },
+                {
+                    "area": "Producción",
+                    "count": 1,
+                },
+            ],
+        )
+
+        self.assertEqual(
+            data["by_location_context"],
+            [
+                {
+                    "location_context": "Control Central",
+                    "count": 2,
+                },
+                {
+                    "location_context": "Estudio 2",
+                    "count": 1,
+                },
+            ],
+        )
+
+        asset_category_labels = dict(
+            Incident.AssetCategory.choices
+        )
+
+        self.assertEqual(
+            data["by_asset_category"],
+            [
+                {
+                    "value": Incident.AssetCategory.NETWORKS,
+                    "label": asset_category_labels[
+                        Incident.AssetCategory.NETWORKS
+                    ],
+                    "count": 2,
+                },
+                {
+                    "value": Incident.AssetCategory.VIDEO_CAMERAS,
+                    "label": asset_category_labels[
+                        Incident.AssetCategory.VIDEO_CAMERAS
+                    ],
+                    "count": 1,
+                },
+            ],
+        )

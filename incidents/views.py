@@ -73,6 +73,9 @@ class IncidentListView(generics.ListAPIView):
         "updated_at",
         "priority",
         "status",
+        "area",
+        "location_context",
+        "asset_category",
         "unit",
         "equipment",
     }
@@ -93,9 +96,22 @@ class IncidentListView(generics.ListAPIView):
         priority = self.request.query_params.get(
             "priority"
         )
+        area = self.request.query_params.get(
+            "area"
+        )
+
+        location_context = self.request.query_params.get(
+            "location_context"
+        )
+
+        asset_category = self.request.query_params.get(
+            "asset_category"
+        )
+
         unit = self.request.query_params.get(
             "unit"
         )
+
         equipment = self.request.query_params.get(
             "equipment"
         )
@@ -117,6 +133,21 @@ class IncidentListView(generics.ListAPIView):
                 priority=priority,
             )
 
+        if area:
+            queryset = queryset.filter(
+                area__icontains=area,
+            )
+
+        if location_context:
+            queryset = queryset.filter(
+                location_context__icontains=location_context,
+            )
+
+        if asset_category:
+            queryset = queryset.filter(
+                asset_category=asset_category,
+            )
+
         if unit:
             queryset = queryset.filter(
                 unit__icontains=unit,
@@ -129,10 +160,13 @@ class IncidentListView(generics.ListAPIView):
 
         if search:
             queryset = queryset.filter(
-                Q(unit__icontains=search)
+                Q(area__icontains=search)
+                | Q(location_context__icontains=search)
+                | Q(unit__icontains=search)
                 | Q(equipment__icontains=search)
                 | Q(failure_type__icontains=search)
                 | Q(description__icontains=search)
+                | Q(operational_impact__icontains=search)
                 | Q(original_message__icontains=search)
                 | Q(
                     technician__full_name__icontains=search
@@ -340,6 +374,39 @@ class IncidentAnalyticsView(APIView):
             "-count"
         )
 
+        by_area = queryset.exclude(
+            area=""
+        ).values(
+            "area"
+        ).annotate(
+            count=Count("id")
+        ).order_by(
+            "-count",
+            "area",
+        )[:10]
+
+        by_location_context = queryset.exclude(
+            location_context=""
+        ).values(
+            "location_context"
+        ).annotate(
+            count=Count("id")
+        ).order_by(
+            "-count",
+            "location_context",
+        )[:10]
+
+        by_asset_category = queryset.exclude(
+            asset_category=""
+        ).values(
+            "asset_category"
+        ).annotate(
+            count=Count("id")
+        ).order_by(
+            "-count",
+            "asset_category",
+        )
+
         by_equipment = queryset.exclude(
             equipment=""
         ).values(
@@ -380,6 +447,10 @@ class IncidentAnalyticsView(APIView):
             Incident.Priority.choices
         )
 
+        asset_category_labels = dict(
+            Incident.AssetCategory.choices
+        )
+
         status_data = [
             {
                 "value": item["status"],
@@ -402,6 +473,34 @@ class IncidentAnalyticsView(APIView):
                 "count": item["count"],
             }
             for item in by_priority
+        ]
+
+        area_data = [
+            {
+                "area": item["area"],
+                "count": item["count"],
+            }
+            for item in by_area
+        ]
+
+        location_context_data = [
+            {
+                "location_context": item["location_context"],
+                "count": item["count"],
+            }
+            for item in by_location_context
+        ]
+
+        asset_category_data = [
+            {
+                "value": item["asset_category"],
+                "label": asset_category_labels.get(
+                    item["asset_category"],
+                    item["asset_category"],
+                ),
+                "count": item["count"],
+            }
+            for item in by_asset_category
         ]
 
         equipment_data = [
@@ -451,6 +550,9 @@ class IncidentAnalyticsView(APIView):
                 },
                 "by_status": status_data,
                 "by_priority": priority_data,
+                "by_area": area_data,
+                "by_location_context": location_context_data,
+                "by_asset_category": asset_category_data,
                 "by_equipment": equipment_data,
                 "by_unit": unit_data,
                 "daily_trend": trend_data,
