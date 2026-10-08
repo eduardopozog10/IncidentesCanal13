@@ -13,6 +13,7 @@ from incidents.models import (
 
 class IncidentProcessor:
     REQUIRED_FIELDS = (
+        "area",
         "location_context",
         "equipment",
         "failure_type",
@@ -23,6 +24,11 @@ class IncidentProcessor:
     PENDING_MESSAGES_KEY = "_pending_messages"
 
     FALLBACK_QUESTIONS = {
+        "area": (
+            "¿A qué área corresponde el incidente? Indica el área "
+            "operacional o técnica asociada, por ejemplo: Producción, "
+            "Audio, Redes o Sistemas."
+        ),
         "location_context": (
             "¿Dónde está ocurriendo la falla? Indica la ubicación "
             "o contexto operacional, por ejemplo: Estudio 2, "
@@ -64,13 +70,17 @@ class IncidentProcessor:
 
     PRIORITY_GUIDANCE = (
         "Para finalizar el reporte necesito que selecciones una prioridad:\n\n"
-        "• Baja: problema menor que permite continuar operando.\n"
-        "• Media: afecta la operación, pero se puede continuar parcial o "
-        "alternativamente.\n"
-        "• Alta: genera un impacto importante o deja el equipo fuera de "
-        "servicio.\n"
-        "• Crítica: existe riesgo para personas, seguridad, operación "
-        "esencial o una contingencia severa.\n\n"
+        "• Baja: incidente menor, sin impacto operacional relevante y que "
+        "puede esperar.\n"
+        "• Media: existe afectación, pero la operación puede mantenerse "
+        "mediante una alternativa, redundancia o una degradación aceptable.\n"
+        "• Alta: una función importante está fuera de servicio o existe un "
+        "impacto significativo en la operación o producción, sin una "
+        "alternativa adecuada.\n"
+        "• Crítica: existe una interrupción o riesgo inmediato para la "
+        "emisión, señal, producción en vivo, un servicio esencial o una "
+        "contingencia operacional severa.\n\n"
+        "La prioridad debe ser seleccionada explícitamente por ti. "
         "¿Cuál corresponde: Baja, Media, Alta o Crítica?"
     )
 

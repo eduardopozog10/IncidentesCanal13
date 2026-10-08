@@ -35,6 +35,8 @@ class TimeoutThenSuccessAIProvider:
         return IncidentExtractionResult(
             intent="incident_followup",
             unit="OB7",
+            area="Redes",
+            location_context="OB7",
             equipment="Router",
             failure_type="No tiene conexión",
             description=(
@@ -77,7 +79,7 @@ class AITimeoutFlowTests(TestCase):
 
     def test_initial_timeout_does_not_create_draft_and_allows_retry(self):
         original_text = (
-            "El router de OB7 no tiene conexión"
+            "Área Redes, el router de OB7 no tiene conexión"
         )
 
         first_result = self.service.process_text(
@@ -248,6 +250,15 @@ class AITimeoutFlowTests(TestCase):
         self.assertEqual(
             incident.priority,
             Incident.Priority.HIGH,
+        )
+
+        self.assertEqual(
+            incident.area,
+            "Redes",
+        )
+        self.assertEqual(
+            incident.location_context,
+            "OB7",
         )
 
         self.assertEqual(

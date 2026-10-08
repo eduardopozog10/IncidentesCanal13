@@ -53,8 +53,8 @@ class IncomingMessageServiceTests(TestCase):
             external_chat_id="123456789",
             external_message_id="123456789:1",
             text=(
-                "La cámara de la unidad móvil 9 no enciende, "
-                "prioridad alta"
+                "Área Producción, la cámara de la unidad móvil 9 "
+                "no enciende, prioridad alta"
             ),
             raw_payload={
                 "test": True,
@@ -126,8 +126,8 @@ class IncomingMessageServiceTests(TestCase):
             "Unidad movil 9",
         )
         self.assertEqual(
-            incident.location_context,
-            "Unidad movil 9",
+            incident.area,
+            "Producción",
         )
         self.assertEqual(
             incident.asset_category,
@@ -177,7 +177,10 @@ class IncomingMessageServiceTests(TestCase):
             external_user_id="123456789",
             external_chat_id="123456789",
             external_message_id="123456789:priority-1",
-            text="La cámara de la unidad móvil 9 no enciende",
+            text=(
+                "Área Producción, la cámara de la unidad móvil 9 "
+                "no enciende"
+            ),
             raw_payload={
                 "test": True,
             },
@@ -276,8 +279,8 @@ class IncomingMessageServiceTests(TestCase):
             external_chat_id="123456789",
             external_message_id="123456789:2",
             text=(
-                "La cámara de la unidad móvil 10 no enciende, "
-                "prioridad alta"
+                "Área Producción, la cámara de la unidad móvil 10 "
+                "no enciende, prioridad alta"
             ),
             raw_payload={
                 "test": True,
@@ -372,6 +375,10 @@ class IncomingMessageServiceTests(TestCase):
             processing["incident_created"],
         )
         self.assertIn(
+            "area",
+            processing["missing_fields"],
+        )
+        self.assertIn(
             "location_context",
             processing["missing_fields"],
         )
@@ -390,6 +397,10 @@ class IncomingMessageServiceTests(TestCase):
         self.assertEqual(
             draft.status,
             IncidentDraft.Status.COLLECTING,
+        )
+        self.assertIn(
+            "area",
+            draft.missing_fields,
         )
         self.assertIn(
             "location_context",
@@ -419,7 +430,7 @@ class IncomingMessageServiceTests(TestCase):
             external_user_id="123456789",
             external_chat_id="123456789",
             external_message_id="123456789:5",
-            text="Unidad móvil 12",
+            text="Área Audio, Unidad móvil 12",
             raw_payload={
                 "test": True,
             },
@@ -521,6 +532,10 @@ class IncomingMessageServiceTests(TestCase):
             "Unidad movil 12",
         )
         self.assertEqual(
+            incident.area,
+            "Audio",
+        )
+        self.assertEqual(
             incident.equipment,
             "Consola",
         )
@@ -558,7 +573,10 @@ class IncomingMessageServiceTests(TestCase):
             external_user_id="123456789",
             external_chat_id="123456789",
             external_message_id="123456789:urgent-1",
-            text="La cámara de la unidad móvil 7 no enciende",
+            text=(
+                "Área Producción, la cámara de la unidad móvil 7 "
+                "no enciende"
+            ),
             raw_payload={
                 "test": True,
             },

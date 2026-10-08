@@ -17,6 +17,18 @@ class MockAIProvider(AIProvider):
         "decodificador",
     )
 
+    AREA_NAMES = {
+        "produccion": "Producción",
+        "audio": "Audio",
+        "redes": "Redes",
+        "sistemas": "Sistemas",
+        "transmision": "Transmisión",
+        "digital": "Digital",
+        "infraestructura": "Infraestructura",
+        "tecnologia": "Tecnología",
+        "operaciones": "Operaciones",
+    }  
+
     ASSET_CATEGORY_BY_EQUIPMENT = {
         "camara": "video_cameras",
         "monitor": "video_cameras",
@@ -57,11 +69,18 @@ class MockAIProvider(AIProvider):
             or location_context
         )
 
-        area = previous_data.get("area")
+        area = (
+            previous_data.get("area")
+            or self._extract_area(normalized_message)
+        )
+
+        current_equipment = self._extract_equipment(
+            normalized_message
+        )
 
         equipment = (
             previous_data.get("equipment")
-            or self._extract_equipment(normalized_message)
+            or current_equipment
         )
 
         asset_category = (
@@ -69,14 +88,23 @@ class MockAIProvider(AIProvider):
             or self._extract_asset_category(equipment)
         )
 
+        current_failure_type = self._extract_failure_type(
+            normalized_message
+        )
+
         failure_type = (
             previous_data.get("failure_type")
-            or self._extract_failure_type(normalized_message)
+            or current_failure_type
         )
 
         description = (
             previous_data.get("description")
-            or message.strip()
+            or self._extract_description(
+                message=message,
+                current_equipment=current_equipment,
+                current_failure_type=current_failure_type,
+                previous_equipment=previous_data.get("equipment"),
+            )
         )
 
         operational_impact = previous_data.get(
@@ -101,6 +129,7 @@ class MockAIProvider(AIProvider):
         }
 
         required_fields = (
+            "area",
             "location_context",
             "equipment",
             "failure_type",
@@ -147,6 +176,21 @@ class MockAIProvider(AIProvider):
             for character in normalized_text
             if unicodedata.category(character) != "Mn"
         )
+
+    def _extract_area(self, normalized_message: str):
+        area_match = re.search(
+            r"\barea(?:\s+de)?\s+"
+            r"(produccion|audio|redes|sistemas|transmision|"
+            r"digital|infraestructura|tecnologia|operaciones)\b",
+            normalized_message,
+        )
+
+        if area_match is None:
+            return None
+
+        area_name = area_match.group(1)
+
+        return self.AREA_NAMES.get(area_name)
 
     def _extract_location_context(self, message: str):
         normalized_message = self._normalize_text(message)
@@ -208,6 +252,26 @@ class MockAIProvider(AIProvider):
                 return failure_pattern.capitalize()
 
         return None
+
+    def _extract_description(
+        self,
+        message: str,
+        current_equipment: str | None,
+        current_failure_type: str | None,
+        previous_equipment: str | None,
+    ):
+        if current_failure_type is None:
+            return None
+
+        if current_equipment is None and previous_equipment is None:
+            return None
+
+        clean_message = message.strip()
+
+        if not clean_message:
+            return None
+
+        return clean_message
 
     def _extract_priority(self, normalized_message: str):
         normalized_message = " ".join(
@@ -285,6 +349,11 @@ class MockAIProvider(AIProvider):
             return None
 
         questions = {
+            "area": (
+                "¿A qué área corresponde el incidente? Indica el área "
+                "operacional o técnica asociada, por ejemplo: Producción, "
+                "Audio, Redes o Sistemas."
+            ),
             "location_context": (
                 "¿Dónde está ocurriendo la falla? Indica la ubicación "
                 "o contexto operacional, por ejemplo: Estudio 2, "

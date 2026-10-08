@@ -36,7 +36,8 @@ class PriorityFlowTests(TestCase):
             external_chat_id="priority-test-chat",
             external_message_id="priority-test-1",
             text=(
-                "El router de la unidad móvil 7 no funciona"
+                "Área Redes, el router de la unidad móvil 7 "
+                "no funciona"
             ),
             raw_payload={
                 "test": True,
@@ -171,7 +172,11 @@ class PriorityFlowTests(TestCase):
             incident.priority,
             Incident.Priority.MEDIUM,
         )
-
+        
+        self.assertEqual(
+            incident.area,
+            "Redes",
+        )
         draft.refresh_from_db()
 
         self.assertEqual(
