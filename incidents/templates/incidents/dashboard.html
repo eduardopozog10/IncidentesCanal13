@@ -1,24 +1,18 @@
 {% load static %}
-
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
-
     <meta
         name="viewport"
         content="width=device-width, initial-scale=1.0"
     >
-
     <title>Canal 13 - Gestión de Incidentes</title>
-
     <link
         rel="stylesheet"
         href="{% static 'incidents/dashboard.css' %}"
     >
 </head>
-
 <body>
     <form hidden>
         {% csrf_token %}
@@ -204,18 +198,58 @@
                 <div class="analytics-card-header">
                     <div>
                         <h3 class="analytics-card-title">
-                            Unidades más afectadas
+                            Incidentes por área
                         </h3>
 
                         <p class="analytics-card-description">
-                            Unidades que concentran la mayor cantidad
-                            de reportes.
+                            Áreas que concentran la mayor cantidad
+                            de incidentes reportados.
                         </p>
                     </div>
                 </div>
 
                 <div
-                    id="unit-chart"
+                    id="area-chart"
+                    class="chart-container"
+                ></div>
+            </div>
+
+            <div class="analytics-card">
+                <div class="analytics-card-header">
+                    <div>
+                        <h3 class="analytics-card-title">
+                            Ubicaciones más afectadas
+                        </h3>
+
+                        <p class="analytics-card-description">
+                            Ubicaciones o contextos operacionales
+                            con mayor cantidad de incidentes.
+                        </p>
+                    </div>
+                </div>
+
+                <div
+                    id="location-context-chart"
+                    class="chart-container"
+                ></div>
+            </div>
+
+            <div class="analytics-card">
+                <div class="analytics-card-header">
+                    <div>
+                        <h3 class="analytics-card-title">
+                            Incidentes por familia de activo
+                        </h3>
+
+                        <p class="analytics-card-description">
+                            Distribución de incidentes según el tipo
+                            de activo o servicio afectado.
+                        </p>
+                    </div>
+                </div>
+
+                <div
+                    id="asset-category-chart"
                     class="chart-container"
                 ></div>
             </div>
@@ -328,7 +362,8 @@
                     <thead>
                         <tr>
                             <th>Código</th>
-                            <th>Unidad</th>
+                            <th>Área</th>
+                            <th>Ubicación / contexto</th>
                             <th>Equipo / servicio</th>
                             <th>Síntoma / falla</th>
                             <th>Prioridad</th>
@@ -400,8 +435,16 @@
             "equipment-chart"
         );
 
-        const unitChart = document.getElementById(
-            "unit-chart"
+        const areaChart = document.getElementById(
+            "area-chart"
+        );
+
+        const locationContextChart = document.getElementById(
+            "location-context-chart"
+        );
+
+        const assetCategoryChart = document.getElementById(
+            "asset-category-chart"
         );
 
         const statusChart = document.getElementById(
@@ -924,6 +967,7 @@
             const rowHeight = 44;
             const labelWidth = 210;
             const chartWidth = 420;
+
             const height = (
                 items.length * rowHeight
                 + 24
@@ -1033,6 +1077,7 @@
             const rowHeight = 44;
             const labelWidth = 190;
             const chartWidth = 440;
+
             const height = (
                 items.length * rowHeight
                 + 24
@@ -1495,10 +1540,23 @@
                 );
 
                 renderHorizontalBarChart(
-                    unitChart,
-                    data.by_unit,
-                    "unit",
+                    areaChart,
+                    data.by_area,
+                    "area",
+                    getCssVariable("--primary")
+                );
+
+                renderHorizontalBarChart(
+                    locationContextChart,
+                    data.by_location_context,
+                    "location_context",
                     getCssVariable("--purple")
+                );
+
+                renderCategoricalBarChart(
+                    assetCategoryChart,
+                    data.by_asset_category,
+                    {}
                 );
 
                 renderCategoricalBarChart(
@@ -1524,6 +1582,7 @@
                         critical: "#b91c1c",
                     }
                 );
+
             } catch (error) {
                 console.error(error);
             }
@@ -1631,7 +1690,11 @@
                             </td>
 
                             <td>
-                                ${escapeHtml(incident.unit)}
+                                ${escapeHtml(incident.area)}
+                            </td>
+
+                            <td>
+                                ${escapeHtml(incident.location_context)}
                             </td>
 
                             <td>
@@ -1672,7 +1735,7 @@
 
                             <td>
                                 ${escapeHtml(
-                                    incident.technician_name
+                                    incident.reporter_name
                                 )}
                             </td>
 
@@ -1719,6 +1782,7 @@
                 incidentTableBody.replaceChildren(
                     fragment
                 );
+
             } catch (error) {
                 console.error(error);
             }
@@ -1749,17 +1813,31 @@
                     </p>
 
                     <p>
-                        <strong>Unidad:</strong>
-                        ${escapeHtml(incident.unit)}
+                        <strong>Área:</strong>
+                        ${escapeHtml(incident.area)}
                     </p>
 
                     <p>
-                        <strong>Equipo:</strong>
+                        <strong>Ubicación / contexto:</strong>
+                        ${escapeHtml(
+                            incident.location_context
+                        )}
+                    </p>
+
+                    <p>
+                        <strong>Familia de activo:</strong>
+                        ${escapeHtml(
+                            incident.asset_category_display
+                        )}
+                    </p>
+
+                    <p>
+                        <strong>Equipo / servicio:</strong>
                         ${escapeHtml(incident.equipment)}
                     </p>
 
                     <p>
-                        <strong>Tipo de falla:</strong>
+                        <strong>Síntoma / tipo de falla:</strong>
                         ${escapeHtml(
                             incident.failure_type
                         )}
@@ -1769,6 +1847,13 @@
                         <strong>Descripción:</strong>
                         ${escapeHtml(
                             incident.description
+                        )}
+                    </p>
+
+                    <p>
+                        <strong>Impacto operacional:</strong>
+                        ${escapeHtml(
+                            incident.operational_impact
                         )}
                     </p>
 
@@ -1803,7 +1888,7 @@
                     <p>
                         <strong>Reportante:</strong>
                         ${escapeHtml(
-                            incident.technician_name
+                            incident.reporter_name
                         )}
                     </p>
 
@@ -1851,7 +1936,7 @@
                             </option>
 
                             <option value="in_progress">
-                                En progreso
+                                En atención
                             </option>
 
                             <option value="resolved">
@@ -1894,6 +1979,7 @@
                     "click",
                     updateIncidentStatus
                 );
+
             } catch (error) {
                 console.error(error);
 
@@ -1956,6 +2042,7 @@
                 await loadIncidentDetail(
                     selectedIncidentId
                 );
+
             } catch (error) {
                 console.error(error);
 
@@ -1979,6 +2066,7 @@
                     loadAnalytics(),
                     loadIncidents(),
                 ]);
+
             } finally {
                 refreshInProgress = false;
             }
@@ -2015,8 +2103,11 @@
                     data.total
                     > lastKnownIncidentCount
                 ) {
+                    highlightNewIncidentsOnNextLoad = true;
+
                     await refreshDashboardData();
                 }
+
             } catch (error) {
                 console.error(error);
             }
@@ -2077,10 +2168,10 @@
             "change",
             async () => {
                 if (
-                    data.total
-                    > lastKnownIncidentCount
+                    periodFilter.value
+                    === "custom"
                 ) {
-                    highlightNewIncidentsOnNextLoad = true;
+                    lastKnownIncidentCount = null;
 
                     await refreshDashboardData();
                 }
@@ -2101,5 +2192,4 @@
         initializeDashboard();
     </script>
 </body>
-
 </html>
