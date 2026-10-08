@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 class GeminiAIProvider(AIProvider):
     REQUIRED_FIELDS = (
-        "unit",
+        "location_context",
         "equipment",
         "failure_type",
         "description",
@@ -37,7 +37,7 @@ class GeminiAIProvider(AIProvider):
                     "conversation",
                 ],
                 "description": (
-                    "Intención principal del mensaje del técnico."
+                    "Intención principal del mensaje del reportante."
                 ),
             },
             "conversation_reply": {
@@ -85,7 +85,7 @@ class GeminiAIProvider(AIProvider):
             "failure_type": {
                 "type": ["string", "null"],
                 "description": (
-                    "Síntoma observable reportado por el técnico, "
+                    "Síntoma observable reportado por el reportante, "
                     "sin emitir un diagnóstico."
                 ),
             },
@@ -105,9 +105,9 @@ class GeminiAIProvider(AIProvider):
             "priority": {
                 "type": ["string", "null"],
                 "description": (
-                    "Prioridad confirmada explícitamente por el técnico: "
+                    "Prioridad confirmada explícitamente por el reportante: "
                     "low, medium, high o critical. Debe ser null si el "
-                    "técnico todavía no ha confirmado una prioridad."
+                    "reportante todavía no ha confirmado una prioridad."
                 ),
             },
             "clarification_question": {
@@ -223,7 +223,11 @@ class GeminiAIProvider(AIProvider):
         location_context = (
             self._clean_text(response_data.get("location_context"))
             or previous_data.get("location_context")
+            or unit
         )
+
+        if location_context and not unit:
+            unit = location_context
 
         asset_category = (
             self._clean_text(response_data.get("asset_category"))
@@ -664,17 +668,20 @@ IMPORTANTE:
 - Nunca uses medium como valor predeterminado.
 
 Compatibilidad temporal del flujo:
-- En esta etapa del desarrollo, el backend todavía considera estos
-  campos para determinar si puede completar el registro:
-  - unit
+- Para determinar si puede completar el registro, el flujo requiere:
+  - location_context
   - equipment
   - failure_type
   - description
   - priority
-- area, location_context, asset_category y operational_impact deben
-  extraerse y conservarse cuando estén disponibles, pero su ausencia
-  todavía no debe generar por sí sola una pregunta adicional.
-- No inventes estos campos para completarlos.
+- unit es un campo heredado temporal y NO debe considerarse un dato
+  adicional que el reportante deba entregar.
+- Si existe location_context, puedes conservar ese mismo valor en unit
+  únicamente por compatibilidad técnica.
+- area, asset_category y operational_impact deben extraerse y
+  conservarse cuando estén disponibles, pero su ausencia todavía no
+  debe generar por sí sola una pregunta adicional.
+- No inventes ningún campo para completar el incidente.
 
 Preguntas de aclaración:
 - Pregunta solamente un dato a la vez.
@@ -822,8 +829,10 @@ Mensaje actual:
             return None
 
         questions = {
-            "unit": (
-                "¿Me puedes indicar en qué unidad ocurrió la falla?"
+            "location_context": (
+                "¿Dónde está ocurriendo la falla? Indica la ubicación "
+                "o contexto operacional, por ejemplo: Estudio 2, "
+                "Control Central, Móvil 7 o plataforma digital."
             ),
             "equipment": (
                 "¿Qué equipo está presentando la falla?"

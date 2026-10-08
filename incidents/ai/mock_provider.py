@@ -46,17 +46,18 @@ class MockAIProvider(AIProvider):
         previous_data = previous_data or {}
         normalized_message = self._normalize_text(message)
 
+        location_context = (
+            previous_data.get("location_context")
+            or previous_data.get("unit")
+            or self._extract_location_context(message)
+        )
+
         unit = (
             previous_data.get("unit")
-            or self._extract_unit(message)
+            or location_context
         )
 
         area = previous_data.get("area")
-
-        location_context = (
-            previous_data.get("location_context")
-            or unit
-        )
 
         equipment = (
             previous_data.get("equipment")
@@ -100,7 +101,7 @@ class MockAIProvider(AIProvider):
         }
 
         required_fields = (
-            "unit",
+            "location_context",
             "equipment",
             "failure_type",
             "description",
@@ -147,19 +148,29 @@ class MockAIProvider(AIProvider):
             if unicodedata.category(character) != "Mn"
         )
 
-    def _extract_unit(self, message: str):
+    def _extract_location_context(self, message: str):
         normalized_message = self._normalize_text(message)
 
-        match = re.search(
+        patterns = (
             r"\bunidad(?:\s+movil)?\s+[a-zA-Z0-9-]+",
-            normalized_message,
-            flags=re.IGNORECASE,
+            r"\bmovil\s+[a-zA-Z0-9-]+",
+            r"\bestudio\s+[a-zA-Z0-9-]+",
+            r"\bsala\s+[a-zA-Z0-9-]+",
+            r"\bcontrol central\b",
+            r"\bplataforma digital\b",
         )
 
-        if match is None:
-            return None
+        for pattern in patterns:
+            match = re.search(
+                pattern,
+                normalized_message,
+                flags=re.IGNORECASE,
+            )
 
-        return match.group(0).strip().capitalize()
+            if match is not None:
+                return match.group(0).strip().capitalize()
+
+        return None
 
     def _extract_equipment(self, normalized_message: str):
         for equipment_name in self.EQUIPMENT_NAMES:
@@ -274,8 +285,10 @@ class MockAIProvider(AIProvider):
             return None
 
         questions = {
-            "unit": (
-                "¿En qué unidad ocurrió la falla?"
+            "location_context": (
+                "¿Dónde está ocurriendo la falla? Indica la ubicación "
+                "o contexto operacional, por ejemplo: Estudio 2, "
+                "Control Central, Móvil 7 o plataforma digital."
             ),
             "equipment": (
                 "¿Qué equipo presenta la falla?"
