@@ -17,6 +17,17 @@ class MockAIProvider(AIProvider):
         "decodificador",
     )
 
+    ASSET_CATEGORY_BY_EQUIPMENT = {
+        "camara": "video_cameras",
+        "monitor": "video_cameras",
+        "microfono": "audio",
+        "consola": "audio",
+        "transmisor": "signal_transmission",
+        "antena": "signal_transmission",
+        "decodificador": "signal_transmission",
+        "router": "networks",
+    }
+
     FAILURE_PATTERNS = (
         "no enciende",
         "sin señal",
@@ -40,9 +51,21 @@ class MockAIProvider(AIProvider):
             or self._extract_unit(message)
         )
 
+        area = previous_data.get("area")
+
+        location_context = (
+            previous_data.get("location_context")
+            or unit
+        )
+
         equipment = (
             previous_data.get("equipment")
             or self._extract_equipment(normalized_message)
+        )
+
+        asset_category = (
+            previous_data.get("asset_category")
+            or self._extract_asset_category(equipment)
         )
 
         failure_type = (
@@ -55,6 +78,10 @@ class MockAIProvider(AIProvider):
             or message.strip()
         )
 
+        operational_impact = previous_data.get(
+            "operational_impact"
+        )
+
         priority = (
             previous_data.get("priority")
             or self._extract_priority(normalized_message)
@@ -62,9 +89,13 @@ class MockAIProvider(AIProvider):
 
         extracted_data = {
             "unit": unit,
+            "area": area,
+            "location_context": location_context,
+            "asset_category": asset_category,
             "equipment": equipment,
             "failure_type": failure_type,
             "description": description,
+            "operational_impact": operational_impact,
             "priority": priority,
         }
 
@@ -88,9 +119,13 @@ class MockAIProvider(AIProvider):
 
         return IncidentExtractionResult(
             unit=unit,
+            area=area,
+            location_context=location_context,
+            asset_category=asset_category,
             equipment=equipment,
             failure_type=failure_type,
             description=description,
+            operational_impact=operational_impact,
             priority=priority,
             missing_fields=missing_fields,
             clarification_question=clarification_question,
@@ -136,6 +171,21 @@ class MockAIProvider(AIProvider):
                 return equipment_name.capitalize()
 
         return None
+
+    def _extract_asset_category(
+        self,
+        equipment: str | None,
+    ):
+        if not equipment:
+            return None
+
+        normalized_equipment = self._normalize_text(
+            equipment
+        )
+
+        return self.ASSET_CATEGORY_BY_EQUIPMENT.get(
+            normalized_equipment
+        )
 
     def _extract_failure_type(self, normalized_message: str):
         for failure_pattern in self.FAILURE_PATTERNS:

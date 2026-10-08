@@ -177,9 +177,21 @@ class IncidentProcessor:
 
             extracted_data = {
                 "unit": previous_data.get("unit"),
+                "area": previous_data.get("area"),
+                "location_context": previous_data.get(
+                    "location_context"
+                ),
+                "asset_category": previous_data.get(
+                    "asset_category"
+                ),
                 "equipment": previous_data.get("equipment"),
-                "failure_type": previous_data.get("failure_type"),
+                "failure_type": previous_data.get(
+                    "failure_type"
+                ),
                 "description": previous_data.get("description"),
+                "operational_impact": previous_data.get(
+                    "operational_impact"
+                ),
                 "priority": priority,
             }
 
@@ -231,6 +243,18 @@ class IncidentProcessor:
                     extraction.unit
                     or previous_data.get("unit")
                 ),
+                "area": (
+                    extraction.area
+                    or previous_data.get("area")
+                ),
+                "location_context": (
+                    extraction.location_context
+                    or previous_data.get("location_context")
+                ),
+                "asset_category": (
+                    extraction.asset_category
+                    or previous_data.get("asset_category")
+                ),
                 "equipment": (
                     extraction.equipment
                     or previous_data.get("equipment")
@@ -242,6 +266,10 @@ class IncidentProcessor:
                 "description": (
                     extraction.description
                     or previous_data.get("description")
+                ),
+                "operational_impact": (
+                    extraction.operational_impact
+                    or previous_data.get("operational_impact")
                 ),
                 "priority": (
                     extraction.priority
@@ -346,9 +374,19 @@ class IncidentProcessor:
         incident = Incident.objects.create(
             technician=message.technician,
             unit=extracted_data["unit"],
+            area=extracted_data.get("area") or "",
+            location_context=(
+                extracted_data.get("location_context") or ""
+            ),
+            asset_category=(
+                extracted_data.get("asset_category") or ""
+            ),
             equipment=extracted_data["equipment"],
             failure_type=extracted_data["failure_type"],
             description=extracted_data["description"],
+            operational_impact=(
+                extracted_data.get("operational_impact") or ""
+            ),
             priority=extracted_data["priority"],
             status=Incident.Status.REPORTED,
             original_message=initial_message_content,
