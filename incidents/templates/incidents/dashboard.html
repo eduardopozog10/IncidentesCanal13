@@ -11,7 +11,7 @@
         content="width=device-width, initial-scale=1.0"
     >
 
-    <title>TVTEL - Gestión de Incidentes</title>
+    <title>Canal 13 - Gestión de Incidentes</title>
 
     <link
         rel="stylesheet"
@@ -26,10 +26,10 @@
 
     <main>
         <header>
-            <h1>Gestión de Incidentes TVTEL</h1>
+            <h1>Gestión de Incidentes Canal 13</h1>
 
             <p>
-                Centro de monitoreo, análisis y seguimiento de reportes técnicos.
+                Centro de monitoreo, análisis y seguimiento de incidentes operacionales.
             </p>
         </header>
 
@@ -267,7 +267,7 @@
                 <input
                     id="search-input"
                     type="search"
-                    placeholder="Buscar por código, unidad, equipo, falla o técnico..."
+                    placeholder="Buscar por área, ubicación, equipo, falla o reportante..."
                 >
 
                 <select id="status-filter">
@@ -284,7 +284,7 @@
                     </option>
 
                     <option value="in_progress">
-                        En progreso
+                        En atención
                     </option>
 
                     <option value="resolved">
@@ -329,11 +329,11 @@
                         <tr>
                             <th>Código</th>
                             <th>Unidad</th>
-                            <th>Equipo</th>
-                            <th>Falla</th>
+                            <th>Equipo / servicio</th>
+                            <th>Síntoma / falla</th>
                             <th>Prioridad</th>
                             <th>Estado</th>
-                            <th>Técnico</th>
+                            <th>Reportante</th>
                             <th>Fecha</th>
                         </tr>
                     </thead>
@@ -1801,7 +1801,7 @@
                     </p>
 
                     <p>
-                        <strong>Técnico:</strong>
+                        <strong>Reportante:</strong>
                         ${escapeHtml(
                             incident.technician_name
                         )}
