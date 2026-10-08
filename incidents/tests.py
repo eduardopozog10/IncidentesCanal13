@@ -54,7 +54,7 @@ class IncomingMessageServiceTests(TestCase):
             external_message_id="123456789:1",
             text=(
                 "Área Producción, la cámara de la unidad móvil 9 "
-                "no enciende, prioridad alta"
+                "no enciende y detiene la producción, prioridad alta"
             ),
             raw_payload={
                 "test": True,
@@ -130,6 +130,10 @@ class IncomingMessageServiceTests(TestCase):
             "Producción",
         )
         self.assertEqual(
+            incident.operational_impact,
+            "Detiene la producción",
+        )
+        self.assertEqual(
             incident.asset_category,
             Incident.AssetCategory.VIDEO_CAMERAS,
         )
@@ -179,7 +183,7 @@ class IncomingMessageServiceTests(TestCase):
             external_message_id="123456789:priority-1",
             text=(
                 "Área Producción, la cámara de la unidad móvil 9 "
-                "no enciende"
+                "no enciende y detiene la producción"
             ),
             raw_payload={
                 "test": True,
@@ -280,7 +284,7 @@ class IncomingMessageServiceTests(TestCase):
             external_message_id="123456789:2",
             text=(
                 "Área Producción, la cámara de la unidad móvil 10 "
-                "no enciende, prioridad alta"
+                "no enciende y detiene la producción, prioridad alta"
             ),
             raw_payload={
                 "test": True,
@@ -383,6 +387,10 @@ class IncomingMessageServiceTests(TestCase):
             processing["missing_fields"],
         )
         self.assertIn(
+            "operational_impact",
+            processing["missing_fields"],
+        )
+        self.assertIn(
             "priority",
             processing["missing_fields"],
         )
@@ -430,7 +438,10 @@ class IncomingMessageServiceTests(TestCase):
             external_user_id="123456789",
             external_chat_id="123456789",
             external_message_id="123456789:5",
-            text="Área Audio, Unidad móvil 12",
+            text=(
+                "Área Audio, Unidad móvil 12, "
+                "obliga a usar un respaldo"
+            ),
             raw_payload={
                 "test": True,
             },
@@ -536,6 +547,10 @@ class IncomingMessageServiceTests(TestCase):
             "Audio",
         )
         self.assertEqual(
+            incident.operational_impact,
+            "Obliga a usar un respaldo",
+        )
+        self.assertEqual(
             incident.equipment,
             "Consola",
         )
@@ -575,7 +590,7 @@ class IncomingMessageServiceTests(TestCase):
             external_message_id="123456789:urgent-1",
             text=(
                 "Área Producción, la cámara de la unidad móvil 7 "
-                "no enciende"
+                "no enciende y obliga a usar un respaldo"
             ),
             raw_payload={
                 "test": True,

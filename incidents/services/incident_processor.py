@@ -18,6 +18,7 @@ class IncidentProcessor:
         "equipment",
         "failure_type",
         "description",
+        "operational_impact",
         "priority",
     )
 
@@ -43,6 +44,11 @@ class IncidentProcessor:
         "description": (
             "¿Puedes describir con un poco más de detalle "
             "qué está ocurriendo con el equipo?"
+        ),
+        "operational_impact": (
+            "¿Qué impacto operacional está generando la falla? "
+            "Por ejemplo: detiene una producción, afecta la señal, "
+            "obliga a usar un respaldo o permite continuar operando."
         ),
         "priority": (
             "Para completar el reporte, ¿qué prioridad le asignas: "

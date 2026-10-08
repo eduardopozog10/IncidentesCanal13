@@ -37,7 +37,7 @@ class PriorityFlowTests(TestCase):
             external_message_id="priority-test-1",
             text=(
                 "Área Redes, el router de la unidad móvil 7 "
-                "no funciona"
+                "no funciona y obliga a usar un respaldo"
             ),
             raw_payload={
                 "test": True,
@@ -176,6 +176,10 @@ class PriorityFlowTests(TestCase):
         self.assertEqual(
             incident.area,
             "Redes",
+        )
+        self.assertEqual(
+            incident.operational_impact,
+            "Obliga a usar un respaldo",
         )
         draft.refresh_from_db()
 

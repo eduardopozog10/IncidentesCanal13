@@ -42,6 +42,9 @@ class TimeoutThenSuccessAIProvider:
             description=(
                 "El router de OB7 no tiene conexión."
             ),
+            operational_impact=(
+                "Obliga a usar un respaldo"
+            ),
             priority=None,
             missing_fields=["priority"],
             clarification_question=(
@@ -79,7 +82,8 @@ class AITimeoutFlowTests(TestCase):
 
     def test_initial_timeout_does_not_create_draft_and_allows_retry(self):
         original_text = (
-            "Área Redes, el router de OB7 no tiene conexión"
+            "Área Redes, el router de OB7 no tiene conexión "
+            "y obliga a usar un respaldo"
         )
 
         first_result = self.service.process_text(
@@ -259,6 +263,11 @@ class AITimeoutFlowTests(TestCase):
         self.assertEqual(
             incident.location_context,
             "OB7",
+        )
+
+        self.assertEqual(
+            incident.operational_impact,
+            "Obliga a usar un respaldo",
         )
 
         self.assertEqual(

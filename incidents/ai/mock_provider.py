@@ -50,6 +50,14 @@ class MockAIProvider(AIProvider):
         "sobrecalentamiento",
     )
 
+    OPERATIONAL_IMPACT_EXPRESSIONS = {
+        "detiene la produccion": "Detiene la producción",
+        "afecta la señal": "Afecta la señal",
+        "obliga a usar un respaldo": "Obliga a usar un respaldo",
+        "permite continuar operando": "Permite continuar operando",
+        "sin impacto operacional": "Sin impacto operacional",
+    }
+
     def extract_incident(
         self,
         message: str,
@@ -107,10 +115,12 @@ class MockAIProvider(AIProvider):
             )
         )
 
-        operational_impact = previous_data.get(
-            "operational_impact"
+        operational_impact = (
+            previous_data.get("operational_impact")
+            or self._extract_operational_impact(
+                normalized_message
+            )
         )
-
         priority = (
             previous_data.get("priority")
             or self._extract_priority(normalized_message)
@@ -134,6 +144,7 @@ class MockAIProvider(AIProvider):
             "equipment",
             "failure_type",
             "description",
+            "operational_impact",
             "priority",
         )
 
@@ -253,6 +264,19 @@ class MockAIProvider(AIProvider):
 
         return None
 
+    def _extract_operational_impact(
+        self,
+        normalized_message: str,
+    ):
+        for (
+            expression,
+            operational_impact,
+        ) in self.OPERATIONAL_IMPACT_EXPRESSIONS.items():
+            if expression in normalized_message:
+                return operational_impact
+
+        return None
+
     def _extract_description(
         self,
         message: str,
@@ -367,6 +391,11 @@ class MockAIProvider(AIProvider):
             ),
             "description": (
                 "¿Puedes describir con más detalle lo ocurrido?"
+            ),
+            "operational_impact": (
+                "¿Qué impacto operacional está generando la falla? "
+                "Por ejemplo: detiene una producción, afecta la señal, "
+                "obliga a usar un respaldo o permite continuar operando."
             ),
             "priority": (
                 "Para completar el reporte, ¿qué prioridad le asignas: "
