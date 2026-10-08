@@ -67,10 +67,52 @@ class IncomingMessageServiceTests(TestCase):
 
         self.assertEqual(
             processing["action"],
+            "ask_clarification",
+        )
+        self.assertFalse(
+            processing["incident_created"],
+        )
+        self.assertEqual(
+            processing["missing_fields"],
+            [],
+        )
+        self.assertIn(
+            "¿Confirmas la creación del incidente?",
+            processing["reply"],
+        )
+        self.assertEqual(
+            Incident.objects.count(),
+            0,
+        )
+
+        draft = IncidentDraft.objects.get()
+
+        self.assertEqual(
+            draft.status,
+            IncidentDraft.Status.READY,
+        )
+
+        confirmation_result = self.service.process_text(
+            provider="telegram",
+            external_user_id="123456789",
+            external_chat_id="123456789",
+            external_message_id="123456789:1-confirm",
+            text="Sí",
+            raw_payload={
+                "test": True,
+            },
+        )
+
+        confirmation_processing = confirmation_result[
+            "processing"
+        ]
+
+        self.assertEqual(
+            confirmation_processing["action"],
             "incident_created",
         )
         self.assertTrue(
-            processing["incident_created"],
+            confirmation_processing["incident_created"],
         )
 
         incident = Incident.objects.get()
@@ -82,6 +124,14 @@ class IncomingMessageServiceTests(TestCase):
         self.assertEqual(
             incident.unit,
             "Unidad movil 9",
+        )
+        self.assertEqual(
+            incident.location_context,
+            "Unidad movil 9",
+        )
+        self.assertEqual(
+            incident.asset_category,
+            Incident.AssetCategory.VIDEO_CAMERAS,
         )
         self.assertEqual(
             incident.equipment,
@@ -97,7 +147,8 @@ class IncomingMessageServiceTests(TestCase):
         )
 
         message = ChannelMessage.objects.get(
-            direction=ChannelMessage.Direction.INBOUND,
+            provider="telegram",
+            external_message_id="123456789:1-confirm",
         )
 
         self.assertEqual(
@@ -106,6 +157,17 @@ class IncomingMessageServiceTests(TestCase):
         )
         self.assertEqual(
             message.incident,
+            incident,
+        )
+
+        draft.refresh_from_db()
+
+        self.assertEqual(
+            draft.status,
+            IncidentDraft.Status.COMPLETED,
+        )
+        self.assertEqual(
+            draft.incident,
             incident,
         )
 
@@ -157,10 +219,47 @@ class IncomingMessageServiceTests(TestCase):
 
         self.assertEqual(
             second_processing["action"],
+            "ask_clarification",
+        )
+        self.assertFalse(
+            second_processing["incident_created"],
+        )
+        self.assertEqual(
+            second_processing["missing_fields"],
+            [],
+        )
+        self.assertEqual(
+            second_processing["extracted_data"]["priority"],
+            Incident.Priority.HIGH,
+        )
+        self.assertIn(
+            "¿Confirmas la creación del incidente?",
+            second_processing["reply"],
+        )
+        self.assertEqual(
+            Incident.objects.count(),
+            0,
+        )
+
+        third_result = self.service.process_text(
+            provider="telegram",
+            external_user_id="123456789",
+            external_chat_id="123456789",
+            external_message_id="123456789:priority-3",
+            text="Sí",
+            raw_payload={
+                "test": True,
+            },
+        )
+
+        third_processing = third_result["processing"]
+
+        self.assertEqual(
+            third_processing["action"],
             "incident_created",
         )
         self.assertTrue(
-            second_processing["incident_created"],
+            third_processing["incident_created"],
         )
 
         incident = Incident.objects.get()
@@ -202,6 +301,11 @@ class IncomingMessageServiceTests(TestCase):
         self.assertFalse(
             first_result["duplicate"],
         )
+        self.assertEqual(
+            first_result["processing"]["action"],
+            "ask_clarification",
+        )
+
         self.assertTrue(
             second_result["duplicate"],
         )
@@ -211,13 +315,38 @@ class IncomingMessageServiceTests(TestCase):
 
         self.assertEqual(
             Incident.objects.count(),
+            0,
+        )
+        self.assertEqual(
+            IncidentDraft.objects.count(),
             1,
         )
+
         self.assertEqual(
             ChannelMessage.objects.filter(
                 provider="telegram",
                 external_message_id="123456789:2",
             ).count(),
+            1,
+        )
+
+        confirmation_result = self.service.process_text(
+            provider="telegram",
+            external_user_id="123456789",
+            external_chat_id="123456789",
+            external_message_id="123456789:2-confirm",
+            text="Sí",
+            raw_payload={
+                "test": True,
+            },
+        )
+
+        self.assertEqual(
+            confirmation_result["processing"]["action"],
+            "incident_created",
+        )
+        self.assertEqual(
+            Incident.objects.count(),
             1,
         )
 
@@ -271,7 +400,7 @@ class IncomingMessageServiceTests(TestCase):
             draft.missing_fields,
         )
 
-    def test_completes_existing_draft_after_priority_confirmation(self):
+    def test_completes_existing_draft_after_final_confirmation(self):
         first_result = self.service.process_text(
             provider="telegram",
             external_user_id="123456789",
@@ -329,10 +458,52 @@ class IncomingMessageServiceTests(TestCase):
 
         self.assertEqual(
             third_processing["action"],
+            "ask_clarification",
+        )
+        self.assertFalse(
+            third_processing["incident_created"],
+        )
+        self.assertEqual(
+            third_processing["missing_fields"],
+            [],
+        )
+        self.assertIn(
+            "¿Confirmas la creación del incidente?",
+            third_processing["reply"],
+        )
+        self.assertEqual(
+            Incident.objects.count(),
+            0,
+        )
+
+        draft = IncidentDraft.objects.get(
+            pk=draft_id,
+        )
+
+        self.assertEqual(
+            draft.status,
+            IncidentDraft.Status.READY,
+        )
+
+        fourth_result = self.service.process_text(
+            provider="telegram",
+            external_user_id="123456789",
+            external_chat_id="123456789",
+            external_message_id="123456789:7",
+            text="Sí",
+            raw_payload={
+                "test": True,
+            },
+        )
+
+        fourth_processing = fourth_result["processing"]
+
+        self.assertEqual(
+            fourth_processing["action"],
             "incident_created",
         )
         self.assertTrue(
-            third_processing["incident_created"],
+            fourth_processing["incident_created"],
         )
         self.assertEqual(
             Incident.objects.count(),
@@ -346,8 +517,16 @@ class IncomingMessageServiceTests(TestCase):
             "Unidad movil 12",
         )
         self.assertEqual(
+            incident.location_context,
+            "Unidad movil 12",
+        )
+        self.assertEqual(
             incident.equipment,
             "Consola",
+        )
+        self.assertEqual(
+            incident.asset_category,
+            Incident.AssetCategory.AUDIO,
         )
         self.assertEqual(
             incident.failure_type,
@@ -358,9 +537,7 @@ class IncomingMessageServiceTests(TestCase):
             Incident.Priority.MEDIUM,
         )
 
-        draft = IncidentDraft.objects.get(
-            pk=draft_id,
-        )
+        draft.refresh_from_db()
 
         self.assertEqual(
             draft.status,

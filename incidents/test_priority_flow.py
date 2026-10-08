@@ -115,10 +115,54 @@ class PriorityFlowTests(TestCase):
 
         self.assertEqual(
             third_processing["action"],
+            "ask_clarification",
+        )
+        self.assertFalse(
+            third_processing["incident_created"],
+        )
+        self.assertEqual(
+            third_processing["missing_fields"],
+            [],
+        )
+        self.assertEqual(
+            third_processing["extracted_data"]["priority"],
+            Incident.Priority.MEDIUM,
+        )
+        self.assertIn(
+            "¿Confirmas la creación del incidente?",
+            third_processing["reply"],
+        )
+        self.assertEqual(
+            Incident.objects.count(),
+            0,
+        )
+
+        draft.refresh_from_db()
+
+        self.assertEqual(
+            draft.status,
+            IncidentDraft.Status.READY,
+        )
+
+        fourth_result = self.service.process_text(
+            provider="telegram",
+            external_user_id="priority-test-user",
+            external_chat_id="priority-test-chat",
+            external_message_id="priority-test-4",
+            text="Sí",
+            raw_payload={
+                "test": True,
+            },
+        )
+
+        fourth_processing = fourth_result["processing"]
+
+        self.assertEqual(
+            fourth_processing["action"],
             "incident_created",
         )
         self.assertTrue(
-            third_processing["incident_created"],
+            fourth_processing["incident_created"],
         )
 
         incident = Incident.objects.get()

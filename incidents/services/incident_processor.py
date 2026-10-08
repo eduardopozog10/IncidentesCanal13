@@ -77,6 +77,25 @@ class IncidentProcessor:
         "siguiente dato; no es necesario repetir lo anterior."
     )
 
+    CONFIRMATION_POSITIVE = {
+        "si",
+        "si confirmo",
+        "confirmo",
+        "confirmado",
+        "correcto",
+        "crear reporte",
+        "crear incidente",
+    }
+
+    CONFIRMATION_NEGATIVE = {
+        "no",
+        "no confirmo",
+        "quiero corregir",
+        "corregir",
+        "quiero cambiar",
+        "cambiar",
+    }
+
     def __init__(self, ai_provider=None):
         self.ai_provider = ai_provider or get_ai_provider()
 
@@ -101,6 +120,20 @@ class IncidentProcessor:
             .order_by("-updated_at")
             .first()
         )
+
+        if (
+            draft is not None
+            and draft.status == IncidentDraft.Status.READY
+        ):
+            confirmation_result = (
+                self._handle_ready_draft_confirmation(
+                    message=message,
+                    draft=draft,
+                )
+            )
+
+            if confirmation_result is not None:
+                return confirmation_result
 
         quick_reply = self._get_quick_conversation_reply(
             message.content
@@ -366,10 +399,178 @@ class IncidentProcessor:
                 "extracted_data": extracted_data,
             }
 
+        confirmation_reply = self._build_confirmation_reply(
+            extracted_data
+        )
+
+        draft.last_question = confirmation_reply
+        draft.status = IncidentDraft.Status.READY
+        draft.save(
+            update_fields=[
+                "last_question",
+                "status",
+                "updated_at",
+            ]
+        )
+
+        message.status = ChannelMessage.Status.PROCESSED
+        message.processed_at = timezone.now()
+        message.save(
+            update_fields=[
+                "draft",
+                "status",
+                "processed_at",
+            ]
+        )
+
+        return {
+            "action": "ask_clarification",
+            "incident_created": False,
+            "draft_id": draft.pk,
+            "missing_fields": [],
+            "reply": confirmation_reply,
+            "extracted_data": extracted_data,
+        }
+
+    def _handle_ready_draft_confirmation(
+        self,
+        message: ChannelMessage,
+        draft: IncidentDraft,
+    ):
+        normalized_message = self._normalize_quick_text(
+            message.content
+        )
+
+        if normalized_message in self.CONFIRMATION_POSITIVE:
+            return self._create_incident_from_draft(
+                message=message,
+                draft=draft,
+            )
+
+        if normalized_message in self.CONFIRMATION_NEGATIVE:
+            reply = (
+                "De acuerdo. Indícame qué dato quieres corregir "
+                "antes de crear el incidente."
+            )
+
+            draft.status = IncidentDraft.Status.COLLECTING
+            draft.last_question = reply
+            draft.save(
+                update_fields=[
+                    "status",
+                    "last_question",
+                    "updated_at",
+                ]
+            )
+
+            message.draft = draft
+            message.status = ChannelMessage.Status.PROCESSED
+            message.processed_at = timezone.now()
+            message.save(
+                update_fields=[
+                    "draft",
+                    "status",
+                    "processed_at",
+                ]
+            )
+
+            return {
+                "action": "ask_clarification",
+                "incident_created": False,
+                "draft_id": draft.pk,
+                "missing_fields": [],
+                "reply": reply,
+                "extracted_data": dict(
+                    draft.extracted_data or {}
+                ),
+            }
+
+        return None
+
+    def _build_confirmation_reply(
+        self,
+        extracted_data: dict,
+    ) -> str:
+        asset_category_labels = dict(
+            Incident.AssetCategory.choices
+        )
+
+        priority_labels = dict(
+            Incident.Priority.choices
+        )
+
+        area = extracted_data.get("area") or "No informada"
+
+        location_context = (
+            extracted_data.get("location_context")
+            or extracted_data.get("unit")
+            or "No informada"
+        )
+
+        asset_category = asset_category_labels.get(
+            extracted_data.get("asset_category"),
+            "No informada",
+        )
+
+        equipment = (
+            extracted_data.get("equipment")
+            or "No informado"
+        )
+
+        failure_type = (
+            extracted_data.get("failure_type")
+            or "No informado"
+        )
+
+        description = (
+            extracted_data.get("description")
+            or "No informada"
+        )
+
+        operational_impact = (
+            extracted_data.get("operational_impact")
+            or "No informado"
+        )
+
+        priority = priority_labels.get(
+            extracted_data.get("priority"),
+            "No informada",
+        )
+
+        return (
+            "Antes de crear el incidente, revisa los datos:\n\n"
+            f"• Área: {area}\n"
+            f"• Ubicación/contexto: {location_context}\n"
+            f"• Familia: {asset_category}\n"
+            f"• Equipo/servicio: {equipment}\n"
+            f"• Síntoma: {failure_type}\n"
+            f"• Descripción: {description}\n"
+            f"• Impacto operacional: {operational_impact}\n"
+            f"• Prioridad: {priority}\n\n"
+            "¿Confirmas la creación del incidente? "
+            "Responde Sí para crearlo o No para corregir "
+            "algún dato."
+        )
+
+    def _create_incident_from_draft(
+        self,
+        message: ChannelMessage,
+        draft: IncidentDraft,
+    ):
+        extracted_data = {
+            key: value
+            for key, value in dict(
+                draft.extracted_data or {}
+            ).items()
+            if key != self.PENDING_MESSAGES_KEY
+        }
+
         initial_message_content = ""
 
         if draft.initial_message is not None:
-            initial_message_content = draft.initial_message.content
+            initial_message_content = (
+                draft.initial_message.content
+            )
 
         incident = Incident.objects.create(
             technician=message.technician,
@@ -414,6 +615,7 @@ class IncidentProcessor:
             incident=incident,
         )
 
+        message.draft = draft
         message.incident = incident
         message.status = ChannelMessage.Status.PROCESSED
         message.processed_at = timezone.now()
