@@ -1,6 +1,9 @@
+from types import SimpleNamespace
 from django.test import TestCase, override_settings
 
 from django.utils import timezone
+
+from incidents.services.incident_processor import IncidentProcessor
 
 
 
@@ -955,6 +958,811 @@ class IncomingMessageServiceTests(TestCase):
             processing["extracted_data"]["description"],
         )
 
+    def test_normalizes_area_variant_in_direct_reply(self):
+        first_result = self.service.process_text(
+            provider="telegram",
+            external_user_id="123456789",
+            external_chat_id="123456789",
+            external_message_id="123456789:area-normalization-1",
+            text="La consola no funciona",
+            raw_payload={
+                "test": True,
+            },
+        )
+
+        draft = IncidentDraft.objects.get(
+            pk=first_result["processing"]["draft_id"],
+        )
+
+        draft.extracted_data = {
+            "unit": "Estudio 3",
+            "area": None,
+            "location_context": "Estudio 3",
+            "asset_category": Incident.AssetCategory.AUDIO,
+            "equipment": "Micrófono 2",
+            "failure_type": "Audio cortado",
+            "description": (
+                "El Micrófono 2 presenta audio cortado "
+                "en el Estudio 3."
+            ),
+            "operational_impact": "Permite continuar operando",
+            "priority": Incident.Priority.MEDIUM,
+        }
+        draft.missing_fields = ["area"]
+        draft.last_question = (
+            "¿A qué área corresponde el incidente?"
+        )
+        draft.status = IncidentDraft.Status.COLLECTING
+        draft.save(
+            update_fields=[
+                "extracted_data",
+                "missing_fields",
+                "last_question",
+                "status",
+                "updated_at",
+            ]
+        )
+
+        result = self.service.process_text(
+            provider="telegram",
+            external_user_id="123456789",
+            external_chat_id="123456789",
+            external_message_id="123456789:area-normalization-2",
+            text="Áudio",
+            raw_payload={
+                "test": True,
+            },
+        )
+
+        processing = result["processing"]
+
+        self.assertEqual(
+            processing["extracted_data"]["area"],
+            "Audio",
+        )
+        self.assertEqual(
+            processing["missing_fields"],
+            [],
+        )
+        self.assertIn(
+            "¿Confirmas la creación del incidente?",
+            processing["reply"],
+        )
+
+    def test_no_se_conecta_is_accepted_as_failure_type(self):
+        first_result = self.service.process_text(
+            provider="telegram",
+            external_user_id="123456789",
+            external_chat_id="123456789",
+            external_message_id="123456789:connection-failure-1",
+            text="La consola no funciona",
+            raw_payload={
+                "test": True,
+            },
+        )
+
+        draft = IncidentDraft.objects.get(
+            pk=first_result["processing"]["draft_id"],
+        )
+
+        draft.extracted_data = {
+            "unit": "Estudio 2",
+            "area": "Audio",
+            "location_context": "Estudio 2",
+            "asset_category": Incident.AssetCategory.AUDIO,
+            "equipment": "Intercom 2",
+            "failure_type": None,
+            "description": (
+                "El Intercom 2 presenta problemas "
+                "de conexión con la consola."
+            ),
+            "operational_impact": "Interrumpe la grabación",
+            "priority": Incident.Priority.HIGH,
+        }
+        draft.missing_fields = ["failure_type"]
+        draft.last_question = (
+            "¿Qué problema presenta exactamente el equipo?"
+        )
+        draft.status = IncidentDraft.Status.COLLECTING
+        draft.save(
+            update_fields=[
+                "extracted_data",
+                "missing_fields",
+                "last_question",
+                "status",
+                "updated_at",
+            ]
+        )
+
+        result = self.service.process_text(
+            provider="telegram",
+            external_user_id="123456789",
+            external_chat_id="123456789",
+            external_message_id="123456789:connection-failure-2",
+            text="No se conecta a la consola",
+            raw_payload={
+                "test": True,
+            },
+        )
+
+        processing = result["processing"]
+
+        self.assertEqual(
+            processing["extracted_data"]["failure_type"],
+            "No se conecta a la consola",
+        )
+        self.assertNotIn(
+            "failure_type",
+            processing["missing_fields"],
+        )
+        self.assertIn(
+            "¿Confirmas la creación del incidente?",
+            processing["reply"],
+        )
+
+    def test_failure_detail_during_impact_question_updates_description(self):
+        first_result = self.service.process_text(
+            provider="telegram",
+            external_user_id="123456789",
+            external_chat_id="123456789",
+            external_message_id="123456789:impact-symptom-1",
+            text="La consola no funciona",
+            raw_payload={
+                "test": True,
+            },
+        )
+
+        draft = IncidentDraft.objects.get(
+            pk=first_result["processing"]["draft_id"],
+        )
+
+        draft.extracted_data = {
+            "unit": "Estudio 2",
+            "area": "Audio",
+            "location_context": "Estudio 2",
+            "asset_category": Incident.AssetCategory.AUDIO,
+            "equipment": "Intercom 2",
+            "failure_type": "No se conecta a la consola",
+            "description": (
+                "El Intercom 2 no se conecta a la consola."
+            ),
+            "operational_impact": None,
+            "priority": Incident.Priority.HIGH,
+        }
+        draft.missing_fields = ["operational_impact"]
+        draft.last_question = (
+            "¿Qué impacto operacional está generando la falla?"
+        )
+        draft.status = IncidentDraft.Status.COLLECTING
+        draft.save(
+            update_fields=[
+                "extracted_data",
+                "missing_fields",
+                "last_question",
+                "status",
+                "updated_at",
+            ]
+        )
+
+        result = self.service.process_text(
+            provider="telegram",
+            external_user_id="123456789",
+            external_chat_id="123456789",
+            external_message_id="123456789:impact-symptom-2",
+            text="No se puede escuchar el retorno",
+            raw_payload={
+                "test": True,
+            },
+        )
+
+        processing = result["processing"]
+
+        self.assertIsNone(
+            processing["extracted_data"]["operational_impact"],
+        )
+        self.assertIn(
+            "No se puede escuchar el retorno",
+            processing["extracted_data"]["description"],
+        )
+        self.assertIn(
+            "operational_impact",
+            processing["missing_fields"],
+        )
+        self.assertIn(
+            "Agregué ese síntoma al reporte",
+            processing["reply"],
+        )
+        self.assertIn(
+            "impacto operacional",
+            processing["reply"],
+        )
+
+    def test_cleans_affirmation_from_operational_impact(self):
+        first_result = self.service.process_text(
+            provider="telegram",
+            external_user_id="123456789",
+            external_chat_id="123456789",
+            external_message_id="123456789:clean-impact-1",
+            text="La consola no funciona",
+            raw_payload={
+                "test": True,
+            },
+        )
+
+        draft = IncidentDraft.objects.get(
+            pk=first_result["processing"]["draft_id"],
+        )
+
+        draft.extracted_data = {
+            "unit": "Estudio 2",
+            "area": "Audio",
+            "location_context": "Estudio 2",
+            "asset_category": Incident.AssetCategory.AUDIO,
+            "equipment": "Intercom 2",
+            "failure_type": "Sin retorno",
+            "description": (
+                "El Intercom 2 del Estudio 2 está sin retorno."
+            ),
+            "operational_impact": None,
+            "priority": Incident.Priority.HIGH,
+        }
+        draft.missing_fields = ["operational_impact"]
+        draft.last_question = (
+            "¿Qué impacto operacional está generando la falla?"
+        )
+        draft.status = IncidentDraft.Status.COLLECTING
+        draft.save(
+            update_fields=[
+                "extracted_data",
+                "missing_fields",
+                "last_question",
+                "status",
+                "updated_at",
+            ]
+        )
+
+        result = self.service.process_text(
+            provider="telegram",
+            external_user_id="123456789",
+            external_chat_id="123456789",
+            external_message_id="123456789:clean-impact-2",
+            text="Sí, interrumpe la grabación",
+            raw_payload={
+                "test": True,
+            },
+        )
+
+        processing = result["processing"]
+
+        self.assertEqual(
+            processing["extracted_data"]["operational_impact"],
+            "Interrumpe la grabación",
+        )
+        self.assertEqual(
+            processing["missing_fields"],
+            [],
+        )
+        self.assertNotIn(
+            "Sí,",
+            processing["extracted_data"]["operational_impact"],
+        )
+        self.assertIn(
+            "¿Confirmas la creación del incidente?",
+            processing["reply"],
+        )
+
+    def test_ambiguous_equipment_reply_does_not_invent_equipment(self):
+        first_result = self.service.process_text(
+            provider="telegram",
+            external_user_id="123456789",
+            external_chat_id="123456789",
+            external_message_id="123456789:ambiguous-equipment-1",
+            text="La consola no funciona",
+            raw_payload={
+                "test": True,
+            },
+        )
+
+        draft = IncidentDraft.objects.get(
+            pk=first_result["processing"]["draft_id"],
+        )
+
+        draft.extracted_data = {
+            "unit": "Estudio 2",
+            "area": "Audio",
+            "location_context": "Estudio 2",
+            "asset_category": Incident.AssetCategory.AUDIO,
+            "equipment": None,
+            "failure_type": "No se conecta a la consola",
+            "description": (
+                "Un equipo de audio del Estudio 2 "
+                "no se conecta a la consola."
+            ),
+            "operational_impact": "Interrumpe la grabación",
+            "priority": Incident.Priority.HIGH,
+        }
+        draft.missing_fields = ["equipment"]
+        draft.last_question = "¿Qué equipo presenta la falla?"
+        draft.status = IncidentDraft.Status.COLLECTING
+        draft.save(
+            update_fields=[
+                "extracted_data",
+                "missing_fields",
+                "last_question",
+                "status",
+                "updated_at",
+            ]
+        )
+
+        result = self.service.process_text(
+            provider="telegram",
+            external_user_id="123456789",
+            external_chat_id="123456789",
+            external_message_id="123456789:ambiguous-equipment-2",
+            text=(
+                "Es el equipo de audio, "
+                "no se pueden conectar a la consola"
+            ),
+            raw_payload={
+                "test": True,
+            },
+        )
+
+        processing = result["processing"]
+
+        self.assertEqual(
+            processing["action"],
+            "ask_clarification",
+        )
+        self.assertFalse(
+            processing["incident_created"],
+        )
+
+        self.assertIsNone(
+            processing["extracted_data"]["equipment"],
+        )
+
+        self.assertIn(
+            "equipment",
+            processing["missing_fields"],
+        )
+
+        self.assertIn(
+            "necesito identificar",
+            processing["reply"],
+        )
+
+        self.assertIn(
+            "equipo o servicio específico",
+            processing["reply"],
+        )
+
+        self.assertNotIn(
+            "¿Confirmas la creación del incidente?",
+            processing["reply"],
+        )
+
+    def test_timeout_preserves_question_and_continues_pending_message(self):
+        class TimeoutThenSuccessProvider:
+            def __init__(self):
+                self.calls = 0
+                self.messages = []
+
+            def extract_incident(
+                self,
+                message,
+                previous_data=None,
+            ):
+                self.calls += 1
+                self.messages.append(message)
+
+                if self.calls == 1:
+                    raise TimeoutError(
+                        "Timeout simulado para la prueba"
+                    )
+
+                previous_data = previous_data or {}
+
+                return SimpleNamespace(
+                    intent="incident_followup",
+                    conversation_reply=None,
+                    unit=previous_data.get("unit"),
+                    area=previous_data.get("area"),
+                    location_context=previous_data.get(
+                        "location_context"
+                    ),
+                    asset_category=previous_data.get(
+                        "asset_category"
+                    ),
+                    equipment=previous_data.get("equipment"),
+                    failure_type="Sin retorno",
+                    description=(
+                        "El Intercom 2 del Estudio 2 "
+                        "quedó sin retorno."
+                    ),
+                    operational_impact=previous_data.get(
+                        "operational_impact"
+                    ),
+                    priority=previous_data.get("priority"),
+                    clarification_question=None,
+                )
+
+        provider = TimeoutThenSuccessProvider()
+
+        processor = IncidentProcessor(
+            ai_provider=provider,
+        )
+
+        original_question = (
+            "¿Qué problema presenta exactamente el equipo?"
+        )
+
+        draft = IncidentDraft.objects.create(
+            technician=self.technician,
+            extracted_data={
+                "unit": "Estudio 2",
+                "area": "Audio",
+                "location_context": "Estudio 2",
+                "asset_category": Incident.AssetCategory.AUDIO,
+                "equipment": "Intercom 2",
+                "failure_type": None,
+                "description": (
+                    "El Intercom 2 del Estudio 2 "
+                    "presenta una falla."
+                ),
+                "operational_impact": (
+                    "Interrumpe la grabación"
+                ),
+                "priority": Incident.Priority.HIGH,
+            },
+            missing_fields=["failure_type"],
+            last_question=original_question,
+            status=IncidentDraft.Status.COLLECTING,
+        )
+
+        timeout_message = ChannelMessage.objects.create(
+            provider=ChannelMessage.Provider.TELEGRAM,
+            external_message_id="timeout-preserve-1",
+            external_sender_id="123456789",
+            external_chat_id="123456789",
+            channel_account=self.channel,
+            technician=self.technician,
+            direction=ChannelMessage.Direction.INBOUND,
+            message_type=ChannelMessage.MessageType.TEXT,
+            content="El retorno desaparece por completo",
+            raw_payload={
+                "test": True,
+            },
+        )
+
+        timeout_result = processor.process(
+            timeout_message
+        )
+
+        self.assertEqual(
+            timeout_result["action"],
+            "ai_timeout",
+        )
+
+        self.assertFalse(
+            timeout_result["incident_created"],
+        )
+
+        draft.refresh_from_db()
+
+        self.assertEqual(
+            draft.last_question,
+            original_question,
+        )
+
+        self.assertEqual(
+            draft.status,
+            IncidentDraft.Status.COLLECTING,
+        )
+
+        self.assertIn(
+            "failure_type",
+            draft.missing_fields,
+        )
+
+        self.assertEqual(
+            draft.extracted_data[
+                IncidentProcessor.PENDING_MESSAGES_KEY
+            ],
+            [
+                "El retorno desaparece por completo",
+            ],
+        )
+
+        continue_message = ChannelMessage.objects.create(
+            provider=ChannelMessage.Provider.TELEGRAM,
+            external_message_id="timeout-preserve-2",
+            external_sender_id="123456789",
+            external_chat_id="123456789",
+            channel_account=self.channel,
+            technician=self.technician,
+            direction=ChannelMessage.Direction.INBOUND,
+            message_type=ChannelMessage.MessageType.TEXT,
+            content="continuar",
+            raw_payload={
+                "test": True,
+            },
+        )
+
+        continue_result = processor.process(
+            continue_message
+        )
+
+        self.assertEqual(
+            provider.calls,
+            2,
+        )
+
+        self.assertEqual(
+            provider.messages[1],
+            "El retorno desaparece por completo",
+        )
+
+        self.assertEqual(
+            continue_result["action"],
+            "ask_clarification",
+        )
+
+        self.assertFalse(
+            continue_result["incident_created"],
+        )
+
+        self.assertEqual(
+            continue_result["extracted_data"]["failure_type"],
+            "Sin retorno",
+        )
+
+        self.assertEqual(
+            continue_result["missing_fields"],
+            [],
+        )
+
+        self.assertIn(
+            "¿Confirmas la creación del incidente?",
+            continue_result["reply"],
+        )
+
+        draft.refresh_from_db()
+
+        self.assertEqual(
+            draft.extracted_data["failure_type"],
+            "Sin retorno",
+        )
+
+        self.assertNotIn(
+            IncidentProcessor.PENDING_MESSAGES_KEY,
+            draft.extracted_data,
+        )
+
+    def test_natural_failure_correction_is_processed_without_ai(self):
+        class FailIfCalledProvider:
+            def extract_incident(
+                self,
+                message,
+                previous_data=None,
+            ):
+                raise AssertionError(
+                    "La IA no debe llamarse para esta corrección."
+                )
+
+        processor = IncidentProcessor(
+            ai_provider=FailIfCalledProvider(),
+        )
+
+        draft = IncidentDraft.objects.create(
+            technician=self.technician,
+            extracted_data={
+                "unit": "Estudio 4",
+                "area": "Audio",
+                "location_context": "Estudio 4",
+                "asset_category": Incident.AssetCategory.AUDIO,
+                "equipment": "Intercom 2",
+                "failure_type": "Falla de conexión",
+                "description": (
+                    "El Intercom 2 no se conecta a la consola. "
+                    "No se puede escuchar el retorno."
+                ),
+                "operational_impact": (
+                    "Interrumpe la grabación"
+                ),
+                "priority": Incident.Priority.LOW,
+            },
+            missing_fields=[],
+            last_question=(
+                "De acuerdo. Indícame qué dato quieres corregir "
+                "antes de crear el incidente."
+            ),
+            status=IncidentDraft.Status.COLLECTING,
+        )
+
+        message = ChannelMessage.objects.create(
+            provider=ChannelMessage.Provider.TELEGRAM,
+            external_message_id="natural-failure-correction-1",
+            external_sender_id="123456789",
+            external_chat_id="123456789",
+            channel_account=self.channel,
+            technician=self.technician,
+            direction=ChannelMessage.Direction.INBOUND,
+            message_type=ChannelMessage.MessageType.TEXT,
+            content=(
+                "era que no se conecta a la consola "
+                "me equivoqué"
+            ),
+            raw_payload={
+                "test": True,
+            },
+        )
+
+        result = processor.process(
+            message
+        )
+
+        self.assertEqual(
+            result["action"],
+            "ask_clarification",
+        )
+
+        self.assertFalse(
+            result["incident_created"],
+        )
+
+        self.assertEqual(
+            result["extracted_data"]["failure_type"],
+            "No se conecta a la consola",
+        )
+
+        self.assertEqual(
+            result["missing_fields"],
+            [],
+        )
+
+        self.assertEqual(
+            result["extracted_data"]["equipment"],
+            "Intercom 2",
+        )
+
+        self.assertEqual(
+            result["extracted_data"]["operational_impact"],
+            "Interrumpe la grabación",
+        )
+
+        self.assertIn(
+            "¿Confirmas la creación del incidente?",
+            result["reply"],
+        )
+
+        draft.refresh_from_db()
+
+        self.assertEqual(
+            draft.extracted_data["failure_type"],
+            "No se conecta a la consola",
+        )
+
+        self.assertEqual(
+            draft.status,
+            IncidentDraft.Status.READY,
+        )
+
+    def test_failure_correction_updates_description_without_duplication(self):
+        class FailIfCalledProvider:
+            def extract_incident(
+                self,
+                message,
+                previous_data=None,
+            ):
+                raise AssertionError(
+                    "La IA no debe llamarse para esta corrección."
+                )
+
+        processor = IncidentProcessor(
+            ai_provider=FailIfCalledProvider(),
+        )
+
+        draft = IncidentDraft.objects.create(
+            technician=self.technician,
+            extracted_data={
+                "unit": "Estudio 4",
+                "area": "Audio",
+                "location_context": "Estudio 4",
+                "asset_category": Incident.AssetCategory.AUDIO,
+                "equipment": "Intercom 2",
+                "failure_type": "Falla de conexión",
+                "description": (
+                    "El Intercom 2 presenta falla de conexión "
+                    "a la consola y no se puede escuchar el retorno."
+                ),
+                "operational_impact": (
+                    "Interrumpe la grabación"
+                ),
+                "priority": Incident.Priority.LOW,
+            },
+            missing_fields=[],
+            last_question=(
+                "De acuerdo. Indícame qué dato quieres corregir "
+                "antes de crear el incidente."
+            ),
+            status=IncidentDraft.Status.COLLECTING,
+        )
+
+        message = ChannelMessage.objects.create(
+            provider=ChannelMessage.Provider.TELEGRAM,
+            external_message_id="failure-description-correction-1",
+            external_sender_id="123456789",
+            external_chat_id="123456789",
+            channel_account=self.channel,
+            technician=self.technician,
+            direction=ChannelMessage.Direction.INBOUND,
+            message_type=ChannelMessage.MessageType.TEXT,
+            content=(
+                "era que no se conecta a la consola "
+                "me equivoqué"
+            ),
+            raw_payload={
+                "test": True,
+            },
+        )
+
+        result = processor.process(
+            message
+        )
+
+        expected_description = (
+            "El Intercom 2 no se conecta a la consola. "
+            "No se puede escuchar el retorno."
+        )
+
+        self.assertEqual(
+            result["extracted_data"]["failure_type"],
+            "No se conecta a la consola",
+        )
+
+        self.assertEqual(
+            result["extracted_data"]["description"],
+            expected_description,
+        )
+
+        self.assertNotIn(
+            "a la consola a la consola",
+            result["extracted_data"]["description"],
+        )
+
+        self.assertNotIn(
+            "presenta No se conecta",
+            result["extracted_data"]["description"],
+        )
+
+        self.assertEqual(
+            result["missing_fields"],
+            [],
+        )
+
+        self.assertIn(
+            "¿Confirmas la creación del incidente?",
+            result["reply"],
+        )
+
+        draft.refresh_from_db()
+
+        self.assertEqual(
+            draft.extracted_data["failure_type"],
+            "No se conecta a la consola",
+        )
+
+        self.assertEqual(
+            draft.extracted_data["description"],
+            expected_description,
+        )
+
+        self.assertEqual(
+            draft.status,
+            IncidentDraft.Status.READY,
+        )
+
 class IncidentListViewTests(TestCase):
 
     def setUp(self):
@@ -1599,7 +2407,26 @@ class IncidentDetailViewTests(TestCase):
 
         )
 
+    def test_incident_code_uses_canal13_prefix(self):
+        self.assertEqual(
+            self.incident.code,
+            f"C13-{self.incident.pk:06d}",
+        )
 
+        self.assertTrue(
+            self.incident.code.startswith("C13-"),
+        )
+
+        self.assertFalse(
+            self.incident.code.startswith("TVT-"),
+        )
+
+        pending_incident = Incident()
+
+        self.assertEqual(
+            pending_incident.code,
+            "C13-PENDIENTE",
+        )
 
     def test_retrieves_incident_detail(self):
 
@@ -2296,6 +3123,73 @@ class IncidentAnalyticsViewTests(TestCase):
                     "label": asset_category_labels[
                         Incident.AssetCategory.VIDEO_CAMERAS
                     ],
+                    "count": 1,
+                },
+            ],
+        )
+
+    def test_groups_area_variants_ignoring_case_and_accents(self):
+        area_variants = (
+            "audio",
+            "Audio",
+            "AUDIO",
+            "Áudio",
+        )
+
+        for index, area in enumerate(
+            area_variants,
+            start=1,
+        ):
+            Incident.objects.create(
+                technician=self.technician,
+                unit=f"Estudio Audio {index}",
+                area=area,
+                location_context=f"Estudio Audio {index}",
+                asset_category=Incident.AssetCategory.AUDIO,
+                equipment=f"Micrófono {index}",
+                failure_type="Sin audio",
+                description=(
+                    f"El Micrófono {index} quedó sin audio."
+                ),
+                operational_impact=(
+                    "Permite continuar usando un respaldo"
+                ),
+                priority=Incident.Priority.MEDIUM,
+                status=Incident.Status.REPORTED,
+                original_message=(
+                    f"Incidente de prueba en área {area}."
+                ),
+            )
+
+        response = self.client.get(
+            "/api/v1/incidents/analytics/",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        data = response.json()
+
+        self.assertEqual(
+            data["metrics"]["total"],
+            7,
+        )
+
+        self.assertEqual(
+            data["by_area"],
+            [
+                {
+                    "area": "Audio",
+                    "count": 4,
+                },
+                {
+                    "area": "Redes",
+                    "count": 2,
+                },
+                {
+                    "area": "Producción",
                     "count": 1,
                 },
             ],

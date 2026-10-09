@@ -1,3 +1,4 @@
+import unicodedata
 from datetime import timedelta
 
 from django.db.models import (
@@ -62,6 +63,87 @@ def filter_queryset_by_date_range(queryset, request):
         )
 
     return queryset
+
+AREA_CANONICAL_LABELS = {
+    "audio": "Audio",
+    "produccion": "Producción",
+    "operaciones": "Operaciones",
+    "redes": "Redes",
+    "sistemas": "Sistemas",
+    "transmision": "Transmisión",
+    "senal": "Señal",
+    "video": "Video",
+    "camaras": "Cámaras",
+    "iluminacion": "Iluminación",
+    "infraestructura": "Infraestructura",
+    "digital": "Digital",
+    "streaming": "Streaming",
+    "estudios": "Estudios",
+    "control tecnico": "Control Técnico",
+    "tecnologia": "Tecnología",
+}
+
+
+def normalize_grouping_text(value: str) -> str:
+    cleaned_value = " ".join(
+        (value or "").strip().split()
+    ).casefold()
+
+    normalized_value = unicodedata.normalize(
+        "NFD",
+        cleaned_value,
+    )
+
+    return "".join(
+        character
+        for character in normalized_value
+        if unicodedata.category(character) != "Mn"
+    )
+
+
+def build_normalized_area_data(queryset):
+    area_counts = {}
+
+    areas = queryset.exclude(
+        area=""
+    ).values_list(
+        "area",
+        flat=True,
+    )
+
+    for area in areas:
+        cleaned_area = " ".join(
+            str(area).strip().split()
+        )
+
+        if not cleaned_area:
+            continue
+
+        normalized_area = normalize_grouping_text(
+            cleaned_area
+        )
+
+        if not normalized_area:
+            continue
+
+        if normalized_area not in area_counts:
+            area_counts[normalized_area] = {
+                "area": AREA_CANONICAL_LABELS.get(
+                    normalized_area,
+                    cleaned_area,
+                ),
+                "count": 0,
+            }
+
+        area_counts[normalized_area]["count"] += 1
+
+    return sorted(
+        area_counts.values(),
+        key=lambda item: (
+            -item["count"],
+            normalize_grouping_text(item["area"]),
+        ),
+    )[:10]
 
 
 class IncidentListView(generics.ListAPIView):
@@ -374,16 +456,9 @@ class IncidentAnalyticsView(APIView):
             "-count"
         )
 
-        by_area = queryset.exclude(
-            area=""
-        ).values(
-            "area"
-        ).annotate(
-            count=Count("id")
-        ).order_by(
-            "-count",
-            "area",
-        )[:10]
+        area_data = build_normalized_area_data(
+            queryset
+        )
 
         by_location_context = queryset.exclude(
             location_context=""
@@ -473,14 +548,6 @@ class IncidentAnalyticsView(APIView):
                 "count": item["count"],
             }
             for item in by_priority
-        ]
-
-        area_data = [
-            {
-                "area": item["area"],
-                "count": item["count"],
-            }
-            for item in by_area
         ]
 
         location_context_data = [

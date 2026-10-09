@@ -23,6 +23,25 @@ class IncidentProcessor:
         "priority",
     )
 
+    AREA_CANONICAL_LABELS = {
+        "audio": "Audio",
+        "produccion": "Producción",
+        "operaciones": "Operaciones",
+        "redes": "Redes",
+        "sistemas": "Sistemas",
+        "transmision": "Transmisión",
+        "senal": "Señal",
+        "video": "Video",
+        "camaras": "Cámaras",
+        "iluminacion": "Iluminación",
+        "infraestructura": "Infraestructura",
+        "digital": "Digital",
+        "streaming": "Streaming",
+        "estudios": "Estudios",
+        "control tecnico": "Control Técnico",
+        "tecnologia": "Tecnología",
+    }
+
     PENDING_MESSAGES_KEY = "_pending_messages"
 
     FALLBACK_QUESTIONS = {
@@ -205,6 +224,7 @@ class IncidentProcessor:
             previous_data=previous_data,
             pending_messages=pending_messages,
         )
+
         if direct_draft_result is not None:
             extracted_data, clarification_question = (
                 direct_draft_result
@@ -248,7 +268,9 @@ class IncidentProcessor:
 
             extracted_data = {
                 "unit": previous_data.get("unit"),
-                "area": previous_data.get("area"),
+                "area": self._normalize_area_value(
+                    previous_data.get("area")
+                ),
                 "location_context": previous_data.get(
                     "location_context"
                 ),
@@ -259,7 +281,9 @@ class IncidentProcessor:
                 "failure_type": previous_data.get(
                     "failure_type"
                 ),
-                "description": previous_data.get("description"),
+                "description": previous_data.get(
+                    "description"
+                ),
                 "operational_impact": previous_data.get(
                     "operational_impact"
                 ),
@@ -311,40 +335,40 @@ class IncidentProcessor:
 
             extracted_data = {
                 "unit": (
-                    extraction.unit
-                    or previous_data.get("unit")
+                    previous_data.get("unit")
+                    or extraction.unit
                 ),
-                "area": (
-                    extraction.area
-                    or previous_data.get("area")
+                "area": self._normalize_area_value(
+                    previous_data.get("area")
+                    or extraction.area
                 ),
                 "location_context": (
-                    extraction.location_context
-                    or previous_data.get("location_context")
+                    previous_data.get("location_context")
+                    or extraction.location_context
                 ),
                 "asset_category": (
-                    extraction.asset_category
-                    or previous_data.get("asset_category")
+                    previous_data.get("asset_category")
+                    or extraction.asset_category
                 ),
                 "equipment": (
-                    extraction.equipment
-                    or previous_data.get("equipment")
+                    previous_data.get("equipment")
+                    or extraction.equipment
                 ),
                 "failure_type": (
-                    extraction.failure_type
-                    or previous_data.get("failure_type")
+                    previous_data.get("failure_type")
+                    or extraction.failure_type
                 ),
                 "description": (
                     extraction.description
                     or previous_data.get("description")
                 ),
                 "operational_impact": (
-                    extraction.operational_impact
-                    or previous_data.get("operational_impact")
+                    previous_data.get("operational_impact")
+                    or extraction.operational_impact
                 ),
                 "priority": (
-                    extraction.priority
-                    or previous_data.get("priority")
+                    previous_data.get("priority")
+                    or extraction.priority
                 ),
             }
 
@@ -358,13 +382,17 @@ class IncidentProcessor:
         )
 
         if location_context:
-            extracted_data["location_context"] = location_context
+            extracted_data["location_context"] = (
+                location_context
+            )
 
             if not extracted_data.get("unit"):
                 extracted_data["unit"] = location_context
 
-        details_were_generic = self._sanitize_incident_details(
-            extracted_data
+        details_were_generic = (
+            self._sanitize_incident_details(
+                extracted_data
+            )
         )
 
         valid_priorities = {
@@ -407,6 +435,7 @@ class IncidentProcessor:
                     else IncidentDraft.Status.READY
                 ),
             )
+
         else:
             draft.extracted_data = extracted_data
             draft.missing_fields = missing_fields
@@ -548,7 +577,10 @@ class IncidentProcessor:
             Incident.Priority.choices
         )
 
-        area = extracted_data.get("area") or "No informada"
+        area = (
+            extracted_data.get("area")
+            or "No informada"
+        )
 
         location_context = (
             extracted_data.get("location_context")
@@ -634,13 +666,15 @@ class IncidentProcessor:
                 or ""
             ),
             asset_category=(
-                extracted_data.get("asset_category") or ""
+                extracted_data.get("asset_category")
+                or ""
             ),
             equipment=extracted_data["equipment"],
             failure_type=extracted_data["failure_type"],
             description=extracted_data["description"],
             operational_impact=(
-                extracted_data.get("operational_impact") or ""
+                extracted_data.get("operational_impact")
+                or ""
             ),
             priority=extracted_data["priority"],
             status=Incident.Status.REPORTED,
@@ -771,9 +805,13 @@ class IncidentProcessor:
                 "extracted_data": previous_data,
             }
 
-        saved_pending_messages = list(pending_messages)
+        saved_pending_messages = list(
+            pending_messages
+        )
 
-        if self._should_store_pending_message(message.content):
+        if self._should_store_pending_message(
+            message.content
+        ):
             saved_pending_messages.append(
                 message.content.strip()
             )
@@ -791,13 +829,11 @@ class IncidentProcessor:
 
         draft.extracted_data = timeout_data
         draft.missing_fields = missing_fields
-        draft.last_question = self.AI_TIMEOUT_REPLY
         draft.status = IncidentDraft.Status.COLLECTING
         draft.save(
             update_fields=[
                 "extracted_data",
                 "missing_fields",
-                "last_question",
                 "status",
                 "updated_at",
             ]
@@ -832,7 +868,10 @@ class IncidentProcessor:
             [],
         )
 
-        if not isinstance(pending_messages, list):
+        if not isinstance(
+            pending_messages,
+            list,
+        ):
             return []
 
         return [
@@ -849,8 +888,10 @@ class IncidentProcessor:
         if not pending_messages:
             return current_message
 
-        normalized_current = self._normalize_quick_text(
-            current_message
+        normalized_current = (
+            self._normalize_quick_text(
+                current_message
+            )
         )
 
         if normalized_current in {
@@ -860,7 +901,9 @@ class IncidentProcessor:
             "seguir",
             "sigamos",
         }:
-            return "\n".join(pending_messages)
+            return "\n".join(
+                pending_messages
+            )
 
         pending_text = "\n".join(
             f"- {pending_message}"
@@ -879,7 +922,9 @@ class IncidentProcessor:
         self,
         text: str,
     ) -> bool:
-        normalized_text = self._normalize_quick_text(text)
+        normalized_text = (
+            self._normalize_quick_text(text)
+        )
 
         return normalized_text not in {
             "continuar",
@@ -899,7 +944,9 @@ class IncidentProcessor:
         if draft is None:
             return None
 
-        normalized_text = self._normalize_quick_text(text)
+        normalized_text = (
+            self._normalize_quick_text(text)
+        )
 
         continuation_words = {
             "continuar",
@@ -917,9 +964,36 @@ class IncidentProcessor:
 
             candidate_text = pending_messages[0]
 
-        correction = self._extract_explicit_field_correction(
-            candidate_text
+        correction = (
+            self._extract_explicit_field_correction(
+                candidate_text
+            )
         )
+
+        if correction is None:
+            normalized_question = (
+                self._normalize_quick_text(
+                    draft.last_question
+                )
+            )
+
+            is_correction_mode = (
+                "dato quieres corregir"
+                in normalized_question
+            )
+
+            if is_correction_mode:
+                natural_failure = (
+                    self._extract_natural_failure_correction(
+                        candidate_text
+                    )
+                )
+
+                if natural_failure is not None:
+                    correction = (
+                        "failure_type",
+                        natural_failure,
+                    )
 
         if correction is None:
             natural_location = (
@@ -937,11 +1011,15 @@ class IncidentProcessor:
         if correction is not None:
             field_name, value = correction
 
-            extracted_data = dict(previous_data)
+            extracted_data = dict(
+                previous_data
+            )
 
             if field_name == "priority":
-                priority = self._extract_explicit_priority(
-                    value
+                priority = (
+                    self._extract_explicit_priority(
+                        value
+                    )
                 )
 
                 if priority is None:
@@ -953,7 +1031,9 @@ class IncidentProcessor:
                 value = priority
 
             else:
-                value = self._clean_direct_value(value)
+                value = self._clean_direct_value(
+                    value
+                )
 
                 if not self._is_valid_direct_field_value(
                     field_name=field_name,
@@ -985,14 +1065,20 @@ class IncidentProcessor:
         if expected_field is None:
             return None
 
-        if self._looks_like_compound_reply(text):
+        if self._looks_like_compound_reply(
+            text
+        ):
             return None
 
-        extracted_data = dict(previous_data)
+        extracted_data = dict(
+            previous_data
+        )
 
         if expected_field == "priority":
-            priority = self._extract_explicit_priority(
-                text
+            priority = (
+                self._extract_explicit_priority(
+                    text
+                )
             )
 
             if priority is None:
@@ -1012,10 +1098,54 @@ class IncidentProcessor:
                 None,
             )
 
-        value = self._clean_direct_value(text)
+        value = self._clean_direct_value(
+            text
+        )
 
         if not value:
             return None
+
+        if (
+            expected_field == "equipment"
+            and self._is_ambiguous_equipment_reply(
+                value
+            )
+        ):
+            return (
+                extracted_data,
+                (
+                    "Entiendo el problema, pero necesito identificar "
+                    "con precisión el equipo afectado. "
+                    "¿Qué equipo o servicio específico presenta la falla? "
+                    "Por ejemplo: Micrófono 2, Intercom 4, "
+                    "Consola principal o Router principal."
+                ),
+            )
+
+        if (
+            expected_field == "operational_impact"
+            and self._is_valid_direct_field_value(
+                field_name="failure_type",
+                value=value,
+                previous_data=extracted_data,
+            )
+        ):
+            self._append_failure_detail_to_description(
+                extracted_data=extracted_data,
+                value=value,
+            )
+
+            return (
+                extracted_data,
+                (
+                    "Entendido. Agregué ese síntoma al reporte. "
+                    "Ahora necesito el impacto operacional: "
+                    "¿qué efecto tiene esta falla sobre la operación? "
+                    "Por ejemplo, ¿interrumpe la grabación, afecta "
+                    "la señal, obliga a usar un respaldo o permite "
+                    "continuar operando?"
+                ),
+            )
 
         if not self._is_valid_direct_field_value(
             field_name=expected_field,
@@ -1041,8 +1171,10 @@ class IncidentProcessor:
         value: str,
         previous_data: dict,
     ) -> bool:
-        normalized_value = self._normalize_quick_text(
-            value
+        normalized_value = (
+            self._normalize_quick_text(
+                value
+            )
         )
 
         if not normalized_value:
@@ -1135,7 +1267,10 @@ class IncidentProcessor:
             )
 
         if field_name == "failure_type":
-            if normalized_value in self.GENERIC_FAILURE_TYPES:
+            if (
+                normalized_value
+                in self.GENERIC_FAILURE_TYPES
+            ):
                 return False
 
             failure_markers = (
@@ -1149,6 +1284,16 @@ class IncidentProcessor:
                 "intermit",
                 "no enciende",
                 "no responde",
+                "no se conecta",
+                "no conecta",
+                "no logra conectar",
+                "no se puede conectar",
+                "no se pueden conectar",
+                "no se escucha",
+                "no se puede escuchar",
+                "no se oye",
+                "sin retorno",
+                "no hay retorno",
                 "congel",
                 "distors",
                 "interferencia",
@@ -1195,7 +1340,9 @@ class IncidentProcessor:
             contextual_values = (
                 previous_data.get("equipment"),
                 previous_data.get("failure_type"),
-                previous_data.get("location_context"),
+                previous_data.get(
+                    "location_context"
+                ),
             )
 
             for contextual_value in contextual_values:
@@ -1237,11 +1384,69 @@ class IncidentProcessor:
 
         return False
 
+    def _is_ambiguous_equipment_reply(
+        self,
+        value: str,
+    ) -> bool:
+        normalized_value = self._normalize_quick_text(
+            value
+        )
+
+        generic_equipment_markers = (
+            "equipo de audio",
+            "equipos de audio",
+            "equipo de video",
+            "equipos de video",
+            "equipo de red",
+            "equipos de red",
+            "equipo de produccion",
+            "equipos de produccion",
+            "equipo tecnico",
+            "equipos tecnicos",
+        )
+
+        failure_markers = (
+            "no se conecta",
+            "no conecta",
+            "no se puede conectar",
+            "no se pueden conectar",
+            "sin conexion",
+            "no funciona",
+            "no responde",
+            "no enciende",
+            "no se escucha",
+            "sin audio",
+            "sin imagen",
+            "sin señal",
+            "ruido",
+            "corte",
+            "pierde",
+        )
+
+        mentions_generic_equipment = any(
+            marker in normalized_value
+            for marker in generic_equipment_markers
+        )
+
+        mentions_failure = any(
+            marker in normalized_value
+            for marker in failure_markers
+        )
+
+        return (
+            mentions_generic_equipment
+            and mentions_failure
+        )
+
     def _looks_like_compound_reply(
         self,
         text: str,
     ) -> bool:
-        normalized_text = self._normalize_quick_text(text)
+        normalized_text = (
+            self._normalize_quick_text(
+                text
+            )
+        )
 
         if text.count(",") >= 2:
             return True
@@ -1272,8 +1477,10 @@ class IncidentProcessor:
         if not question:
             return None
 
-        normalized_question = self._normalize_quick_text(
-            question
+        normalized_question = (
+            self._normalize_quick_text(
+                question
+            )
         )
 
         if "prioridad" in normalized_question:
@@ -1311,19 +1518,23 @@ class IncidentProcessor:
         if (
             "donde esta ocurriendo" in normalized_question
             or "ubicacion" in normalized_question
-            or "contexto operacional" in normalized_question
+            or "contexto operacional"
+            in normalized_question
         ):
             return "location_context"
 
         if (
             "sintoma" in normalized_question
-            or "comportamiento anormal" in normalized_question
-            or "que problema presenta" in normalized_question
+            or "comportamiento anormal"
+            in normalized_question
+            or "que problema presenta"
+            in normalized_question
         ):
             return "failure_type"
 
         if (
-            "puedes describir" in normalized_question
+            "puedes describir"
+            in normalized_question
             or "describe con un poco mas de detalle"
             in normalized_question
         ):
@@ -1333,7 +1544,101 @@ class IncidentProcessor:
             return "equipment"
 
         return None
-    
+
+    def _extract_natural_failure_correction(
+        self,
+        text: str,
+    ) -> str | None:
+        cleaned_text = " ".join(
+            text.strip().split()
+        )
+
+        normalized_text = (
+            self._normalize_quick_text(
+                cleaned_text
+            )
+        )
+
+        correction_markers = (
+            "era que",
+            "en realidad",
+            "me equivoque",
+            "quise decir",
+            "queria decir",
+        )
+
+        if not any(
+            marker in normalized_text
+            for marker in correction_markers
+        ):
+            return None
+
+        value = cleaned_text
+
+        prefix_patterns = (
+            r"^era\s+que\s+",
+            (
+                r"^en\s+realidad\s+"
+                r"(?:era\s+que\s+|es\s+que\s+|es\s+)?"
+            ),
+            (
+                r"^me\s+equivoqu[eé]"
+                r"\s*[,;:\-]?\s*"
+            ),
+            (
+                r"^quise\s+decir"
+                r"(?:\s+que)?\s+"
+            ),
+            (
+                r"^quer[ií]a\s+decir"
+                r"(?:\s+que)?\s+"
+            ),
+        )
+
+        for pattern in prefix_patterns:
+            updated_value = re.sub(
+                pattern,
+                "",
+                value,
+                count=1,
+                flags=re.IGNORECASE,
+            )
+
+            if updated_value != value:
+                value = updated_value
+                break
+
+        value = re.sub(
+            (
+                r"[\s,;:\-]*"
+                r"(?:me\s+equivoqu[eé]|perd[oó]n)"
+                r"\s*$"
+            ),
+            "",
+            value,
+            count=1,
+            flags=re.IGNORECASE,
+        )
+
+        value = self._clean_direct_value(
+            value
+        )
+
+        if not value:
+            return None
+
+        if not self._is_valid_direct_field_value(
+            field_name="failure_type",
+            value=value,
+            previous_data={},
+        ):
+            return None
+
+        return (
+            value[0].upper()
+            + value[1:]
+        )
+
     def _extract_natural_location_correction(
         self,
         text: str,
@@ -1412,7 +1717,8 @@ class IncidentProcessor:
             (
                 "equipment",
                 (
-                    r"^(?:el\s+)?equipo(?:\s+correcto)?"
+                    r"^(?:el\s+)?equipo"
+                    r"(?:\s+correcto)?"
                     r"\s+(?:es|sería|seria)\s+(.+)$"
                 ),
             ),
@@ -1487,7 +1793,6 @@ class IncidentProcessor:
 
         return None
 
-
     def _apply_direct_field_value(
         self,
         extracted_data: dict,
@@ -1499,9 +1804,15 @@ class IncidentProcessor:
         )
 
         if field_name == "area" and value:
+            value = self._normalize_area_value(
+                value
+            )
+
+        if field_name == "operational_impact":
             value = (
-                value[0].upper()
-                + value[1:]
+                self._clean_operational_impact_value(
+                    value
+                )
             )
 
         extracted_data[field_name] = value
@@ -1509,10 +1820,16 @@ class IncidentProcessor:
         if field_name == "location_context":
             extracted_data["unit"] = value
 
-        if field_name in {
+        if field_name == "failure_type":
+            self._synchronize_description_after_failure_correction(
+                extracted_data=extracted_data,
+                previous_value=previous_value,
+                new_value=value,
+            )
+
+        elif field_name in {
             "equipment",
             "location_context",
-            "failure_type",
         }:
             self._synchronize_description_after_direct_correction(
                 extracted_data=extracted_data,
@@ -1520,6 +1837,256 @@ class IncidentProcessor:
                 new_value=value,
             )
 
+    def _append_failure_detail_to_description(
+        self,
+        extracted_data: dict,
+        value: str,
+    ) -> None:
+        detail = self._clean_direct_value(
+            value
+        )
+
+        if not detail:
+            return
+
+        description = (
+            extracted_data.get("description")
+            or ""
+        ).strip()
+
+        normalized_detail = (
+            self._normalize_quick_text(
+                detail
+            )
+        )
+
+        if (
+            description
+            and normalized_detail
+            in self._normalize_quick_text(
+                description
+            )
+        ):
+            return
+
+        detail = (
+            detail[0].upper()
+            + detail[1:]
+        )
+
+        if not detail.endswith("."):
+            detail += "."
+
+        if description:
+            description = description.rstrip()
+
+            if not description.endswith("."):
+                description += "."
+
+            extracted_data["description"] = (
+                f"{description} {detail}"
+            )
+
+        else:
+            extracted_data["description"] = (
+                detail
+            )
+
+    def _synchronize_description_after_failure_correction(
+        self,
+        extracted_data: dict,
+        previous_value: str | None,
+        new_value: str,
+    ) -> None:
+        description = str(
+            extracted_data.get("description") or ""
+        ).strip()
+
+        equipment = self._clean_direct_value(
+            str(
+                extracted_data.get("equipment")
+                or ""
+            )
+        )
+
+        new_value = self._clean_direct_value(
+            str(new_value or "")
+        )
+
+        if not equipment or not new_value:
+            return
+
+        normalized_new_value = (
+            self._normalize_quick_text(
+                new_value
+            )
+        )
+
+        normalized_equipment = (
+            self._normalize_quick_text(
+                equipment
+            )
+        )
+
+        feminine_equipment_prefixes = (
+            "camara",
+            "consola",
+            "antena",
+            "luminaria",
+            "pantalla",
+        )
+
+        if normalized_equipment.startswith(
+            feminine_equipment_prefixes
+        ):
+            subject = f"La {equipment}"
+        else:
+            subject = f"El {equipment}"
+
+        lower_new_value = (
+            new_value[0].lower()
+            + new_value[1:]
+        )
+
+        direct_predicate_prefixes = (
+            "no ",
+            "pierde ",
+            "presenta ",
+            "tiene ",
+            "queda ",
+            "quedo ",
+            "se ",
+            "esta ",
+        )
+
+        if normalized_new_value.startswith(
+            "sin "
+        ):
+            main_sentence = (
+                f"{subject} está "
+                f"{lower_new_value}."
+            )
+
+        elif normalized_new_value.startswith(
+            direct_predicate_prefixes
+        ):
+            main_sentence = (
+                f"{subject} "
+                f"{lower_new_value}."
+            )
+
+        else:
+            main_sentence = (
+                f"{subject} presenta "
+                f"{lower_new_value}."
+            )
+
+        details = []
+
+        if description:
+            sentences = [
+                sentence.strip()
+                for sentence in re.split(
+                    r"(?<=[.!?])\s+",
+                    description,
+                )
+                if sentence.strip()
+            ]
+
+            if sentences:
+                first_sentence = sentences[0]
+
+                inline_detail_match = re.search(
+                    r"\s+y\s+(.+)$",
+                    first_sentence,
+                    flags=re.IGNORECASE,
+                )
+
+                if inline_detail_match is not None:
+                    inline_detail = (
+                        self._clean_direct_value(
+                            inline_detail_match.group(1)
+                        )
+                    )
+
+                    if inline_detail:
+                        details.append(
+                            inline_detail
+                        )
+
+                details.extend(
+                    sentences[1:]
+                )
+
+        previous_normalized = (
+            self._normalize_quick_text(
+                str(previous_value)
+            )
+            if previous_value
+            else ""
+        )
+
+        seen_details = {
+            self._normalize_quick_text(
+                main_sentence
+            )
+        }
+
+        formatted_details = []
+
+        for detail in details:
+            clean_detail = (
+                self._clean_direct_value(
+                    str(detail)
+                )
+            )
+
+            if not clean_detail:
+                continue
+
+            normalized_detail = (
+                self._normalize_quick_text(
+                    clean_detail
+                )
+            )
+
+            if not normalized_detail:
+                continue
+
+            if normalized_detail in seen_details:
+                continue
+
+            if (
+                previous_normalized
+                and normalized_detail
+                == previous_normalized
+            ):
+                continue
+
+            clean_detail = (
+                clean_detail[0].upper()
+                + clean_detail[1:]
+            )
+
+            if not clean_detail.endswith(
+                (".", "!", "?")
+            ):
+                clean_detail += "."
+
+            formatted_details.append(
+                clean_detail
+            )
+
+            seen_details.add(
+                normalized_detail
+            )
+
+        extracted_data["description"] = " ".join(
+            [
+                main_sentence,
+                *formatted_details,
+            ]
+        )
 
     def _synchronize_description_after_direct_correction(
         self,
@@ -1564,10 +2131,12 @@ class IncidentProcessor:
         if pattern.search(description) is None:
             return
 
-        extracted_data["description"] = pattern.sub(
-            new_value,
-            description,
-            count=1,
+        extracted_data["description"] = (
+            pattern.sub(
+                new_value,
+                description,
+                count=1,
+            )
         )
 
     def _clean_direct_value(
@@ -1580,6 +2149,55 @@ class IncidentProcessor:
 
         return value.strip(" .")
 
+    def _clean_operational_impact_value(
+        self,
+        value: str,
+    ) -> str:
+        clean_value = (
+            self._clean_direct_value(
+                value
+            )
+        )
+
+        clean_value = re.sub(
+            r"^(?:sí|si|claro|correcto|exacto)"
+            r"[\s,;:\-]+",
+            "",
+            clean_value,
+            count=1,
+            flags=re.IGNORECASE,
+        ).strip()
+
+        if not clean_value:
+            return value
+
+        return (
+            clean_value[0].upper()
+            + clean_value[1:]
+        )
+
+    def _normalize_area_value(
+        self,
+        value: str | None,
+    ) -> str | None:
+        if not value:
+            return None
+
+        clean_value = " ".join(
+            str(value).strip().split()
+        )
+
+        normalized_value = (
+            self._normalize_quick_text(
+                clean_value
+            )
+        )
+
+        return self.AREA_CANONICAL_LABELS.get(
+            normalized_value,
+            clean_value,
+        )
+
     def _is_waiting_only_for_priority(
         self,
         draft: IncidentDraft | None,
@@ -1587,7 +2205,10 @@ class IncidentProcessor:
         if draft is None:
             return False
 
-        missing_fields = draft.missing_fields or []
+        missing_fields = (
+            draft.missing_fields
+            or []
+        )
 
         return (
             len(missing_fields) == 1
@@ -1598,7 +2219,11 @@ class IncidentProcessor:
         self,
         text: str,
     ) -> str | None:
-        normalized_text = self._normalize_quick_text(text)
+        normalized_text = (
+            self._normalize_quick_text(
+                text
+            )
+        )
 
         priority_words = {
             "baja": Incident.Priority.LOW,
@@ -1624,18 +2249,27 @@ class IncidentProcessor:
 
         return detected_priorities.pop()
 
-    def _normalize_quick_text(self, text: str) -> str:
-        normalized_text = text.strip().lower()
+    def _normalize_quick_text(
+        self,
+        text: str,
+    ) -> str:
+        normalized_text = (
+            text.strip().lower()
+        )
 
-        normalized_text = unicodedata.normalize(
-            "NFD",
-            normalized_text,
+        normalized_text = (
+            unicodedata.normalize(
+                "NFD",
+                normalized_text,
+            )
         )
 
         normalized_text = "".join(
             character
             for character in normalized_text
-            if unicodedata.category(character) != "Mn"
+            if unicodedata.category(
+                character
+            ) != "Mn"
         )
 
         for character in (
@@ -1648,9 +2282,11 @@ class IncidentProcessor:
             ";",
             ":",
         ):
-            normalized_text = normalized_text.replace(
-                character,
-                "",
+            normalized_text = (
+                normalized_text.replace(
+                    character,
+                    "",
+                )
             )
 
         normalized_text = " ".join(
@@ -1663,7 +2299,11 @@ class IncidentProcessor:
         self,
         text: str,
     ) -> str | None:
-        normalized_text = self._normalize_quick_text(text)
+        normalized_text = (
+            self._normalize_quick_text(
+                text
+            )
+        )
 
         greetings = {
             "hola": (
@@ -1693,7 +2333,9 @@ class IncidentProcessor:
         }
 
         if normalized_text in greetings:
-            return greetings[normalized_text]
+            return greetings[
+                normalized_text
+            ]
 
         thanks = {
             "gracias",
