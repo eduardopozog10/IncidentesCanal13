@@ -634,6 +634,327 @@ class IncomingMessageServiceTests(TestCase):
             0,
         )
 
+    def test_valid_operational_impact_continues_draft(self):
+        first_result = self.service.process_text(
+            provider="telegram",
+            external_user_id="123456789",
+            external_chat_id="123456789",
+            external_message_id="123456789:direct-impact-1",
+            text=(
+                "Área Audio. En el Estudio 4, un micrófono "
+                "presenta audio cortado."
+            ),
+            raw_payload={
+                "test": True,
+            },
+        )
+
+        first_processing = first_result["processing"]
+
+        self.assertEqual(
+            first_processing["action"],
+            "ask_clarification",
+        )
+        self.assertIn(
+            "operational_impact",
+            first_processing["missing_fields"],
+        )
+
+        second_result = self.service.process_text(
+            provider="telegram",
+            external_user_id="123456789",
+            external_chat_id="123456789",
+            external_message_id="123456789:direct-impact-2",
+            text=(
+                "La grabación puede continuar usando "
+                "un micrófono de respaldo."
+            ),
+            raw_payload={
+                "test": True,
+            },
+        )
+
+        second_processing = second_result["processing"]
+
+        self.assertEqual(
+            second_processing["action"],
+            "ask_clarification",
+        )
+        self.assertFalse(
+            second_processing["incident_created"],
+        )
+        self.assertEqual(
+            second_processing["extracted_data"][
+                "operational_impact"
+            ],
+            (
+                "La grabación puede continuar usando "
+                "un micrófono de respaldo"
+            ),
+        )
+        self.assertNotIn(
+            "operational_impact",
+            second_processing["missing_fields"],
+        )
+        self.assertIn(
+            "priority",
+            second_processing["missing_fields"],
+        )
+
+
+    def test_unrelated_reply_is_not_saved_as_operational_impact(self):
+        first_result = self.service.process_text(
+            provider="telegram",
+            external_user_id="123456789",
+            external_chat_id="123456789",
+            external_message_id="123456789:unrelated-1",
+            text=(
+                "Área Audio. En el Estudio 4, un micrófono "
+                "presenta ruido constante."
+            ),
+            raw_payload={
+                "test": True,
+            },
+        )
+
+        draft_id = first_result["processing"]["draft_id"]
+
+        draft = IncidentDraft.objects.get(
+            pk=draft_id,
+        )
+
+        previous_question = draft.last_question
+
+        second_result = self.service.process_text(
+            provider="telegram",
+            external_user_id="123456789",
+            external_chat_id="123456789",
+            external_message_id="123456789:unrelated-2",
+            text="Tengo hambre",
+            raw_payload={
+                "test": True,
+            },
+        )
+
+        self.assertFalse(
+            second_result["processing"]["incident_created"],
+        )
+
+        draft.refresh_from_db()
+
+        self.assertNotEqual(
+            draft.extracted_data.get(
+                "operational_impact"
+            ),
+            "Tengo hambre",
+        )
+        self.assertIn(
+            "operational_impact",
+            draft.missing_fields,
+        )
+        self.assertEqual(
+            draft.status,
+            IncidentDraft.Status.COLLECTING,
+        )
+
+        if second_result["processing"]["action"] == "conversation":
+            self.assertEqual(
+                draft.last_question,
+                previous_question,
+            )
+
+
+    def test_equipment_correction_updates_description(self):
+        first_result = self.service.process_text(
+            provider="telegram",
+            external_user_id="123456789",
+            external_chat_id="123456789",
+            external_message_id="123456789:equipment-correction-1",
+            text="La consola no funciona",
+            raw_payload={
+                "test": True,
+            },
+        )
+
+        draft = IncidentDraft.objects.get(
+            pk=first_result["processing"]["draft_id"],
+        )
+
+        draft.extracted_data = {
+            "unit": "Estudio 3",
+            "area": "Audio",
+            "location_context": "Estudio 3",
+            "asset_category": Incident.AssetCategory.AUDIO,
+            "equipment": "Micrófono 5",
+            "failure_type": "Ruido constante",
+            "description": (
+                "El Micrófono 5 presenta ruido constante "
+                "durante la grabación en el Estudio 3."
+            ),
+            "operational_impact": (
+                "La grabación puede continuar usando "
+                "un micrófono de respaldo."
+            ),
+            "priority": Incident.Priority.MEDIUM,
+        }
+        draft.missing_fields = []
+        draft.last_question = (
+            "¿Confirmas la creación del incidente?"
+        )
+        draft.status = IncidentDraft.Status.READY
+        draft.save(
+            update_fields=[
+                "extracted_data",
+                "missing_fields",
+                "last_question",
+                "status",
+                "updated_at",
+            ]
+        )
+
+        self.service.process_text(
+            provider="telegram",
+            external_user_id="123456789",
+            external_chat_id="123456789",
+            external_message_id="123456789:equipment-correction-2",
+            text="No",
+            raw_payload={
+                "test": True,
+            },
+        )
+
+        correction_result = self.service.process_text(
+            provider="telegram",
+            external_user_id="123456789",
+            external_chat_id="123456789",
+            external_message_id="123456789:equipment-correction-3",
+            text="El equipo correcto es Micrófono 6.",
+            raw_payload={
+                "test": True,
+            },
+        )
+
+        processing = correction_result["processing"]
+
+        self.assertEqual(
+            processing["action"],
+            "ask_clarification",
+        )
+        self.assertEqual(
+            processing["missing_fields"],
+            [],
+        )
+        self.assertEqual(
+            processing["extracted_data"]["equipment"],
+            "Micrófono 6",
+        )
+        self.assertIn(
+            "Micrófono 6",
+            processing["extracted_data"]["description"],
+        )
+        self.assertNotIn(
+            "Micrófono 5",
+            processing["extracted_data"]["description"],
+        )
+
+
+    def test_natural_location_correction_updates_description(self):
+        first_result = self.service.process_text(
+            provider="telegram",
+            external_user_id="123456789",
+            external_chat_id="123456789",
+            external_message_id="123456789:location-correction-1",
+            text="La consola no funciona",
+            raw_payload={
+                "test": True,
+            },
+        )
+
+        draft = IncidentDraft.objects.get(
+            pk=first_result["processing"]["draft_id"],
+        )
+
+        draft.extracted_data = {
+            "unit": "Estudio 1",
+            "area": "Audio",
+            "location_context": "Estudio 1",
+            "asset_category": Incident.AssetCategory.AUDIO,
+            "equipment": "Micrófono 6",
+            "failure_type": "Ruido constante",
+            "description": (
+                "El Micrófono 6 presenta ruido constante "
+                "durante la grabación en el Estudio 1."
+            ),
+            "operational_impact": (
+                "La grabación puede continuar usando "
+                "un micrófono de respaldo."
+            ),
+            "priority": Incident.Priority.MEDIUM,
+        }
+        draft.missing_fields = []
+        draft.last_question = (
+            "¿Confirmas la creación del incidente?"
+        )
+        draft.status = IncidentDraft.Status.READY
+        draft.save(
+            update_fields=[
+                "extracted_data",
+                "missing_fields",
+                "last_question",
+                "status",
+                "updated_at",
+            ]
+        )
+
+        self.service.process_text(
+            provider="telegram",
+            external_user_id="123456789",
+            external_chat_id="123456789",
+            external_message_id="123456789:location-correction-2",
+            text="No",
+            raw_payload={
+                "test": True,
+            },
+        )
+
+        correction_result = self.service.process_text(
+            provider="telegram",
+            external_user_id="123456789",
+            external_chat_id="123456789",
+            external_message_id="123456789:location-correction-3",
+            text="En realidad es en el Estudio 2.",
+            raw_payload={
+                "test": True,
+            },
+        )
+
+        processing = correction_result["processing"]
+
+        self.assertEqual(
+            processing["action"],
+            "ask_clarification",
+        )
+        self.assertEqual(
+            processing["missing_fields"],
+            [],
+        )
+        self.assertEqual(
+            processing["extracted_data"]["location_context"],
+            "Estudio 2",
+        )
+        self.assertEqual(
+            processing["extracted_data"]["unit"],
+            "Estudio 2",
+        )
+        self.assertIn(
+            "Estudio 2",
+            processing["extracted_data"]["description"],
+        )
+        self.assertNotIn(
+            "Estudio 1",
+            processing["extracted_data"]["description"],
+        )
+
 class IncidentListViewTests(TestCase):
 
     def setUp(self):

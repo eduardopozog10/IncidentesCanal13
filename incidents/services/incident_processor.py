@@ -1,3 +1,4 @@
+import re
 import unicodedata
 
 from django.db import transaction
@@ -198,7 +199,18 @@ class IncidentProcessor:
             if key != self.PENDING_MESSAGES_KEY
         }
 
-        if self._is_waiting_only_for_priority(draft):
+        direct_draft_result = self._try_process_direct_draft_reply(
+            draft=draft,
+            text=message.content,
+            previous_data=previous_data,
+            pending_messages=pending_messages,
+        )
+        if direct_draft_result is not None:
+            extracted_data, clarification_question = (
+                direct_draft_result
+            )
+
+        elif self._is_waiting_only_for_priority(draft):
             priority = self._extract_explicit_priority(
                 message.content
             )
@@ -876,6 +888,697 @@ class IncidentProcessor:
             "seguir",
             "sigamos",
         }
+
+    def _try_process_direct_draft_reply(
+        self,
+        draft: IncidentDraft | None,
+        text: str,
+        previous_data: dict,
+        pending_messages: list[str],
+    ) -> tuple[dict, str | None] | None:
+        if draft is None:
+            return None
+
+        normalized_text = self._normalize_quick_text(text)
+
+        continuation_words = {
+            "continuar",
+            "continua",
+            "continuemos",
+            "seguir",
+            "sigamos",
+        }
+
+        candidate_text = text
+
+        if normalized_text in continuation_words:
+            if len(pending_messages) != 1:
+                return None
+
+            candidate_text = pending_messages[0]
+
+        correction = self._extract_explicit_field_correction(
+            candidate_text
+        )
+
+        if correction is None:
+            natural_location = (
+                self._extract_natural_location_correction(
+                    candidate_text
+                )
+            )
+
+            if natural_location is not None:
+                correction = (
+                    "location_context",
+                    natural_location,
+                )
+
+        if correction is not None:
+            field_name, value = correction
+
+            extracted_data = dict(previous_data)
+
+            if field_name == "priority":
+                priority = self._extract_explicit_priority(
+                    value
+                )
+
+                if priority is None:
+                    return (
+                        extracted_data,
+                        self.PRIORITY_GUIDANCE,
+                    )
+
+                value = priority
+
+            else:
+                value = self._clean_direct_value(value)
+
+                if not self._is_valid_direct_field_value(
+                    field_name=field_name,
+                    value=value,
+                    previous_data=extracted_data,
+                ):
+                    return None
+
+            self._apply_direct_field_value(
+                extracted_data=extracted_data,
+                field_name=field_name,
+                value=value,
+            )
+
+            return (
+                extracted_data,
+                None,
+            )
+
+        if normalized_text in continuation_words:
+            return None
+
+        expected_field = (
+            self._infer_expected_field_from_last_question(
+                draft.last_question
+            )
+        )
+
+        if expected_field is None:
+            return None
+
+        if self._looks_like_compound_reply(text):
+            return None
+
+        extracted_data = dict(previous_data)
+
+        if expected_field == "priority":
+            priority = self._extract_explicit_priority(
+                text
+            )
+
+            if priority is None:
+                return (
+                    extracted_data,
+                    self.PRIORITY_GUIDANCE,
+                )
+
+            self._apply_direct_field_value(
+                extracted_data=extracted_data,
+                field_name="priority",
+                value=priority,
+            )
+
+            return (
+                extracted_data,
+                None,
+            )
+
+        value = self._clean_direct_value(text)
+
+        if not value:
+            return None
+
+        if not self._is_valid_direct_field_value(
+            field_name=expected_field,
+            value=value,
+            previous_data=extracted_data,
+        ):
+            return None
+
+        self._apply_direct_field_value(
+            extracted_data=extracted_data,
+            field_name=expected_field,
+            value=value,
+        )
+
+        return (
+            extracted_data,
+            None,
+        )
+
+    def _is_valid_direct_field_value(
+        self,
+        field_name: str,
+        value: str,
+        previous_data: dict,
+    ) -> bool:
+        normalized_value = self._normalize_quick_text(
+            value
+        )
+
+        if not normalized_value:
+            return False
+
+        obviously_unrelated = {
+            "tengo hambre",
+            "tengo sueño",
+            "no se",
+            "no sé",
+            "ni idea",
+            "hola",
+            "gracias",
+            "ok",
+            "si",
+            "no",
+            "da lo mismo",
+            "no importa",
+        }
+
+        if normalized_value in obviously_unrelated:
+            return False
+
+        if field_name == "area":
+            valid_areas = {
+                "audio",
+                "produccion",
+                "operaciones",
+                "redes",
+                "sistemas",
+                "transmision",
+                "señal",
+                "video",
+                "camaras",
+                "iluminacion",
+                "infraestructura",
+                "digital",
+                "streaming",
+                "estudios",
+                "control tecnico",
+            }
+
+            return normalized_value in valid_areas
+
+        if field_name == "location_context":
+            location_markers = (
+                "estudio",
+                "sala",
+                "control",
+                "movil",
+                "unidad movil",
+                "plataforma",
+                "piso",
+                "edificio",
+                "set",
+                "terreno",
+            )
+
+            return any(
+                marker in normalized_value
+                for marker in location_markers
+            )
+
+        if field_name == "equipment":
+            equipment_markers = (
+                "camara",
+                "microfono",
+                "consola",
+                "router",
+                "switch",
+                "servidor",
+                "monitor",
+                "encoder",
+                "decodificador",
+                "transmisor",
+                "receptor",
+                "antena",
+                "enlace",
+                "computador",
+                "pc",
+                "mezclador",
+                "intercom",
+                "luminaria",
+                "panel",
+            )
+
+            return any(
+                marker in normalized_value
+                for marker in equipment_markers
+            )
+
+        if field_name == "failure_type":
+            if normalized_value in self.GENERIC_FAILURE_TYPES:
+                return False
+
+            failure_markers = (
+                "sin imagen",
+                "sin audio",
+                "sin señal",
+                "sin conexion",
+                "ruido",
+                "corte",
+                "cortes",
+                "intermit",
+                "no enciende",
+                "no responde",
+                "congel",
+                "distors",
+                "interferencia",
+                "desconexion",
+                "pierde",
+                "perdida",
+                "latencia",
+                "desfase",
+            )
+
+            return any(
+                marker in normalized_value
+                for marker in failure_markers
+            )
+
+        if field_name == "operational_impact":
+            impact_markers = (
+                "detiene",
+                "interrumpe",
+                "impide",
+                "retrasa",
+                "degrada",
+                "afecta",
+                "sin impacto",
+                "no afecta",
+                "respaldo",
+                "puede continuar",
+                "permite continuar",
+                "continuar operando",
+                "continua operando",
+            )
+
+            return any(
+                marker in normalized_value
+                for marker in impact_markers
+            )
+
+        if field_name == "description":
+            words = normalized_value.split()
+
+            if len(words) < 4:
+                return False
+
+            contextual_values = (
+                previous_data.get("equipment"),
+                previous_data.get("failure_type"),
+                previous_data.get("location_context"),
+            )
+
+            for contextual_value in contextual_values:
+                if not contextual_value:
+                    continue
+
+                normalized_context = (
+                    self._normalize_quick_text(
+                        str(contextual_value)
+                    )
+                )
+
+                if (
+                    normalized_context
+                    and normalized_context
+                    in normalized_value
+                ):
+                    return True
+
+            description_markers = (
+                "ruido",
+                "corte",
+                "cortes",
+                "señal",
+                "audio",
+                "imagen",
+                "enciende",
+                "intermit",
+                "conexion",
+                "grabacion",
+                "produccion",
+                "transmision",
+            )
+
+            return any(
+                marker in normalized_value
+                for marker in description_markers
+            )
+
+        return False
+
+    def _looks_like_compound_reply(
+        self,
+        text: str,
+    ) -> bool:
+        normalized_text = self._normalize_quick_text(text)
+
+        if text.count(",") >= 2:
+            return True
+
+        compound_markers = (
+            "area ",
+            "unidad movil",
+            "estudio ",
+            "prioridad ",
+            "impacto ",
+            "obliga a usar",
+            "detiene la produccion",
+            "afecta la señal",
+        )
+
+        detected_markers = sum(
+            1
+            for marker in compound_markers
+            if marker in normalized_text
+        )
+
+        return detected_markers >= 2
+
+    def _infer_expected_field_from_last_question(
+        self,
+        question: str,
+    ) -> str | None:
+        if not question:
+            return None
+
+        normalized_question = self._normalize_quick_text(
+            question
+        )
+
+        if "prioridad" in normalized_question:
+            return "priority"
+
+        impact_context_markers = (
+            "operacion",
+            "produccion",
+            "senal",
+            "emision",
+            "servicio",
+        )
+
+        asks_about_impact = (
+            "impacto operacional" in normalized_question
+            or "que impacto" in normalized_question
+            or "que efecto" in normalized_question
+            or "como afecta" in normalized_question
+        )
+
+        mentions_operational_context = any(
+            marker in normalized_question
+            for marker in impact_context_markers
+        )
+
+        if (
+            asks_about_impact
+            and mentions_operational_context
+        ):
+            return "operational_impact"
+
+        if "area" in normalized_question:
+            return "area"
+
+        if (
+            "donde esta ocurriendo" in normalized_question
+            or "ubicacion" in normalized_question
+            or "contexto operacional" in normalized_question
+        ):
+            return "location_context"
+
+        if (
+            "sintoma" in normalized_question
+            or "comportamiento anormal" in normalized_question
+            or "que problema presenta" in normalized_question
+        ):
+            return "failure_type"
+
+        if (
+            "puedes describir" in normalized_question
+            or "describe con un poco mas de detalle"
+            in normalized_question
+        ):
+            return "description"
+
+        if "que equipo" in normalized_question:
+            return "equipment"
+
+        return None
+    
+    def _extract_natural_location_correction(
+        self,
+        text: str,
+    ) -> str | None:
+        cleaned_text = " ".join(
+            text.strip().split()
+        )
+
+        patterns = (
+            (
+                r"^(?:en\s+realidad\s+)?"
+                r"(?:es|sería|seria)\s+en\s+"
+                r"(?:el\s+|la\s+)?(.+)$"
+            ),
+            (
+                r"^(?:en\s+realidad\s+)?"
+                r"(?:es|sería|seria)\s+"
+                r"(?:el\s+|la\s+)?(.+)$"
+            ),
+        )
+
+        location_markers = (
+            "estudio",
+            "movil",
+            "unidad movil",
+            "control central",
+            "sala",
+            "plataforma",
+        )
+
+        for pattern in patterns:
+            match = re.match(
+                pattern,
+                cleaned_text,
+                flags=re.IGNORECASE,
+            )
+
+            if match is None:
+                continue
+
+            value = self._clean_direct_value(
+                match.group(1)
+            )
+
+            normalized_value = (
+                self._normalize_quick_text(
+                    value
+                )
+            )
+
+            if not any(
+                marker in normalized_value
+                for marker in location_markers
+            ):
+                continue
+
+            if value:
+                value = (
+                    value[0].upper()
+                    + value[1:]
+                )
+
+            return value
+
+        return None
+
+    def _extract_explicit_field_correction(
+        self,
+        text: str,
+    ) -> tuple[str, str] | None:
+        cleaned_text = " ".join(
+            text.strip().split()
+        )
+
+        patterns = (
+            (
+                "equipment",
+                (
+                    r"^(?:el\s+)?equipo(?:\s+correcto)?"
+                    r"\s+(?:es|sería|seria)\s+(.+)$"
+                ),
+            ),
+            (
+                "area",
+                (
+                    r"^(?:el\s+|la\s+)?[áa]rea"
+                    r"(?:\s+correcta)?"
+                    r"\s+(?:es|sería|seria)\s+(.+)$"
+                ),
+            ),
+            (
+                "location_context",
+                (
+                    r"^(?:la\s+)?ubicaci[óo]n"
+                    r"(?:\s+correcta)?"
+                    r"\s+(?:es|sería|seria)\s+(.+)$"
+                ),
+            ),
+            (
+                "operational_impact",
+                (
+                    r"^(?:el\s+)?impacto"
+                    r"(?:\s+operacional)?"
+                    r"(?:\s+correcto)?"
+                    r"\s+(?:es|sería|seria)\s+(.+)$"
+                ),
+            ),
+            (
+                "priority",
+                (
+                    r"^(?:la\s+)?prioridad"
+                    r"(?:\s+correcta)?"
+                    r"\s+(?:es|sería|seria)\s+(.+)$"
+                ),
+            ),
+            (
+                "failure_type",
+                (
+                    r"^(?:el\s+)?s[íi]ntoma"
+                    r"(?:\s+correcto)?"
+                    r"\s+(?:es|sería|seria)\s+(.+)$"
+                ),
+            ),
+            (
+                "description",
+                (
+                    r"^(?:la\s+)?descripci[óo]n"
+                    r"(?:\s+correcta)?"
+                    r"\s+(?:es|sería|seria)\s+(.+)$"
+                ),
+            ),
+        )
+
+        for field_name, pattern in patterns:
+            match = re.match(
+                pattern,
+                cleaned_text,
+                flags=re.IGNORECASE,
+            )
+
+            if match is not None:
+                value = self._clean_direct_value(
+                    match.group(1)
+                )
+
+                if value:
+                    return (
+                        field_name,
+                        value,
+                    )
+
+        return None
+
+
+    def _apply_direct_field_value(
+        self,
+        extracted_data: dict,
+        field_name: str,
+        value: str,
+    ) -> None:
+        previous_value = extracted_data.get(
+            field_name
+        )
+
+        if field_name == "area" and value:
+            value = (
+                value[0].upper()
+                + value[1:]
+            )
+
+        extracted_data[field_name] = value
+
+        if field_name == "location_context":
+            extracted_data["unit"] = value
+
+        if field_name in {
+            "equipment",
+            "location_context",
+            "failure_type",
+        }:
+            self._synchronize_description_after_direct_correction(
+                extracted_data=extracted_data,
+                previous_value=previous_value,
+                new_value=value,
+            )
+
+
+    def _synchronize_description_after_direct_correction(
+        self,
+        extracted_data: dict,
+        previous_value: str | None,
+        new_value: str,
+    ) -> None:
+        description = extracted_data.get(
+            "description"
+        )
+
+        if (
+            not description
+            or not previous_value
+            or not new_value
+        ):
+            return
+
+        previous_value = str(
+            previous_value
+        ).strip()
+
+        new_value = str(
+            new_value
+        ).strip()
+
+        if (
+            not previous_value
+            or previous_value == new_value
+        ):
+            return
+
+        pattern = re.compile(
+            (
+                r"(?<!\w)"
+                + re.escape(previous_value)
+                + r"(?!\w)"
+            ),
+            flags=re.IGNORECASE,
+        )
+
+        if pattern.search(description) is None:
+            return
+
+        extracted_data["description"] = pattern.sub(
+            new_value,
+            description,
+            count=1,
+        )
+
+    def _clean_direct_value(
+        self,
+        text: str,
+    ) -> str:
+        value = " ".join(
+            text.strip().split()
+        )
+
+        return value.strip(" .")
 
     def _is_waiting_only_for_priority(
         self,
