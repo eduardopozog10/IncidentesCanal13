@@ -3,399 +3,1265 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+
     <meta
         name="viewport"
         content="width=device-width, initial-scale=1.0"
     >
-    <title>Canal 13 - Gestión de Incidentes</title>
+
+    <title>Canal 13 - Centro de Control de Incidentes</title>
+
+    <script>
+        (() => {
+            const storageKey = "canal13-dashboard-theme";
+
+            try {
+                const savedTheme = localStorage.getItem(
+                    storageKey
+                );
+
+                const preferredTheme = (
+                    window.matchMedia(
+                        "(prefers-color-scheme: light)"
+                    ).matches
+                        ? "light"
+                        : "dark"
+                );
+
+                document.documentElement.dataset.theme = (
+                    savedTheme === "light"
+                    || savedTheme === "dark"
+                        ? savedTheme
+                        : preferredTheme
+                );
+            } catch (error) {
+                document.documentElement.dataset.theme = "dark";
+            }
+        })();
+    </script>
+
     <link
         rel="stylesheet"
         href="{% static 'incidents/dashboard.css' %}"
     >
 </head>
+
 <body>
     <form hidden>
         {% csrf_token %}
     </form>
 
-    <main>
-        <header>
-            <h1>Gestión de Incidentes Canal 13</h1>
-
-            <p>
-                Centro de monitoreo, análisis y seguimiento de incidentes operacionales.
-            </p>
-        </header>
-
-        <section>
-            <h2>Resumen operativo</h2>
-
-            <form
-                id="period-controls"
-                autocomplete="off"
-            >
-                <label for="period-filter">
-                    <strong>Período</strong>
-                </label>
-
-                <select id="period-filter">
-                    <option value="today">
-                        Hoy
-                    </option>
-
-                    <option value="last_7_days">
-                        Últimos 7 días
-                    </option>
-
-                    <option value="last_30_days">
-                        Últimos 30 días
-                    </option>
-
-                    <option value="this_month" selected>
-                        Este mes
-                    </option>
-
-                    <option value="previous_month">
-                        Mes anterior
-                    </option>
-
-                    <option value="all">
-                        Todo el historial
-                    </option>
-
-                    <option value="custom">
-                        Rango personalizado
-                    </option>
-                </select>
-
-                <label
-                    id="date-from-label"
-                    for="date-from"
-                    hidden
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="brand">
+                <div
+                    class="brand-mark"
+                    aria-hidden="true"
                 >
-                    Desde
-                </label>
+                    13
+                </div>
 
-                <input
-                    id="date-from"
-                    type="date"
-                    hidden
-                >
-
-                <label
-                    id="date-to-label"
-                    for="date-to"
-                    hidden
-                >
-                    Hasta
-                </label>
-
-                <input
-                    id="date-to"
-                    type="date"
-                    hidden
-                >
-            </form>
-
-            <div>
-                <article>
-                    <span>Total de incidentes</span>
-                    <strong id="metric-total">0</strong>
-                </article>
-
-                <article>
-                    <span>Incidentes abiertos</span>
-                    <strong id="metric-open">0</strong>
-                </article>
-
-                <article>
-                    <span>Resueltos</span>
-                    <strong id="metric-resolved">0</strong>
-                </article>
-
-                <article>
-                    <span>Prioridad crítica</span>
-                    <strong id="metric-critical">0</strong>
-                </article>
-
-                <article>
-                    <span>Resolución promedio</span>
-                    <strong id="metric-average-resolution">-</strong>
-                </article>
-            </div>
-        </section>
-
-        <div class="attention-panel">
-            <div class="attention-item attention-item--danger">
                 <div>
-                    <strong id="attention-critical-open">
-                        0
-                    </strong>
+                    <div class="brand-name">
+                        Canal 13
+                    </div>
 
-                    <div>
-                        Incidentes críticos actualmente abiertos
+                    <div class="brand-subtitle">
+                        Control operacional
                     </div>
                 </div>
             </div>
 
-            <div class="attention-item attention-item--warning">
-                <div>
-                    <strong id="attention-over-24-hours">
-                        0
-                    </strong>
-
-                    <div>
-                        Incidentes abiertos por más de 24 horas
-                    </div>
-                </div>
+            <div class="sidebar-label">
+                Navegación
             </div>
-        </div>
 
-        <div class="analytics-grid">
-            <div
-                class="analytics-card"
-                style="grid-column: 1 / -1;"
+            <nav
+                class="sidebar-nav"
+                aria-label="Navegación principal"
             >
-                <div class="analytics-card-header">
-                    <div>
-                        <h3 class="analytics-card-title">
-                            Evolución de incidentes
-                        </h3>
-
-                        <p class="analytics-card-description">
-                            Cantidad de incidentes registrados por día
-                            durante el período seleccionado.
-                        </p>
-                    </div>
-                </div>
-
-                <div
-                    id="trend-chart"
-                    class="chart-container"
-                ></div>
-            </div>
-
-            <div class="analytics-card">
-                <div class="analytics-card-header">
-                    <div>
-                        <h3 class="analytics-card-title">
-                            Equipos con más incidentes
-                        </h3>
-
-                        <p class="analytics-card-description">
-                            Permite detectar equipos con fallas recurrentes.
-                        </p>
-                    </div>
-                </div>
-
-                <div
-                    id="equipment-chart"
-                    class="chart-container"
-                ></div>
-            </div>
-
-            <div class="analytics-card">
-                <div class="analytics-card-header">
-                    <div>
-                        <h3 class="analytics-card-title">
-                            Incidentes por área
-                        </h3>
-
-                        <p class="analytics-card-description">
-                            Áreas que concentran la mayor cantidad
-                            de incidentes reportados.
-                        </p>
-                    </div>
-                </div>
-
-                <div
-                    id="area-chart"
-                    class="chart-container"
-                ></div>
-            </div>
-
-            <div class="analytics-card">
-                <div class="analytics-card-header">
-                    <div>
-                        <h3 class="analytics-card-title">
-                            Ubicaciones más afectadas
-                        </h3>
-
-                        <p class="analytics-card-description">
-                            Ubicaciones o contextos operacionales
-                            con mayor cantidad de incidentes.
-                        </p>
-                    </div>
-                </div>
-
-                <div
-                    id="location-context-chart"
-                    class="chart-container"
-                ></div>
-            </div>
-
-            <div class="analytics-card">
-                <div class="analytics-card-header">
-                    <div>
-                        <h3 class="analytics-card-title">
-                            Incidentes por familia de activo
-                        </h3>
-
-                        <p class="analytics-card-description">
-                            Distribución de incidentes según el tipo
-                            de activo o servicio afectado.
-                        </p>
-                    </div>
-                </div>
-
-                <div
-                    id="asset-category-chart"
-                    class="chart-container"
-                ></div>
-            </div>
-
-            <div class="analytics-card">
-                <div class="analytics-card-header">
-                    <div>
-                        <h3 class="analytics-card-title">
-                            Incidentes por estado
-                        </h3>
-
-                        <p class="analytics-card-description">
-                            Distribución actual del flujo operativo.
-                        </p>
-                    </div>
-                </div>
-
-                <div
-                    id="status-chart"
-                    class="chart-container"
-                ></div>
-            </div>
-
-            <div class="analytics-card">
-                <div class="analytics-card-header">
-                    <div>
-                        <h3 class="analytics-card-title">
-                            Incidentes por prioridad
-                        </h3>
-
-                        <p class="analytics-card-description">
-                            Nivel de severidad de los incidentes
-                            registrados.
-                        </p>
-                    </div>
-                </div>
-
-                <div
-                    id="priority-chart"
-                    class="chart-container"
-                ></div>
-            </div>
-        </div>
-
-        <section>
-            <h2>Incidentes</h2>
-
-            <div>
-                <input
-                    id="search-input"
-                    type="search"
-                    placeholder="Buscar por área, ubicación, equipo, falla o reportante..."
+                <button
+                    class="sidebar-link is-active"
+                    type="button"
+                    data-view="control"
                 >
+                    <span class="sidebar-icon">
+                        ◉
+                    </span>
 
-                <select id="status-filter">
-                    <option value="">
-                        Todos los estados
-                    </option>
+                    <span>
+                        Centro de control
+                    </span>
+                </button>
 
-                    <option value="reported">
-                        Reportado
-                    </option>
+                <button
+                    class="sidebar-link"
+                    type="button"
+                    data-view="incidents"
+                >
+                    <span class="sidebar-icon">
+                        △
+                    </span>
 
-                    <option value="under_review">
-                        En revisión
-                    </option>
+                    <span>
+                        Incidentes
+                    </span>
+                </button>
 
-                    <option value="in_progress">
-                        En atención
-                    </option>
+                <button
+                    class="sidebar-link"
+                    type="button"
+                    data-view="analytics"
+                >
+                    <span class="sidebar-icon">
+                        ▥
+                    </span>
 
-                    <option value="resolved">
-                        Resuelto
-                    </option>
+                    <span>
+                        Analítica
+                    </span>
+                </button>
 
-                    <option value="closed">
-                        Cerrado
-                    </option>
+                <button
+                    class="sidebar-link"
+                    type="button"
+                    data-view="management"
+                >
+                    <span class="sidebar-icon">
+                        ✓
+                    </span>
 
-                    <option value="cancelled">
-                        Cancelado
-                    </option>
-                </select>
+                    <span>
+                        Gestión
+                    </span>
+                </button>
+            </nav>
 
-                <select id="priority-filter">
-                    <option value="">
-                        Todas las prioridades
-                    </option>
+            <div class="system-card">
+                <div class="system-card-header">
+                    <span>
+                        Estado del sistema
+                    </span>
 
-                    <option value="low">
-                        Baja
-                    </option>
+                    <span
+                        class="online-dot"
+                        aria-label="Sistema operativo"
+                    ></span>
+                </div>
 
-                    <option value="medium">
-                        Media
-                    </option>
+                <strong>
+                    Servicios operativos
+                </strong>
 
-                    <option value="high">
-                        Alta
-                    </option>
-
-                    <option value="critical">
-                        Crítica
-                    </option>
-                </select>
+                <p>
+                    Dashboard sincronizado con el
+                    flujo de incidentes.
+                </p>
             </div>
+        </aside>
 
-            <div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Código</th>
-                            <th>Área</th>
-                            <th>Ubicación / contexto</th>
-                            <th>Equipo / servicio</th>
-                            <th>Síntoma / falla</th>
-                            <th>Prioridad</th>
-                            <th>Estado</th>
-                            <th>Reportante</th>
-                            <th>Fecha</th>
-                        </tr>
-                    </thead>
+        <div class="workspace">
+            <header class="topbar">
+                <div class="topbar-copy">
+                    <div class="live-label">
+                        <span></span>
+                        Operación en vivo
+                    </div>
 
-                    <tbody id="incident-table-body">
-                    </tbody>
-                </table>
-            </div>
+                    <h1 id="page-title">
+                        Centro de control de incidentes
+                    </h1>
 
-            <p
-                id="incident-empty-message"
-                hidden
-            >
-                No se encontraron incidentes.
-            </p>
-        </section>
+                    <p id="page-description">
+                        Visión ejecutiva del estado operacional
+                        de Canal 13.
+                    </p>
+                </div>
 
-        <section>
-            <h2>Detalle del incidente</h2>
+                <div class="topbar-actions">
+                    <form
+                        id="period-controls"
+                        autocomplete="off"
+                    >
+                        <label
+                            class="sr-only"
+                            for="period-filter"
+                        >
+                            Período
+                        </label>
 
-            <div id="incident-detail">
-                Selecciona un incidente para ver su detalle.
-            </div>
-        </section>
-    </main>
+                        <select
+                            id="period-filter"
+                            aria-label="Período"
+                        >
+                            <option value="today">
+                                Hoy
+                            </option>
+
+                            <option value="last_7_days">
+                                Últimos 7 días
+                            </option>
+
+                            <option value="last_30_days">
+                                Últimos 30 días
+                            </option>
+
+                            <option
+                                value="this_month"
+                                selected
+                            >
+                                Este mes
+                            </option>
+
+                            <option value="previous_month">
+                                Mes anterior
+                            </option>
+
+                            <option value="all">
+                                Todo el historial
+                            </option>
+
+                            <option value="custom">
+                                Rango personalizado
+                            </option>
+                        </select>
+
+                        <label
+                            id="date-from-label"
+                            class="date-label"
+                            for="date-from"
+                            hidden
+                        >
+                            Desde
+                        </label>
+
+                        <input
+                            id="date-from"
+                            type="date"
+                            hidden
+                        >
+
+                        <label
+                            id="date-to-label"
+                            class="date-label"
+                            for="date-to"
+                            hidden
+                        >
+                            Hasta
+                        </label>
+
+                        <input
+                            id="date-to"
+                            type="date"
+                            hidden
+                        >
+                    </form>
+
+                    <button
+                        id="theme-toggle"
+                        class="theme-toggle"
+                        type="button"
+                    >
+                        <span
+                            id="theme-toggle-icon"
+                            class="theme-toggle-icon"
+                            aria-hidden="true"
+                        ></span>
+
+                        <span id="theme-toggle-label">
+                            Tema
+                        </span>
+                    </button>
+
+                    <div class="sync-badge">
+                        <span></span>
+                        Sincronizado
+                    </div>
+                </div>
+            </header>
+
+            <main>
+                <!-- ==========================================
+                     VISTA: CENTRO DE CONTROL
+                =========================================== -->
+
+                <section
+                    class="dashboard-view is-active"
+                    data-dashboard-view="control"
+                >
+                    <div class="view-intro">
+                        <div>
+                            <span class="section-kicker">
+                                Resumen ejecutivo
+                            </span>
+
+                            <h2>
+                                Estado operacional
+                            </h2>
+                        </div>
+
+                        <p>
+                            Lo esencial para entender qué está
+                            pasando y dónde enfocar la atención.
+                        </p>
+                    </div>
+
+                    <div class="kpi-grid">
+                        <article class="kpi-card kpi-card--total">
+                            <span>
+                                Total de incidentes
+                            </span>
+
+                            <strong id="metric-total">
+                                0
+                            </strong>
+
+                            <small>
+                                Reportados en el período
+                            </small>
+                        </article>
+
+                        <article class="kpi-card kpi-card--open">
+                            <span>
+                                Incidentes abiertos
+                            </span>
+
+                            <strong id="metric-open">
+                                0
+                            </strong>
+
+                            <small>
+                                Requieren seguimiento
+                            </small>
+                        </article>
+
+                        <article class="kpi-card kpi-card--resolved">
+                            <span>
+                                Resueltos
+                            </span>
+
+                            <strong id="metric-resolved">
+                                0
+                            </strong>
+
+                            <small>
+                                Gestión completada
+                            </small>
+                        </article>
+
+                        <article class="kpi-card kpi-card--critical">
+                            <span>
+                                Prioridad crítica
+                            </span>
+
+                            <strong id="metric-critical">
+                                0
+                            </strong>
+
+                            <small>
+                                Máxima severidad
+                            </small>
+                        </article>
+
+                        <article class="kpi-card kpi-card--time">
+                            <span>
+                                Resolución promedio
+                            </span>
+
+                            <strong id="metric-average-resolution">
+                                -
+                            </strong>
+
+                            <small>
+                                Tiempo medio de resolución
+                            </small>
+                        </article>
+                    </div>
+
+                    <div class="control-grid">
+                        <article class="panel trend-panel">
+                            <div class="panel-header">
+                                <div>
+                                    <span class="section-kicker">
+                                        Actividad operacional
+                                    </span>
+
+                                    <h2>
+                                        Evolución de incidentes
+                                    </h2>
+
+                                    <p>
+                                        Cantidad de incidentes registrados
+                                        por día durante el período.
+                                    </p>
+                                </div>
+
+                                <div class="status-pill">
+                                    <span></span>
+                                    Tendencia del período
+                                </div>
+                            </div>
+
+                            <div
+                                id="trend-chart"
+                                class="chart-container chart-container--trend"
+                            ></div>
+                        </article>
+
+                        <aside class="panel attention-panel">
+                            <div>
+                                <span class="section-kicker">
+                                    Prioridad operacional
+                                </span>
+
+                                <h2>
+                                    Atención inmediata
+                                </h2>
+
+                                <p>
+                                    Situaciones que requieren
+                                    mayor foco.
+                                </p>
+                            </div>
+
+                            <div class="attention-list">
+                                <div
+                                    class="attention-item attention-item--danger"
+                                >
+                                    <div>
+                                        <span>
+                                            Críticos abiertos
+                                        </span>
+
+                                        <p>
+                                            Incidentes de máxima
+                                            prioridad aún no cerrados.
+                                        </p>
+                                    </div>
+
+                                    <strong id="attention-critical-open">
+                                        0
+                                    </strong>
+                                </div>
+
+                                <div
+                                    class="attention-item attention-item--warning"
+                                >
+                                    <div>
+                                        <span>
+                                            Más de 24 horas
+                                        </span>
+
+                                        <p>
+                                            Incidentes abiertos con
+                                            antigüedad superior a un día.
+                                        </p>
+                                    </div>
+
+                                    <strong id="attention-over-24-hours">
+                                        0
+                                    </strong>
+                                </div>
+                            </div>
+                        </aside>
+                    </div>
+
+                    <div class="decision-grid">
+                        <article class="decision-card">
+                            <div class="decision-card-header">
+                                <div>
+                                    <span class="section-kicker">
+                                        Concentración
+                                    </span>
+
+                                    <h3>
+                                        Áreas más afectadas
+                                    </h3>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    class="text-action"
+                                    data-go-view="analytics"
+                                >
+                                    Ver analítica
+                                </button>
+                            </div>
+
+                            <div
+                                id="control-top-areas"
+                                class="compact-ranking"
+                            ></div>
+                        </article>
+
+                        <article class="decision-card">
+                            <div class="decision-card-header">
+                                <div>
+                                    <span class="section-kicker">
+                                        Recurrencia
+                                    </span>
+
+                                    <h3>
+                                        Equipos recurrentes
+                                    </h3>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    class="text-action"
+                                    data-go-view="analytics"
+                                >
+                                    Ver analítica
+                                </button>
+                            </div>
+
+                            <div
+                                id="control-top-equipment"
+                                class="compact-ranking"
+                            ></div>
+                        </article>
+
+                        <article class="decision-card">
+                            <div class="decision-card-header">
+                                <div>
+                                    <span class="section-kicker">
+                                        Flujo
+                                    </span>
+
+                                    <h3>
+                                        Estado operacional
+                                    </h3>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    class="text-action"
+                                    data-go-view="management"
+                                >
+                                    Gestionar
+                                </button>
+                            </div>
+
+                            <div
+                                id="control-status-summary"
+                                class="compact-ranking"
+                            ></div>
+                        </article>
+                    </div>
+
+                    <article class="panel recent-control-panel">
+                        <div class="panel-section-header">
+                            <div>
+                                <span class="section-kicker">
+                                    Actividad reciente
+                                </span>
+
+                                <h2>
+                                    Últimos incidentes
+                                </h2>
+
+                                <p>
+                                    Los cinco reportes más recientes
+                                    del período seleccionado.
+                                </p>
+                            </div>
+
+                            <button
+                                type="button"
+                                class="secondary-action"
+                                data-go-view="incidents"
+                            >
+                                Ver todos los incidentes
+                            </button>
+                        </div>
+
+                        <div class="table-shell table-shell--compact">
+                            <table class="compact-table">
+                                <thead>
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Área</th>
+                                        <th>Ubicación</th>
+                                        <th>Equipo / servicio</th>
+                                        <th>Prioridad</th>
+                                        <th>Estado</th>
+                                        <th>Fecha</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody id="control-recent-body">
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <p
+                            id="control-recent-empty"
+                            class="empty-message"
+                            hidden
+                        >
+                            No hay incidentes en este período.
+                        </p>
+                    </article>
+                </section>
+
+                <!-- ==========================================
+                     VISTA: INCIDENTES
+                =========================================== -->
+
+                <section
+                    class="dashboard-view"
+                    data-dashboard-view="incidents"
+                    hidden
+                >
+                    <div class="view-intro">
+                        <div>
+                            <span class="section-kicker">
+                                Registro operacional
+                            </span>
+
+                            <h2>
+                                Incidentes
+                            </h2>
+                        </div>
+
+                        <p>
+                            Consulta, filtra y revisa todos los
+                            incidentes registrados.
+                        </p>
+                    </div>
+
+                    <section class="incidents-panel panel">
+                        <div class="incidents-header">
+                            <div>
+                                <span class="section-kicker">
+                                    Monitoreo
+                                </span>
+
+                                <h2>
+                                    Registro de incidentes
+                                </h2>
+
+                                <p>
+                                    Selecciona un incidente para
+                                    abrir su gestión.
+                                </p>
+                            </div>
+
+                            <div class="incident-filters">
+                                <input
+                                    id="search-input"
+                                    type="search"
+                                    placeholder="Buscar por área, ubicación, equipo, falla o reportante..."
+                                    aria-label="Buscar incidentes"
+                                >
+
+                                <select
+                                    id="status-filter"
+                                    aria-label="Filtrar por estado"
+                                >
+                                    <option value="">
+                                        Todos los estados
+                                    </option>
+
+                                    <option value="reported">
+                                        Reportado
+                                    </option>
+
+                                    <option value="under_review">
+                                        En revisión
+                                    </option>
+
+                                    <option value="in_progress">
+                                        En atención
+                                    </option>
+
+                                    <option value="resolved">
+                                        Resuelto
+                                    </option>
+
+                                    <option value="closed">
+                                        Cerrado
+                                    </option>
+
+                                    <option value="cancelled">
+                                        Cancelado
+                                    </option>
+                                </select>
+
+                                <select
+                                    id="priority-filter"
+                                    aria-label="Filtrar por prioridad"
+                                >
+                                    <option value="">
+                                        Todas las prioridades
+                                    </option>
+
+                                    <option value="low">
+                                        Baja
+                                    </option>
+
+                                    <option value="medium">
+                                        Media
+                                    </option>
+
+                                    <option value="high">
+                                        Alta
+                                    </option>
+
+                                    <option value="critical">
+                                        Crítica
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="table-shell">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Área</th>
+                                        <th>Ubicación / contexto</th>
+                                        <th>Equipo / servicio</th>
+                                        <th>Síntoma / falla</th>
+                                        <th>Prioridad</th>
+                                        <th>Estado</th>
+                                        <th>Reportante</th>
+                                        <th>Fecha</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody id="incident-table-body">
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <p
+                            id="incident-empty-message"
+                            class="empty-message"
+                            hidden
+                        >
+                            No se encontraron incidentes para
+                            los filtros seleccionados.
+                        </p>
+                    </section>
+                </section>
+
+                <!-- ==========================================
+                     VISTA: ANALÍTICA
+                =========================================== -->
+
+                <section
+                    class="dashboard-view"
+                    data-dashboard-view="analytics"
+                    hidden
+                >
+                    <div class="view-intro">
+                        <div>
+                            <span class="section-kicker">
+                                Análisis
+                            </span>
+
+                            <h2>
+                                Analítica operacional
+                            </h2>
+                        </div>
+
+                        <p>
+                            Patrones, concentración y comportamiento
+                            de los incidentes del período.
+                        </p>
+                    </div>
+
+                    <div class="analytics-grid">
+                        <article class="analytics-card analytics-card--wide">
+                            <div class="analytics-card-header">
+                                <div>
+                                    <h3 class="analytics-card-title">
+                                        Evolución temporal
+                                    </h3>
+
+                                    <p class="analytics-card-description">
+                                        Tendencia diaria de incidentes.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div
+                                id="analytics-trend-chart"
+                                class="chart-container chart-container--trend"
+                            ></div>
+                        </article>
+
+                        <article class="analytics-card">
+                            <div class="analytics-card-header">
+                                <div>
+                                    <h3 class="analytics-card-title">
+                                        Equipos recurrentes
+                                    </h3>
+
+                                    <p class="analytics-card-description">
+                                        Equipos o servicios con mayor
+                                        cantidad de incidentes.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div
+                                id="equipment-chart"
+                                class="chart-container"
+                            ></div>
+                        </article>
+
+                        <article class="analytics-card">
+                            <div class="analytics-card-header">
+                                <div>
+                                    <h3 class="analytics-card-title">
+                                        Incidentes por área
+                                    </h3>
+
+                                    <p class="analytics-card-description">
+                                        Áreas con mayor actividad.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div
+                                id="area-chart"
+                                class="chart-container"
+                            ></div>
+                        </article>
+
+                        <article class="analytics-card">
+                            <div class="analytics-card-header">
+                                <div>
+                                    <h3 class="analytics-card-title">
+                                        Ubicaciones afectadas
+                                    </h3>
+
+                                    <p class="analytics-card-description">
+                                        Contextos operacionales con
+                                        mayor número de reportes.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div
+                                id="location-context-chart"
+                                class="chart-container"
+                            ></div>
+                        </article>
+
+                        <article class="analytics-card">
+                            <div class="analytics-card-header">
+                                <div>
+                                    <h3 class="analytics-card-title">
+                                        Familias de activo
+                                    </h3>
+
+                                    <p class="analytics-card-description">
+                                        Distribución por tipo de activo
+                                        o servicio afectado.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div
+                                id="asset-category-chart"
+                                class="chart-container"
+                            ></div>
+                        </article>
+
+                        <article class="analytics-card">
+                            <div class="analytics-card-header">
+                                <div>
+                                    <h3 class="analytics-card-title">
+                                        Estado del flujo
+                                    </h3>
+
+                                    <p class="analytics-card-description">
+                                        Distribución actual de la gestión.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div
+                                id="status-chart"
+                                class="chart-container"
+                            ></div>
+                        </article>
+
+                        <article class="analytics-card">
+                            <div class="analytics-card-header">
+                                <div>
+                                    <h3 class="analytics-card-title">
+                                        Prioridad
+                                    </h3>
+
+                                    <p class="analytics-card-description">
+                                        Severidad de los incidentes
+                                        registrados.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div
+                                id="priority-chart"
+                                class="chart-container"
+                            ></div>
+                        </article>
+                    </div>
+                </section>
+
+                <!-- ==========================================
+                     VISTA: GESTIÓN
+                =========================================== -->
+
+                <section
+                    class="dashboard-view"
+                    data-dashboard-view="management"
+                    hidden
+                >
+                    <div class="view-intro">
+                        <div>
+                            <span class="section-kicker">
+                                Operación
+                            </span>
+
+                            <h2>
+                                Gestión de incidentes
+                            </h2>
+                        </div>
+
+                        <p>
+                            Prioriza los casos abiertos,
+                            revisa su impacto y actualiza su estado.
+                        </p>
+                    </div>
+
+                    <div class="management-layout">
+                        <aside class="panel management-queue-panel">
+                            <div class="management-queue-header">
+                                <div>
+                                    <span class="section-kicker">
+                                        Cola de atención
+                                    </span>
+
+                                    <h2>
+                                        Requieren atención
+                                    </h2>
+                                </div>
+
+                                <span
+                                    id="management-open-count"
+                                    class="count-badge"
+                                >
+                                    0
+                                </span>
+                            </div>
+
+                            <div
+                                id="management-queue"
+                                class="management-queue"
+                            ></div>
+
+                            <p
+                                id="management-empty"
+                                class="empty-message"
+                                hidden
+                            >
+                                No hay incidentes abiertos
+                                en este período.
+                            </p>
+                        </aside>
+
+                        <section class="panel management-detail-panel">
+                            <div class="detail-panel-header">
+                                <div>
+                                    <span class="section-kicker">
+                                        Incidente seleccionado
+                                    </span>
+
+                                    <h2>
+                                        Detalle operacional
+                                    </h2>
+                                </div>
+
+                                <p>
+                                    Revisa información e impacto antes
+                                    de actualizar el estado.
+                                </p>
+                            </div>
+
+                            <div id="incident-detail">
+                                Selecciona un incidente de la cola
+                                o desde la tabla de incidentes.
+                            </div>
+                        </section>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
 
     <script>
+        /* ==========================================
+           TEMA
+        =========================================== */
+
+        const THEME_STORAGE_KEY = "canal13-dashboard-theme";
+
+        const themeToggle = document.getElementById(
+            "theme-toggle"
+        );
+
+        const themeToggleIcon = document.getElementById(
+            "theme-toggle-icon"
+        );
+
+        const themeToggleLabel = document.getElementById(
+            "theme-toggle-label"
+        );
+
+        function getDashboardTheme() {
+            return (
+                document.documentElement.dataset.theme
+                || "dark"
+            );
+        }
+
+        function updateThemeToggle() {
+            const theme = getDashboardTheme();
+
+            const isDark = (
+                theme === "dark"
+            );
+
+            themeToggleIcon.textContent = (
+                isDark
+                    ? "☀"
+                    : "☾"
+            );
+
+            themeToggleLabel.textContent = (
+                isDark
+                    ? "Claro"
+                    : "Oscuro"
+            );
+
+            themeToggle.setAttribute(
+                "aria-label",
+                (
+                    isDark
+                        ? "Cambiar a modo claro"
+                        : "Cambiar a modo oscuro"
+                )
+            );
+
+            themeToggle.setAttribute(
+                "title",
+                (
+                    isDark
+                        ? "Cambiar a modo claro"
+                        : "Cambiar a modo oscuro"
+                )
+            );
+        }
+
+        function setDashboardTheme(theme) {
+            document.documentElement.dataset.theme = theme;
+
+            try {
+                localStorage.setItem(
+                    THEME_STORAGE_KEY,
+                    theme
+                );
+            } catch (error) {
+                console.warn(
+                    "No fue posible guardar la preferencia de tema.",
+                    error
+                );
+            }
+
+            updateThemeToggle();
+
+            if (
+                typeof refreshDashboardData
+                === "function"
+            ) {
+                refreshDashboardData();
+            }
+        }
+
+        themeToggle.addEventListener(
+            "click",
+            () => {
+                const nextTheme = (
+                    getDashboardTheme() === "dark"
+                        ? "light"
+                        : "dark"
+                );
+
+                setDashboardTheme(
+                    nextTheme
+                );
+            }
+        );
+
+        updateThemeToggle();
+
+        /* ==========================================
+           NAVEGACIÓN
+        =========================================== */
+
+        const sidebarButtons = Array.from(
+            document.querySelectorAll(
+                "[data-view]"
+            )
+        );
+
+        const dashboardViews = Array.from(
+            document.querySelectorAll(
+                "[data-dashboard-view]"
+            )
+        );
+
+        const quickViewButtons = Array.from(
+            document.querySelectorAll(
+                "[data-go-view]"
+            )
+        );
+
+        const pageTitle = document.getElementById(
+            "page-title"
+        );
+
+        const pageDescription = document.getElementById(
+            "page-description"
+        );
+
+        const viewMetadata = {
+            control: {
+                title: "Centro de control de incidentes",
+
+                description:
+                    "Visión ejecutiva del estado operacional de Canal 13.",
+            },
+
+            incidents: {
+                title: "Incidentes",
+
+                description:
+                    "Consulta y seguimiento del registro completo de incidentes.",
+            },
+
+            analytics: {
+                title: "Analítica operacional",
+
+                description:
+                    "Patrones, tendencias y concentración de incidentes.",
+            },
+
+            management: {
+                title: "Gestión de incidentes",
+
+                description:
+                    "Priorización y atención de incidentes abiertos.",
+            },
+        };
+
+        function showView(
+            viewName,
+            updateHash = true
+        ) {
+            if (
+                !viewMetadata[viewName]
+            ) {
+                viewName = "control";
+            }
+
+            dashboardViews.forEach(
+                (view) => {
+                    const isActive = (
+                        view.dataset.dashboardView
+                        === viewName
+                    );
+
+                    view.hidden = !isActive;
+
+                    view.classList.toggle(
+                        "is-active",
+                        isActive
+                    );
+                }
+            );
+
+            sidebarButtons.forEach(
+                (button) => {
+                    button.classList.toggle(
+                        "is-active",
+                        (
+                            button.dataset.view
+                            === viewName
+                        )
+                    );
+                }
+            );
+
+            pageTitle.textContent = (
+                viewMetadata[viewName].title
+            );
+
+            pageDescription.textContent = (
+                viewMetadata[viewName].description
+            );
+
+            if (updateHash) {
+                history.replaceState(
+                    null,
+                    "",
+                    `#${viewName}`
+                );
+            }
+
+            window.scrollTo(
+                {
+                    top: 0,
+                    behavior: "smooth",
+                }
+            );
+        }
+
+        sidebarButtons.forEach(
+            (button) => {
+                button.addEventListener(
+                    "click",
+                    () => {
+                        showView(
+                            button.dataset.view
+                        );
+                    }
+                );
+            }
+        );
+
+        quickViewButtons.forEach(
+            (button) => {
+                button.addEventListener(
+                    "click",
+                    () => {
+                        showView(
+                            button.dataset.goView
+                        );
+                    }
+                );
+            }
+        );
+
+        /* ==========================================
+           ELEMENTOS DEL DASHBOARD
+        =========================================== */
+
         const NEW_INCIDENT_CHECK_INTERVAL_MS = 5000;
         const NEW_INCIDENT_HIGHLIGHT_MS = 7000;
 
@@ -431,6 +1297,10 @@
             "trend-chart"
         );
 
+        const analyticsTrendChart = document.getElementById(
+            "analytics-trend-chart"
+        );
+
         const equipmentChart = document.getElementById(
             "equipment-chart"
         );
@@ -453,6 +1323,38 @@
 
         const priorityChart = document.getElementById(
             "priority-chart"
+        );
+
+        const controlTopAreas = document.getElementById(
+            "control-top-areas"
+        );
+
+        const controlTopEquipment = document.getElementById(
+            "control-top-equipment"
+        );
+
+        const controlStatusSummary = document.getElementById(
+            "control-status-summary"
+        );
+
+        const controlRecentBody = document.getElementById(
+            "control-recent-body"
+        );
+
+        const controlRecentEmpty = document.getElementById(
+            "control-recent-empty"
+        );
+
+        const managementQueue = document.getElementById(
+            "management-queue"
+        );
+
+        const managementOpenCount = document.getElementById(
+            "management-open-count"
+        );
+
+        const managementEmpty = document.getElementById(
+            "management-empty"
         );
 
         const periodFilter = document.getElementById(
@@ -507,6 +1409,10 @@
         let highlightNewIncidentsOnNextLoad = false;
         let incidentBaselineReady = false;
 
+        /* ==========================================
+           HELPERS
+        =========================================== */
+
         function escapeHtml(value) {
             if (
                 value === null
@@ -534,8 +1440,8 @@
         function getPriorityColor(priority) {
             const colors = {
                 low: "#15803d",
-                medium: "#ca8a04",
-                high: "#ea580c",
+                medium: "#0284c7",
+                high: "#d97706",
                 critical: "#b91c1c",
             };
 
@@ -804,7 +1710,6 @@
 
             dateFromInput.hidden = !isCustom;
             dateToInput.hidden = !isCustom;
-
             dateFromLabel.hidden = !isCustom;
             dateToLabel.hidden = !isCustom;
 
@@ -836,13 +1741,23 @@
                 "[name=csrfmiddlewaretoken]"
             );
 
-            return input ? input.value : "";
+            return (
+                input
+                    ? input.value
+                    : ""
+            );
         }
+
+        /* ==========================================
+           URLs API
+        =========================================== */
 
         function buildAnalyticsUrl() {
             const params = new URLSearchParams();
 
-            appendDateRange(params);
+            appendDateRange(
+                params
+            );
 
             const query = params.toString();
 
@@ -859,7 +1774,9 @@
         function buildSummaryUrl() {
             const params = new URLSearchParams();
 
-            appendDateRange(params);
+            appendDateRange(
+                params
+            );
 
             const query = params.toString();
 
@@ -880,7 +1797,9 @@
             const status = statusFilter.value;
             const priority = priorityFilter.value;
 
-            appendDateRange(params);
+            appendDateRange(
+                params
+            );
 
             if (search) {
                 params.set(
@@ -914,22 +1833,35 @@
             );
         }
 
+        function buildManagementUrl() {
+            const params = new URLSearchParams();
+
+            appendDateRange(
+                params
+            );
+
+            params.set(
+                "ordering",
+                "-created_at"
+            );
+
+            return (
+                "/api/v1/incidents/?"
+                + params.toString()
+            );
+        }
+
+        /* ==========================================
+           GRÁFICOS
+        =========================================== */
+
         function renderEmptyChart(
             container,
             message
         ) {
             container.innerHTML = `
                 <div
-                    style="
-                        min-height: 250px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        color: var(--text-soft);
-                        font-size: 14px;
-                        text-align: center;
-                        padding: 24px;
-                    "
+                    class="chart-empty"
                 >
                     ${escapeHtml(message)}
                 </div>
@@ -1215,7 +2147,10 @@
             );
 
             const normalized = [];
-            const cursor = new Date(start);
+
+            const cursor = new Date(
+                start
+            );
 
             while (
                 cursor <= end
@@ -1227,6 +2162,7 @@
                 normalized.push(
                     {
                         date,
+
                         count: (
                             values.get(date)
                             || 0
@@ -1436,7 +2372,7 @@
                         cy="${point.y}"
                         r="4"
                         fill="${primary}"
-                        stroke="#ffffff"
+                        stroke="${getCssVariable("--surface")}"
                         stroke-width="2"
                     >
                         <title>
@@ -1474,6 +2410,123 @@
                 </svg>
             `;
         }
+
+        /* ==========================================
+           RESÚMENES DEL CENTRO DE CONTROL
+        =========================================== */
+
+        function renderCompactRanking(
+            container,
+            data,
+            labelKey,
+            limit = 4
+        ) {
+            if (!data.length) {
+                container.innerHTML = `
+                    <div class="compact-empty">
+                        Sin información disponible.
+                    </div>
+                `;
+
+                return;
+            }
+
+            const items = data.slice(
+                0,
+                limit
+            );
+
+            const maxValue = Math.max(
+                ...items.map(
+                    (item) => item.count
+                ),
+                1
+            );
+
+            container.innerHTML = items.map(
+                (item, index) => {
+                    const percent = Math.max(
+                        6,
+                        Math.round(
+                            (
+                                item.count
+                                / maxValue
+                            ) * 100
+                        )
+                    );
+
+                    return `
+                        <div class="compact-ranking-item">
+                            <div class="compact-ranking-main">
+                                <span class="compact-ranking-position">
+                                    ${index + 1}
+                                </span>
+
+                                <span class="compact-ranking-label">
+                                    ${escapeHtml(item[labelKey])}
+                                </span>
+
+                                <strong>
+                                    ${item.count}
+                                </strong>
+                            </div>
+
+                            <div class="compact-progress">
+                                <span
+                                    style="width: ${percent}%"
+                                ></span>
+                            </div>
+                        </div>
+                    `;
+                }
+            ).join("");
+        }
+
+        function renderStatusSummary(
+            container,
+            data
+        ) {
+            if (!data.length) {
+                container.innerHTML = `
+                    <div class="compact-empty">
+                        Sin información disponible.
+                    </div>
+                `;
+
+                return;
+            }
+
+            container.innerHTML = data.slice(
+                0,
+                4
+            ).map(
+                (item) => `
+                    <div class="status-summary-row">
+                        <div>
+                            <span
+                                class="status-summary-dot"
+                                style="
+                                    background:
+                                        ${getStatusColor(item.value)};
+                                "
+                            ></span>
+
+                            <span>
+                                ${escapeHtml(item.label)}
+                            </span>
+                        </div>
+
+                        <strong>
+                            ${item.count}
+                        </strong>
+                    </div>
+                `
+            ).join("");
+        }
+
+        /* ==========================================
+           ANALÍTICA
+        =========================================== */
 
         async function loadAnalytics() {
             try {
@@ -1532,6 +2585,28 @@
                     data.daily_trend
                 );
 
+                renderTrendChart(
+                    analyticsTrendChart,
+                    data.daily_trend
+                );
+
+                renderCompactRanking(
+                    controlTopAreas,
+                    data.by_area,
+                    "area"
+                );
+
+                renderCompactRanking(
+                    controlTopEquipment,
+                    data.by_equipment,
+                    "equipment"
+                );
+
+                renderStatusSummary(
+                    controlStatusSummary,
+                    data.by_status
+                );
+
                 renderHorizontalBarChart(
                     equipmentChart,
                     data.by_equipment,
@@ -1582,10 +2657,123 @@
                         critical: "#b91c1c",
                     }
                 );
-
             } catch (error) {
-                console.error(error);
+                console.error(
+                    error
+                );
             }
+        }
+
+        /* ==========================================
+           INCIDENTES
+        =========================================== */
+
+        function renderControlRecentIncidents(
+            incidents
+        ) {
+            const recent = incidents.slice(
+                0,
+                5
+            );
+
+            controlRecentEmpty.hidden = (
+                recent.length > 0
+            );
+
+            if (!recent.length) {
+                controlRecentBody.replaceChildren();
+
+                return;
+            }
+
+            const fragment = (
+                document.createDocumentFragment()
+            );
+
+            recent.forEach(
+                (incident) => {
+                    const row = document.createElement(
+                        "tr"
+                    );
+
+                    row.innerHTML = `
+                        <td>
+                            ${escapeHtml(incident.code)}
+                        </td>
+
+                        <td>
+                            ${escapeHtml(incident.area)}
+                        </td>
+
+                        <td>
+                            ${escapeHtml(
+                                incident.location_context
+                            )}
+                        </td>
+
+                        <td>
+                            ${escapeHtml(incident.equipment)}
+                        </td>
+
+                        <td>
+                            <span
+                                class="data-pill"
+                                style="
+                                    color:
+                                        ${getPriorityColor(incident.priority)};
+                                "
+                            >
+                                ${escapeHtml(
+                                    incident.priority_display
+                                )}
+                            </span>
+                        </td>
+
+                        <td>
+                            <span
+                                class="data-pill"
+                                style="
+                                    color:
+                                        ${getStatusColor(incident.status)};
+                                "
+                            >
+                                ${escapeHtml(
+                                    incident.status_display
+                                )}
+                            </span>
+                        </td>
+
+                        <td>
+                            ${escapeHtml(
+                                formatDate(
+                                    incident.created_at
+                                )
+                            )}
+                        </td>
+                    `;
+
+                    row.addEventListener(
+                        "click",
+                        async () => {
+                            await loadIncidentDetail(
+                                incident.id
+                            );
+
+                            showView(
+                                "management"
+                            );
+                        }
+                    );
+
+                    fragment.appendChild(
+                        row
+                    );
+                }
+            );
+
+            controlRecentBody.replaceChildren(
+                fragment
+            );
         }
 
         async function loadIncidents() {
@@ -1606,7 +2794,12 @@
                 }
 
                 const data = await response.json();
+
                 const incidents = data.results;
+
+                renderControlRecentIncidents(
+                    incidents
+                );
 
                 const isDefaultIncidentView = (
                     searchInput.value.trim() === ""
@@ -1629,7 +2822,11 @@
                 ) {
                     incidents.forEach(
                         (incident) => {
-                            if (!knownIncidentIds.has(incident.id)) {
+                            if (
+                                !knownIncidentIds.has(
+                                    incident.id
+                                )
+                            ) {
                                 newIncidentIds.add(
                                     incident.id
                                 );
@@ -1645,7 +2842,9 @@
 
                 highlightNewIncidentsOnNextLoad = false;
 
-                if (incidents.length === 0) {
+                if (
+                    incidents.length === 0
+                ) {
                     incidentTableBody.replaceChildren();
 
                     incidentEmptyMessage.hidden = false;
@@ -1665,11 +2864,20 @@
 
                         row.dataset.incidentId = incident.id;
 
-                        if (incident.id === selectedIncidentId) {
-                            row.classList.add("is-selected");
+                        if (
+                            incident.id
+                            === selectedIncidentId
+                        ) {
+                            row.classList.add(
+                                "is-selected"
+                            );
                         }
 
-                        if (newIncidentIds.has(incident.id)) {
+                        if (
+                            newIncidentIds.has(
+                                incident.id
+                            )
+                        ) {
                             row.classList.add(
                                 "is-new"
                             );
@@ -1694,7 +2902,9 @@
                             </td>
 
                             <td>
-                                ${escapeHtml(incident.location_context)}
+                                ${escapeHtml(
+                                    incident.location_context
+                                )}
                             </td>
 
                             <td>
@@ -1709,9 +2919,10 @@
 
                             <td>
                                 <span
+                                    class="data-pill"
                                     style="
-                                        color: ${getPriorityColor(incident.priority)};
-                                        font-weight: 700;
+                                        color:
+                                            ${getPriorityColor(incident.priority)};
                                     "
                                 >
                                     ${escapeHtml(
@@ -1722,9 +2933,10 @@
 
                             <td>
                                 <span
+                                    class="data-pill"
                                     style="
-                                        color: ${getStatusColor(incident.status)};
-                                        font-weight: 700;
+                                        color:
+                                            ${getStatusColor(incident.status)};
                                     "
                                 >
                                     ${escapeHtml(
@@ -1750,8 +2962,10 @@
 
                         row.addEventListener(
                             "click",
-                            () => {
-                                selectedIncidentId = incident.id;
+                            async () => {
+                                selectedIncidentId = (
+                                    incident.id
+                                );
 
                                 incidentTableBody
                                     .querySelectorAll("tr")
@@ -1767,8 +2981,12 @@
                                     "is-selected"
                                 );
 
-                                loadIncidentDetail(
+                                await loadIncidentDetail(
                                     incident.id
+                                );
+
+                                showView(
+                                    "management"
                                 );
                             }
                         );
@@ -1782,11 +3000,205 @@
                 incidentTableBody.replaceChildren(
                     fragment
                 );
-
             } catch (error) {
-                console.error(error);
+                console.error(
+                    error
+                );
             }
         }
+
+        /* ==========================================
+           COLA DE GESTIÓN
+        =========================================== */
+
+        function getPriorityWeight(priority) {
+            const weights = {
+                critical: 4,
+                high: 3,
+                medium: 2,
+                low: 1,
+            };
+
+            return (
+                weights[priority]
+                || 0
+            );
+        }
+
+        async function loadManagementQueue() {
+            try {
+                const response = await fetch(
+                    buildManagementUrl(),
+                    {
+                        cache: "no-store",
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error(
+                        "No fue posible cargar la cola de gestión."
+                    );
+                }
+
+                const data = await response.json();
+
+                const openIncidents = data.results
+                    .filter(
+                        (incident) => (
+                            ![
+                                "resolved",
+                                "closed",
+                                "cancelled",
+                            ].includes(
+                                incident.status
+                            )
+                        )
+                    )
+                    .sort(
+                        (left, right) => {
+                            const priorityDifference = (
+                                getPriorityWeight(
+                                    right.priority
+                                )
+                                - getPriorityWeight(
+                                    left.priority
+                                )
+                            );
+
+                            if (
+                                priorityDifference !== 0
+                            ) {
+                                return priorityDifference;
+                            }
+
+                            return (
+                                new Date(left.created_at)
+                                - new Date(right.created_at)
+                            );
+                        }
+                    );
+
+                managementOpenCount.textContent = (
+                    openIncidents.length
+                );
+
+                managementEmpty.hidden = (
+                    openIncidents.length > 0
+                );
+
+                if (!openIncidents.length) {
+                    managementQueue.replaceChildren();
+
+                    return;
+                }
+
+                const fragment = (
+                    document.createDocumentFragment()
+                );
+
+                openIncidents.forEach(
+                    (incident) => {
+                        const button = document.createElement(
+                            "button"
+                        );
+
+                        button.type = "button";
+
+                        button.className = (
+                            "management-queue-item"
+                        );
+
+                        if (
+                            incident.id
+                            === selectedIncidentId
+                        ) {
+                            button.classList.add(
+                                "is-selected"
+                            );
+                        }
+
+                        button.innerHTML = `
+                            <div
+                                class="management-item-accent"
+                                style="
+                                    background:
+                                        ${getPriorityColor(incident.priority)};
+                                "
+                            ></div>
+
+                            <div class="management-item-content">
+                                <div class="management-item-top">
+                                    <strong>
+                                        ${escapeHtml(incident.code)}
+                                    </strong>
+
+                                    <span
+                                        class="data-pill"
+                                        style="
+                                            color:
+                                                ${getPriorityColor(incident.priority)};
+                                        "
+                                    >
+                                        ${escapeHtml(
+                                            incident.priority_display
+                                        )}
+                                    </span>
+                                </div>
+
+                                <span class="management-item-equipment">
+                                    ${escapeHtml(
+                                        incident.equipment
+                                    )}
+                                </span>
+
+                                <small>
+                                    ${escapeHtml(
+                                        incident.location_context
+                                    )}
+                                    ·
+                                    ${escapeHtml(
+                                        incident.status_display
+                                    )}
+                                </small>
+
+                                <small>
+                                    ${escapeHtml(
+                                        formatDate(
+                                            incident.created_at
+                                        )
+                                    )}
+                                </small>
+                            </div>
+                        `;
+
+                        button.addEventListener(
+                            "click",
+                            () => {
+                                loadIncidentDetail(
+                                    incident.id
+                                );
+                            }
+                        );
+
+                        fragment.appendChild(
+                            button
+                        );
+                    }
+                );
+
+                managementQueue.replaceChildren(
+                    fragment
+                );
+            } catch (error) {
+                console.error(
+                    error
+                );
+            }
+        }
+
+        /* ==========================================
+           DETALLE Y CAMBIO DE ESTADO
+        =========================================== */
 
         async function loadIncidentDetail(
             incidentId
@@ -1807,157 +3219,197 @@
                 const incident = await response.json();
 
                 incidentDetail.innerHTML = `
-                    <p>
-                        <strong>Código:</strong>
-                        ${escapeHtml(incident.code)}
-                    </p>
+                    <div class="detail-hero">
+                        <div>
+                            <div class="detail-code-row">
+                                <strong class="detail-code">
+                                    ${escapeHtml(incident.code)}
+                                </strong>
 
-                    <p>
-                        <strong>Área:</strong>
-                        ${escapeHtml(incident.area)}
-                    </p>
+                                <span
+                                    class="data-pill"
+                                    style="
+                                        color:
+                                            ${getPriorityColor(incident.priority)};
+                                    "
+                                >
+                                    ${escapeHtml(
+                                        incident.priority_display
+                                    )}
+                                </span>
 
-                    <p>
-                        <strong>Ubicación / contexto:</strong>
-                        ${escapeHtml(
-                            incident.location_context
-                        )}
-                    </p>
+                                <span
+                                    class="data-pill"
+                                    style="
+                                        color:
+                                            ${getStatusColor(incident.status)};
+                                    "
+                                >
+                                    ${escapeHtml(
+                                        incident.status_display
+                                    )}
+                                </span>
+                            </div>
 
-                    <p>
-                        <strong>Familia de activo:</strong>
-                        ${escapeHtml(
-                            incident.asset_category_display
-                        )}
-                    </p>
+                            <h3>
+                                ${escapeHtml(
+                                    incident.equipment
+                                )}
+                            </h3>
 
-                    <p>
-                        <strong>Equipo / servicio:</strong>
-                        ${escapeHtml(incident.equipment)}
-                    </p>
+                            <p>
+                                ${escapeHtml(
+                                    incident.failure_type
+                                )}
+                            </p>
+                        </div>
+                    </div>
 
-                    <p>
-                        <strong>Síntoma / tipo de falla:</strong>
-                        ${escapeHtml(
-                            incident.failure_type
-                        )}
-                    </p>
+                    <div class="detail-information-grid">
+                        <div>
+                            <span>
+                                Área
+                            </span>
 
-                    <p>
-                        <strong>Descripción:</strong>
-                        ${escapeHtml(
-                            incident.description
-                        )}
-                    </p>
-
-                    <p>
-                        <strong>Impacto operacional:</strong>
-                        ${escapeHtml(
-                            incident.operational_impact
-                        )}
-                    </p>
-
-                    <p>
-                        <strong>Prioridad:</strong>
-                        <span
-                            style="
-                                color: ${getPriorityColor(incident.priority)};
-                                font-weight: 700;
-                            "
-                        >
-                            ${escapeHtml(
-                                incident.priority_display
-                            )}
-                        </span>
-                    </p>
-
-                    <p>
-                        <strong>Estado:</strong>
-                        <span
-                            style="
-                                color: ${getStatusColor(incident.status)};
-                                font-weight: 700;
-                            "
-                        >
-                            ${escapeHtml(
-                                incident.status_display
-                            )}
-                        </span>
-                    </p>
-
-                    <p>
-                        <strong>Reportante:</strong>
-                        ${escapeHtml(
-                            incident.reporter_name
-                        )}
-                    </p>
-
-                    <p>
-                        <strong>Fecha de creación:</strong>
-                        ${escapeHtml(
-                            formatDate(
-                                incident.created_at
-                            )
-                        )}
-                    </p>
-
-                    <p>
-                        <strong>Fecha de resolución:</strong>
-                        ${escapeHtml(
-                            formatDate(
-                                incident.resolved_at
-                            )
-                        )}
-                    </p>
-
-                    <p>
-                        <strong>Mensaje original:</strong>
-                        ${escapeHtml(
-                            incident.original_message
-                        )}
-                    </p>
-
-                    <hr>
-
-                    <div>
-                        <label for="incident-status-select">
                             <strong>
-                                Cambiar estado
+                                ${escapeHtml(incident.area)}
                             </strong>
-                        </label>
+                        </div>
 
-                        <select id="incident-status-select">
-                            <option value="reported">
-                                Reportado
-                            </option>
+                        <div>
+                            <span>
+                                Ubicación / contexto
+                            </span>
 
-                            <option value="under_review">
-                                En revisión
-                            </option>
+                            <strong>
+                                ${escapeHtml(
+                                    incident.location_context
+                                )}
+                            </strong>
+                        </div>
 
-                            <option value="in_progress">
-                                En atención
-                            </option>
+                        <div>
+                            <span>
+                                Familia de activo
+                            </span>
 
-                            <option value="resolved">
-                                Resuelto
-                            </option>
+                            <strong>
+                                ${escapeHtml(
+                                    incident.asset_category_display
+                                )}
+                            </strong>
+                        </div>
 
-                            <option value="closed">
-                                Cerrado
-                            </option>
+                        <div>
+                            <span>
+                                Reportante
+                            </span>
 
-                            <option value="cancelled">
-                                Cancelado
-                            </option>
-                        </select>
+                            <strong>
+                                ${escapeHtml(
+                                    incident.reporter_name
+                                )}
+                            </strong>
+                        </div>
 
-                        <button
-                            id="update-status-button"
-                            type="button"
-                        >
-                            Actualizar estado
-                        </button>
+                        <div>
+                            <span>
+                                Fecha de creación
+                            </span>
+
+                            <strong>
+                                ${escapeHtml(
+                                    formatDate(
+                                        incident.created_at
+                                    )
+                                )}
+                            </strong>
+                        </div>
+                    </div>
+
+                    <div class="detail-text-grid">
+                        <article>
+                            <span>
+                                Descripción
+                            </span>
+
+                            <p>
+                                ${escapeHtml(
+                                    incident.description
+                                )}
+                            </p>
+                        </article>
+
+                        <article>
+                            <span>
+                                Impacto operacional
+                            </span>
+
+                            <p>
+                                ${escapeHtml(
+                                    incident.operational_impact
+                                )}
+                            </p>
+                        </article>
+
+                        <article>
+                            <span>
+                                Mensaje original
+                            </span>
+
+                            <p>
+                                ${escapeHtml(
+                                    incident.original_message
+                                )}
+                            </p>
+                        </article>
+                    </div>
+
+                    <div class="detail-management">
+                        <div>
+                            <span class="section-kicker">
+                                Gestión
+                            </span>
+
+                            <strong>
+                                Actualizar estado
+                            </strong>
+                        </div>
+
+                        <div class="detail-management-controls">
+                            <select id="incident-status-select">
+                                <option value="reported">
+                                    Reportado
+                                </option>
+
+                                <option value="under_review">
+                                    En revisión
+                                </option>
+
+                                <option value="in_progress">
+                                    En atención
+                                </option>
+
+                                <option value="resolved">
+                                    Resuelto
+                                </option>
+
+                                <option value="closed">
+                                    Cerrado
+                                </option>
+
+                                <option value="cancelled">
+                                    Cancelado
+                                </option>
+                            </select>
+
+                            <button
+                                id="update-status-button"
+                                type="button"
+                            >
+                                Actualizar estado
+                            </button>
+                        </div>
 
                         <span
                             id="status-update-message"
@@ -1980,8 +3432,21 @@
                     updateIncidentStatus
                 );
 
+                document
+                    .querySelectorAll(
+                        ".management-queue-item"
+                    )
+                    .forEach(
+                        (item) => {
+                            item.classList.remove(
+                                "is-selected"
+                            );
+                        }
+                    );
             } catch (error) {
-                console.error(error);
+                console.error(
+                    error
+                );
 
                 incidentDetail.textContent = (
                     "No fue posible cargar el detalle "
@@ -2010,7 +3475,10 @@
             const newStatus = statusSelect.value;
 
             updateButton.disabled = true;
-            message.textContent = "Actualizando...";
+
+            message.textContent = (
+                "Actualizando..."
+            );
 
             try {
                 const response = await fetch(
@@ -2019,8 +3487,11 @@
                         method: "PATCH",
 
                         headers: {
-                            "Content-Type": "application/json",
-                            "X-CSRFToken": getCsrfToken(),
+                            "Content-Type":
+                                "application/json",
+
+                            "X-CSRFToken":
+                                getCsrfToken(),
                         },
 
                         body: JSON.stringify(
@@ -2043,8 +3514,13 @@
                     selectedIncidentId
                 );
 
+                message.textContent = (
+                    "Estado actualizado."
+                );
             } catch (error) {
-                console.error(error);
+                console.error(
+                    error
+                );
 
                 message.textContent = (
                     "No fue posible actualizar el estado."
@@ -2053,6 +3529,10 @@
                 updateButton.disabled = false;
             }
         }
+
+        /* ==========================================
+           ACTUALIZACIÓN GENERAL
+        =========================================== */
 
         async function refreshDashboardData() {
             if (refreshInProgress) {
@@ -2065,8 +3545,8 @@
                 await Promise.all([
                     loadAnalytics(),
                     loadIncidents(),
+                    loadManagementQueue(),
                 ]);
-
             } finally {
                 refreshInProgress = false;
             }
@@ -2107,11 +3587,16 @@
 
                     await refreshDashboardData();
                 }
-
             } catch (error) {
-                console.error(error);
+                console.error(
+                    error
+                );
             }
         }
+
+        /* ==========================================
+           EVENTOS
+        =========================================== */
 
         let searchTimeout = null;
 
@@ -2178,8 +3663,43 @@
             }
         );
 
+        window.addEventListener(
+            "hashchange",
+            () => {
+                const view = window.location.hash
+                    .replace("#", "");
+
+                if (
+                    viewMetadata[view]
+                ) {
+                    showView(
+                        view,
+                        false
+                    );
+                }
+            }
+        );
+
+        /* ==========================================
+           INICIO
+        =========================================== */
+
         async function initializeDashboard() {
             updateCustomDateVisibility();
+
+            const initialView = (
+                window.location.hash
+                    .replace("#", "")
+            );
+
+            showView(
+                (
+                    viewMetadata[initialView]
+                        ? initialView
+                        : "control"
+                ),
+                false
+            );
 
             await refreshDashboardData();
 
