@@ -351,7 +351,7 @@
 
                         <article class="kpi-card kpi-card--critical">
                             <span>
-                                Prioridad crítica
+                                Críticos del período
                             </span>
 
                             <strong id="metric-critical">
@@ -359,7 +359,7 @@
                             </strong>
 
                             <small>
-                                Máxima severidad
+                                Reportados con máxima prioridad
                             </small>
                         </article>
 
@@ -369,11 +369,11 @@
                             </span>
 
                             <strong id="metric-average-resolution">
-                                -
+                                —
                             </strong>
 
-                            <small>
-                                Tiempo medio de resolución
+                            <small id="metric-average-resolution-help">
+                                Aún no hay incidentes resueltos
                             </small>
                         </article>
                     </div>
@@ -756,10 +756,10 @@
                     data-dashboard-view="analytics"
                     hidden
                 >
-                    <div class="view-intro">
+                    <div class="view-intro analytics-view-intro">
                         <div>
                             <span class="section-kicker">
-                                Análisis
+                                Análisis operacional
                             </span>
 
                             <h2>
@@ -768,23 +768,37 @@
                         </div>
 
                         <p>
-                            Patrones, concentración y comportamiento
-                            de los incidentes del período.
+                            Identifica tendencias, recurrencias y puntos
+                            de concentración para orientar decisiones
+                            operacionales.
                         </p>
                     </div>
 
-                    <div class="analytics-grid">
-                        <article class="analytics-card analytics-card--wide">
-                            <div class="analytics-card-header">
+                    <div class="analytics-layout">
+                        <article
+                            class="analytics-card analytics-card--trend"
+                        >
+                            <div
+                                class="analytics-card-header analytics-card-header--split"
+                            >
                                 <div>
+                                    <span class="section-kicker">
+                                        Tendencia
+                                    </span>
+
                                     <h3 class="analytics-card-title">
                                         Evolución temporal
                                     </h3>
 
                                     <p class="analytics-card-description">
-                                        Tendencia diaria de incidentes.
+                                        Cantidad de incidentes registrados
+                                        por día durante el período seleccionado.
                                     </p>
                                 </div>
+
+                                <span class="analytics-card-badge">
+                                    Incidentes por día
+                                </span>
                             </div>
 
                             <div
@@ -793,123 +807,211 @@
                             ></div>
                         </article>
 
-                        <article class="analytics-card">
-                            <div class="analytics-card-header">
+                        <section
+                            class="analytics-section"
+                            aria-labelledby="analytics-concentration-title"
+                        >
+                            <div class="analytics-section-header">
                                 <div>
-                                    <h3 class="analytics-card-title">
-                                        Equipos recurrentes
+                                    <span class="section-kicker">
+                                        Concentración
+                                    </span>
+
+                                    <h3
+                                        id="analytics-concentration-title"
+                                        class="analytics-section-title"
+                                    >
+                                        Dónde se concentran los incidentes
                                     </h3>
 
-                                    <p class="analytics-card-description">
-                                        Equipos o servicios con mayor
-                                        cantidad de incidentes.
+                                    <p>
+                                        Equipos, áreas y ubicaciones con mayor
+                                        recurrencia durante el período.
                                     </p>
                                 </div>
                             </div>
 
-                            <div
-                                id="equipment-chart"
-                                class="chart-container"
-                            ></div>
-                        </article>
+                            <div class="analytics-grid">
+                                <article class="analytics-card">
+                                    <div class="analytics-card-header">
+                                        <div>
+                                            <h3 class="analytics-card-title">
+                                                Equipos recurrentes
+                                            </h3>
 
-                        <article class="analytics-card">
-                            <div class="analytics-card-header">
+                                            <p class="analytics-card-description">
+                                                Equipos o servicios con mayor
+                                                cantidad de incidentes.
+                                            </p>
+                                        </div>
+                                        <span
+                                            id="equipment-top-badge"
+                                            class="analytics-card-badge"
+                                        >
+                                            Top 6
+                                        </span>
+                                    </div>
+
+                                    <div
+                                        id="equipment-chart"
+                                        class="chart-container"
+                                    ></div>
+                                </article>
+
+                                <article class="analytics-card">
+                                    <div class="analytics-card-header">
+                                        <div>
+                                            <h3 class="analytics-card-title">
+                                                Incidentes por área
+                                            </h3>
+
+                                            <p class="analytics-card-description">
+                                                Áreas operacionales con mayor
+                                                volumen de reportes.
+                                            </p>
+                                        </div>
+
+                                        <span
+                                            id="area-top-badge"
+                                            class="analytics-card-badge"
+                                        >
+                                            Top 6
+                                        </span>
+                                    </div>
+
+                                    <div
+                                        id="area-chart"
+                                        class="chart-container"
+                                    ></div>
+                                </article>
+
+                                <article class="analytics-card">
+                                    <div class="analytics-card-header">
+                                        <div>
+                                            <h3 class="analytics-card-title">
+                                                Ubicaciones afectadas
+                                            </h3>
+
+                                            <p class="analytics-card-description">
+                                                Contextos operacionales con mayor
+                                                número de reportes.
+                                            </p>
+                                        </div>
+
+                                        <span
+                                            id="location-top-badge"
+                                            class="analytics-card-badge"
+                                        >
+                                            Top 6
+                                        </span>
+                                    </div>
+
+                                    <div
+                                        id="location-context-chart"
+                                        class="chart-container"
+                                    ></div>
+                                </article>
+                            </div>
+                        </section>
+
+                        <section
+                            class="analytics-section"
+                            aria-labelledby="analytics-composition-title"
+                        >
+                            <div class="analytics-section-header">
                                 <div>
-                                    <h3 class="analytics-card-title">
-                                        Incidentes por área
+                                    <span class="section-kicker">
+                                        Composición
+                                    </span>
+
+                                    <h3
+                                        id="analytics-composition-title"
+                                        class="analytics-section-title"
+                                    >
+                                        Cómo se distribuyen los incidentes
                                     </h3>
 
-                                    <p class="analytics-card-description">
-                                        Áreas con mayor actividad.
+                                    <p>
+                                        Distribución por familia de activo,
+                                        estado operacional y nivel de prioridad.
                                     </p>
                                 </div>
                             </div>
 
-                            <div
-                                id="area-chart"
-                                class="chart-container"
-                            ></div>
-                        </article>
+                            <div class="analytics-grid">
+                                <article class="analytics-card">
+                                    <div class="analytics-card-header">
+                                        <div>
+                                            <h3 class="analytics-card-title">
+                                                Familias de activo
+                                            </h3>
 
-                        <article class="analytics-card">
-                            <div class="analytics-card-header">
-                                <div>
-                                    <h3 class="analytics-card-title">
-                                        Ubicaciones afectadas
-                                    </h3>
+                                            <p class="analytics-card-description">
+                                                Tipo de activo o servicio afectado
+                                                por los incidentes.
+                                            </p>
+                                        </div>
 
-                                    <p class="analytics-card-description">
-                                        Contextos operacionales con
-                                        mayor número de reportes.
-                                    </p>
-                                </div>
+                                        <span class="analytics-card-badge">
+                                            Distribución
+                                        </span>
+                                    </div>
+
+                                    <div
+                                        id="asset-category-chart"
+                                        class="chart-container"
+                                    ></div>
+                                </article>
+
+                                <article class="analytics-card">
+                                    <div class="analytics-card-header">
+                                        <div>
+                                            <h3 class="analytics-card-title">
+                                                Estado del flujo
+                                            </h3>
+
+                                            <p class="analytics-card-description">
+                                                Situación actual de los incidentes
+                                                del período.
+                                            </p>
+                                        </div>
+
+                                        <span class="analytics-card-badge">
+                                            Estado
+                                        </span>
+                                    </div>
+
+                                    <div
+                                        id="status-chart"
+                                        class="chart-container"
+                                    ></div>
+                                </article>
+
+                                <article class="analytics-card">
+                                    <div class="analytics-card-header">
+                                        <div>
+                                            <h3 class="analytics-card-title">
+                                                Prioridad
+                                            </h3>
+
+                                            <p class="analytics-card-description">
+                                                Distribución según severidad
+                                                informada en los reportes.
+                                            </p>
+                                        </div>
+
+                                        <span class="analytics-card-badge">
+                                            Severidad
+                                        </span>
+                                    </div>
+
+                                    <div
+                                        id="priority-chart"
+                                        class="chart-container"
+                                    ></div>
+                                </article>
                             </div>
-
-                            <div
-                                id="location-context-chart"
-                                class="chart-container"
-                            ></div>
-                        </article>
-
-                        <article class="analytics-card">
-                            <div class="analytics-card-header">
-                                <div>
-                                    <h3 class="analytics-card-title">
-                                        Familias de activo
-                                    </h3>
-
-                                    <p class="analytics-card-description">
-                                        Distribución por tipo de activo
-                                        o servicio afectado.
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div
-                                id="asset-category-chart"
-                                class="chart-container"
-                            ></div>
-                        </article>
-
-                        <article class="analytics-card">
-                            <div class="analytics-card-header">
-                                <div>
-                                    <h3 class="analytics-card-title">
-                                        Estado del flujo
-                                    </h3>
-
-                                    <p class="analytics-card-description">
-                                        Distribución actual de la gestión.
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div
-                                id="status-chart"
-                                class="chart-container"
-                            ></div>
-                        </article>
-
-                        <article class="analytics-card">
-                            <div class="analytics-card-header">
-                                <div>
-                                    <h3 class="analytics-card-title">
-                                        Prioridad
-                                    </h3>
-
-                                    <p class="analytics-card-description">
-                                        Severidad de los incidentes
-                                        registrados.
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div
-                                id="priority-chart"
-                                class="chart-container"
-                            ></div>
-                        </article>
+                        </section>
                     </div>
                 </section>
 
@@ -1285,6 +1387,10 @@
             "metric-average-resolution"
         );
 
+        const metricAverageResolutionHelp = document.getElementById(
+            "metric-average-resolution-help"
+        );
+
         const attentionCriticalOpen = document.getElementById(
             "attention-critical-open"
         );
@@ -1311,6 +1417,18 @@
 
         const locationContextChart = document.getElementById(
             "location-context-chart"
+        );
+
+        const equipmentTopBadge = document.getElementById(
+            "equipment-top-badge"
+        );
+
+        const areaTopBadge = document.getElementById(
+            "area-top-badge"
+        );
+
+        const locationTopBadge = document.getElementById(
+            "location-top-badge"
         );
 
         const assetCategoryChart = document.getElementById(
@@ -1439,10 +1557,10 @@
 
         function getPriorityColor(priority) {
             const colors = {
-                low: "#15803d",
-                medium: "#0284c7",
-                high: "#d97706",
-                critical: "#b91c1c",
+                low: getCssVariable("--success"),
+                medium: getCssVariable("--info"),
+                high: getCssVariable("--warning"),
+                critical: getCssVariable("--danger"),
             };
 
             return (
@@ -1453,12 +1571,12 @@
 
         function getStatusColor(status) {
             const colors = {
-                reported: "#0284c7",
-                under_review: "#7c3aed",
-                in_progress: "#d97706",
-                resolved: "#15803d",
-                closed: "#64748b",
-                cancelled: "#b91c1c",
+                reported: getCssVariable("--info"),
+                under_review: getCssVariable("--purple"),
+                in_progress: getCssVariable("--warning"),
+                resolved: getCssVariable("--success"),
+                closed: getCssVariable("--text-soft"),
+                cancelled: getCssVariable("--danger"),
             };
 
             return (
@@ -1468,6 +1586,7 @@
         }
 
         function formatDate(value) {
+
             if (!value) {
                 return "-";
             }
@@ -1481,6 +1600,40 @@
             ).format(
                 new Date(value)
             );
+        }
+
+        function formatOperationalDate(value) {
+            if (!value) {
+                return "-";
+            }
+
+            const date = new Date(value);
+
+            const datePart = new Intl.DateTimeFormat(
+                "es-CL",
+                {
+                    day: "2-digit",
+                    month: "short",
+                }
+            ).format(
+                date
+            ).replaceAll(
+                ".",
+                ""
+            );
+
+            const timePart = new Intl.DateTimeFormat(
+                "es-CL",
+                {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: false,
+                }
+            ).format(
+                date
+            );
+
+            return `${datePart} · ${timePart}`;
         }
 
         function formatShortDate(value) {
@@ -1868,226 +2021,166 @@
             `;
         }
 
+        function updateTopBadge(
+            badge,
+            data,
+            limit = 6
+        ) {
+            if (!badge) {
+                return;
+            }
+
+            const visibleCount = Math.min(
+                data.length,
+                limit
+            );
+
+            badge.textContent = (
+                visibleCount > 0
+                    ? `Top ${visibleCount}`
+                    : "Sin datos"
+            );
+        }
+
+        function renderBarChartRows(
+            container,
+            data,
+            labelKey,
+            colorResolver,
+            ariaLabel
+        ) {
+            if (!data.length) {
+                renderEmptyChart(
+                    container,
+                    "No hay información disponible en este período."
+                );
+
+                return;
+            }
+
+            const items = data.slice(
+                0,
+                6
+            );
+
+            const maxValue = Math.max(
+                ...items.map(
+                    (item) => item.count
+                ),
+                1
+            );
+
+            container.innerHTML = `
+                <div
+                    class="bar-chart"
+                    role="img"
+                    aria-label="${escapeHtml(ariaLabel)}"
+                >
+                    ${
+                        items.map(
+                            (item, index) => {
+                                const rawLabel = (
+                                    item[labelKey]
+                                    ?? item.label
+                                    ?? ""
+                                );
+
+                                const label = escapeHtml(
+                                    rawLabel
+                                );
+
+                                const percent = Math.max(
+                                    5,
+                                    Math.round(
+                                        (
+                                            item.count
+                                            / maxValue
+                                        ) * 100
+                                    )
+                                );
+
+                                const color = (
+                                    colorResolver(item)
+                                    || getCssVariable(
+                                        "--primary"
+                                    )
+                                );
+
+                                return `
+                                    <div
+                                        class="bar-chart-row"
+                                        title="${label}: ${item.count}"
+                                    >
+                                        <span
+                                            class="bar-chart-rank"
+                                            aria-hidden="true"
+                                        >
+                                            ${index + 1}
+                                        </span>
+
+                                        <span
+                                            class="bar-chart-label"
+                                            title="${label}"
+                                        >
+                                            ${label}
+                                        </span>
+
+                                        <div
+                                            class="bar-chart-track"
+                                            aria-hidden="true"
+                                        >
+                                            <span
+                                                class="bar-chart-fill"
+                                                style="
+                                                    width: ${percent}%;
+                                                    background: ${color};
+                                                "
+                                            ></span>
+                                        </div>
+
+                                        <strong
+                                            class="bar-chart-value"
+                                        >
+                                            ${item.count}
+                                        </strong>
+                                    </div>
+                                `;
+                            }
+                        ).join("")
+                    }
+                </div>
+            `;
+        }
+
         function renderHorizontalBarChart(
             container,
             data,
             labelKey,
             color
         ) {
-            if (!data.length) {
-                renderEmptyChart(
-                    container,
-                    "No hay información disponible en este período."
-                );
-
-                return;
-            }
-
-            const items = data.slice(
-                0,
-                6
+            renderBarChartRows(
+                container,
+                data,
+                labelKey,
+                () => color,
+                "Comparación de incidentes por categoría"
             );
-
-            const maxValue = Math.max(
-                ...items.map(
-                    (item) => item.count
-                ),
-                1
-            );
-
-            const width = 720;
-            const rowHeight = 44;
-            const labelWidth = 210;
-            const chartWidth = 420;
-
-            const height = (
-                items.length * rowHeight
-                + 24
-            );
-
-            const elements = items.map(
-                (item, index) => {
-                    const y = (
-                        14
-                        + index * rowHeight
-                    );
-
-                    const barWidth = Math.max(
-                        4,
-                        (
-                            item.count
-                            / maxValue
-                        ) * chartWidth
-                    );
-
-                    const label = escapeHtml(
-                        item[labelKey]
-                    );
-
-                    return `
-                        <text
-                            x="0"
-                            y="${y + 17}"
-                            font-size="13"
-                            fill="${getCssVariable("--text-secondary")}"
-                        >
-                            ${label}
-                        </text>
-
-                        <rect
-                            x="${labelWidth}"
-                            y="${y}"
-                            width="${chartWidth}"
-                            height="24"
-                            rx="7"
-                            fill="${getCssVariable("--surface-muted")}"
-                        ></rect>
-
-                        <rect
-                            x="${labelWidth}"
-                            y="${y}"
-                            width="${barWidth}"
-                            height="24"
-                            rx="7"
-                            fill="${color}"
-                            opacity="0.88"
-                        ></rect>
-
-                        <text
-                            x="${labelWidth + chartWidth + 18}"
-                            y="${y + 17}"
-                            font-size="13"
-                            font-weight="700"
-                            fill="${getCssVariable("--text")}"
-                        >
-                            ${item.count}
-                        </text>
-                    `;
-                }
-            ).join("");
-
-            container.innerHTML = `
-                <svg
-                    viewBox="0 0 ${width} ${height}"
-                    width="100%"
-                    height="100%"
-                    role="img"
-                    aria-label="Gráfico de barras"
-                >
-                    ${elements}
-                </svg>
-            `;
         }
 
         function renderCategoricalBarChart(
             container,
             data,
-            colors
+            colorResolver
         ) {
-            if (!data.length) {
-                renderEmptyChart(
-                    container,
-                    "No hay información disponible en este período."
-                );
-
-                return;
-            }
-
-            const items = data.slice(
-                0,
-                6
-            );
-
-            const maxValue = Math.max(
-                ...items.map(
-                    (item) => item.count
+            renderBarChartRows(
+                container,
+                data,
+                "label",
+                (item) => (
+                    colorResolver(item.value)
                 ),
-                1
+                "Distribución de incidentes"
             );
-
-            const width = 720;
-            const rowHeight = 44;
-            const labelWidth = 190;
-            const chartWidth = 440;
-
-            const height = (
-                items.length * rowHeight
-                + 24
-            );
-
-            const elements = items.map(
-                (item, index) => {
-                    const y = (
-                        14
-                        + index * rowHeight
-                    );
-
-                    const barWidth = Math.max(
-                        4,
-                        (
-                            item.count
-                            / maxValue
-                        ) * chartWidth
-                    );
-
-                    const color = (
-                        colors[item.value]
-                        || getCssVariable("--primary")
-                    );
-
-                    return `
-                        <text
-                            x="0"
-                            y="${y + 17}"
-                            font-size="13"
-                            fill="${getCssVariable("--text-secondary")}"
-                        >
-                            ${escapeHtml(item.label)}
-                        </text>
-
-                        <rect
-                            x="${labelWidth}"
-                            y="${y}"
-                            width="${chartWidth}"
-                            height="24"
-                            rx="7"
-                            fill="${getCssVariable("--surface-muted")}"
-                        ></rect>
-
-                        <rect
-                            x="${labelWidth}"
-                            y="${y}"
-                            width="${barWidth}"
-                            height="24"
-                            rx="7"
-                            fill="${color}"
-                            opacity="0.88"
-                        ></rect>
-
-                        <text
-                            x="${labelWidth + chartWidth + 18}"
-                            y="${y + 17}"
-                            font-size="13"
-                            font-weight="700"
-                            fill="${getCssVariable("--text")}"
-                        >
-                            ${item.count}
-                        </text>
-                    `;
-                }
-            ).join("");
-
-            container.innerHTML = `
-                <svg
-                    viewBox="0 0 ${width} ${height}"
-                    width="100%"
-                    height="100%"
-                    role="img"
-                    aria-label="Gráfico de distribución"
-                >
-                    ${elements}
-                </svg>
-            `;
         }
 
         function normalizeTrendData(data) {
@@ -2321,7 +2414,8 @@
                         x="${padding.left - 14}"
                         y="${y + 4}"
                         text-anchor="end"
-                        font-size="11"
+                        font-size="13"
+                        font-weight="600"
                         fill="${textColor}"
                     >
                         ${value}
@@ -2352,7 +2446,8 @@
                             x="${point.x}"
                             y="${height - 18}"
                             text-anchor="middle"
-                            font-size="11"
+                            font-size="13"
+                            font-weight="600"
                             fill="${textColor}"
                         >
                             ${escapeHtml(
@@ -2565,11 +2660,33 @@
                     data.metrics.critical
                 );
 
+                const averageResolutionSeconds = (
+                    data.metrics
+                        .average_resolution_seconds
+                );
+
+                const hasResolutionData = (
+                    averageResolutionSeconds !== null
+                    && averageResolutionSeconds !== undefined
+                );
+
                 metricAverageResolution.textContent = (
-                    formatDuration(
-                        data.metrics
-                            .average_resolution_seconds
-                    )
+                    hasResolutionData
+                        ? formatDuration(
+                            averageResolutionSeconds
+                        )
+                        : "—"
+                );
+
+                metricAverageResolution.classList.toggle(
+                    "is-empty",
+                    !hasResolutionData
+                );
+
+                metricAverageResolutionHelp.textContent = (
+                    hasResolutionData
+                        ? "Tiempo medio de resolución"
+                        : "Aún no hay incidentes resueltos"
                 );
 
                 attentionCriticalOpen.textContent = (
@@ -2607,6 +2724,21 @@
                     data.by_status
                 );
 
+                updateTopBadge(
+                    equipmentTopBadge,
+                    data.by_equipment
+                );
+
+                updateTopBadge(
+                    areaTopBadge,
+                    data.by_area
+                );
+
+                updateTopBadge(
+                    locationTopBadge,
+                    data.by_location_context
+                );
+
                 renderHorizontalBarChart(
                     equipmentChart,
                     data.by_equipment,
@@ -2631,31 +2763,21 @@
                 renderCategoricalBarChart(
                     assetCategoryChart,
                     data.by_asset_category,
-                    {}
+                    () => getCssVariable(
+                        "--primary"
+                    )
                 );
 
                 renderCategoricalBarChart(
                     statusChart,
                     data.by_status,
-                    {
-                        reported: "#0284c7",
-                        under_review: "#7c3aed",
-                        in_progress: "#d97706",
-                        resolved: "#15803d",
-                        closed: "#475569",
-                        cancelled: "#b91c1c",
-                    }
+                    getStatusColor
                 );
 
                 renderCategoricalBarChart(
                     priorityChart,
                     data.by_priority,
-                    {
-                        low: "#15803d",
-                        medium: "#0284c7",
-                        high: "#d97706",
-                        critical: "#b91c1c",
-                    }
+                    getPriorityColor
                 );
             } catch (error) {
                 console.error(
@@ -2745,7 +2867,7 @@
 
                         <td>
                             ${escapeHtml(
-                                formatDate(
+                                formatOperationalDate(
                                     incident.created_at
                                 )
                             )}
@@ -2953,7 +3075,7 @@
 
                             <td>
                                 ${escapeHtml(
-                                    formatDate(
+                                    formatOperationalDate(
                                         incident.created_at
                                     )
                                 )}
@@ -3106,6 +3228,10 @@
 
                         button.className = (
                             "management-queue-item"
+                        );
+
+                        button.dataset.incidentId = (
+                            incident.id
                         );
 
                         if (
@@ -3438,8 +3564,13 @@
                     )
                     .forEach(
                         (item) => {
-                            item.classList.remove(
-                                "is-selected"
+                            item.classList.toggle(
+                                "is-selected",
+                                Number(
+                                    item.dataset.incidentId
+                                ) === Number(
+                                    selectedIncidentId
+                                )
                             );
                         }
                     );
