@@ -76,6 +76,45 @@ class IncidentProcessor:
         ),
     }
 
+    GUIDED_QUESTIONS = {
+        "area": (
+            "Necesito saber a qué área corresponde la falla. "
+            "Por ejemplo: Producción, Audio o Redes. "
+            "¿A qué área corresponde el incidente?"
+        ),
+        "location_context": (
+            "Me refiero al lugar donde ocurre la falla. "
+            "Por ejemplo: Estudio 2, Control Central o Móvil 7. "
+            "¿Cuál es la ubicación del incidente?"
+        ),
+        "equipment": (
+            "Necesito identificar el equipo o servicio afectado. "
+            "Por ejemplo: Cámara 3, Consola de audio o Router principal. "
+            "¿Qué equipo presenta la falla?"
+        ),
+        "failure_type": (
+            "Necesito saber qué comportamiento anormal observaste. "
+            "Por ejemplo: imagen intermitente, sin audio o no enciende. "
+            "¿Qué problema presenta exactamente el equipo?"
+        ),
+        "description": (
+            "Necesito que describas brevemente qué ocurre. "
+            "Por ejemplo: la imagen se corta durante varios segundos "
+            "y luego vuelve. ¿Puedes describir qué está pasando?"
+        ),
+        "operational_impact": (
+            "Me refiero a cómo afecta la falla a tu trabajo. "
+            "Por ejemplo: interrumpe una grabación, obliga a usar "
+            "un respaldo o permite continuar normalmente. "
+            "¿Qué impacto operacional tiene?"
+        ),
+        "priority": (
+            "Necesito que elijas una prioridad explícitamente. "
+            "Por ejemplo, puedes responder: Alta. "
+            "¿Qué prioridad seleccionas: Baja, Media, Alta o Crítica?"
+        ),
+    }
+
     GENERIC_FAILURE_TYPES = {
         "problema",
         "problemas",
@@ -126,11 +165,23 @@ class IncidentProcessor:
     CONFIRMATION_POSITIVE = {
         "si",
         "si confirmo",
+        "si confirmo los datos",
+        "si confirmo la informacion",
         "confirmo",
+        "confirmo los datos",
+        "confirmo la informacion",
+        "confirmo el reporte",
         "confirmado",
         "correcto",
+        "todo correcto",
+        "esta correcto",
+        "esta todo correcto",
+        "los datos son correctos",
         "crear reporte",
         "crear incidente",
+        "esta bien",
+        "bien",
+        "ok",
     }
 
     CONFIRMATION_NEGATIVE = {
@@ -140,6 +191,7 @@ class IncidentProcessor:
         "corregir",
         "quiero cambiar",
         "cambiar",
+        "esta mal",
     }
 
     def __init__(self, ai_provider=None):
@@ -217,6 +269,42 @@ class IncidentProcessor:
             for key, value in raw_previous_data.items()
             if key != self.PENDING_MESSAGES_KEY
         }
+
+        help_field = self._get_pending_help_field(draft)
+
+        if (
+            help_field is not None
+            and self._is_clarification_request(message.content)
+        ):
+            reply = self.GUIDED_QUESTIONS[help_field]
+
+            draft.last_question = reply
+            draft.save(
+                update_fields=[
+                    "last_question",
+                    "updated_at",
+                ]
+            )
+
+            message.draft = draft
+            message.status = ChannelMessage.Status.PROCESSED
+            message.processed_at = timezone.now()
+            message.save(
+                update_fields=[
+                    "draft",
+                    "status",
+                    "processed_at",
+                ]
+            )
+
+            return {
+                "action": "ask_clarification",
+                "incident_created": False,
+                "draft_id": draft.pk,
+                "missing_fields": draft.missing_fields,
+                "reply": reply,
+                "extracted_data": previous_data,
+            }
 
         direct_draft_result = self._try_process_direct_draft_reply(
             draft=draft,
@@ -435,6 +523,25 @@ class IncidentProcessor:
         elif missing_fields and not clarification_question:
             clarification_question = self.FALLBACK_QUESTIONS[
                 missing_fields[0]
+            ]
+
+        # Mostrar ejemplos solamente cuando no exista una
+        # aclaración más específica para la respuesta recibida.
+        if (
+            help_field is not None
+            and help_field in missing_fields
+            and not (
+                direct_draft_result is not None
+                and clarification_question is not None
+            )
+            and not any(
+                extracted_data.get(field) != previous_data.get(field)
+                and extracted_data.get(field)
+                for field in self.REQUIRED_FIELDS
+            )
+        ):
+            clarification_question = self.GUIDED_QUESTIONS[
+                help_field
             ]
 
         if draft is None:
@@ -948,6 +1055,80 @@ class IncidentProcessor:
             "seguir",
             "sigamos",
         }
+
+    def _get_pending_help_field(
+        self,
+        draft: IncidentDraft | None,
+    ) -> str | None:
+        if (
+            draft is None
+            or draft.status != IncidentDraft.Status.COLLECTING
+        ):
+            return None
+
+        missing_fields = draft.missing_fields or []
+
+        field = self._infer_expected_field_from_last_question(
+            draft.last_question
+        )
+
+        if field in missing_fields:
+            return field
+
+        if len(missing_fields) == 1:
+            return missing_fields[0]
+
+        return None
+
+    def _is_clarification_request(self, text: str) -> bool:
+        normalized = self._normalize_quick_text(text)
+
+        exact_phrases = {
+            "no se",
+            "ni idea",
+            "no tengo idea",
+            "no lo se",
+            "no entiendo",
+            "no entendi",
+            "no comprendo",
+            "no cacho",
+            "no cache",
+            "no me queda claro",
+            "un ejemplo",
+            "ayuda",
+            "que",
+            "como",
+        }
+
+        explanation_phrases = (
+            "no entiendo ",
+            "no comprendo ",
+            "no cacho ",
+            "no se a que te refieres",
+            "no se que responder",
+            "no se que poner",
+            "no se como responder",
+            "que significa",
+            "a que te refieres",
+            "que quieres decir",
+            "que tengo que responder",
+            "que tengo que poner",
+            "dame un ejemplo",
+            "me das un ejemplo",
+            "puedes darme un ejemplo",
+            "me puedes dar un ejemplo",
+            "puedes explicarme",
+            "me puedes explicar",
+            "explicame",
+        )
+
+        return (
+            normalized in exact_phrases
+            or any(
+                normalized.startswith(phrase)
+                for phrase in explanation_phrases
+            )
+        )
 
     def _try_process_direct_draft_reply(
         self,

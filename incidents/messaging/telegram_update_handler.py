@@ -70,13 +70,24 @@ class TelegramUpdateHandler:
             self.messaging_provider.send_text(
                 external_chat_id,
                 (
-                    "Hola. Soy el asistente de reportes técnicos "
-                    "de TVTEL.\n\n"
-                    "Para registrar un incidente, describe la falla "
-                    "indicando la unidad, el equipo y lo ocurrido.\n\n"
-                    "Si falta información, te haré una pregunta "
+                    "Hola. Soy el asistente de incidentes técnicos "
+                    "de Canal 13.\n\n"
+                    "Estoy aquí para ayudarte a registrar una falla "
+                    "o incidente operacional de forma simple.\n\n"
+                    "Para completar el reporte necesitaré conocer:\n\n"
+                    "• Área asociada al incidente.\n"
+                    "• Ubicación o contexto donde ocurre.\n"
+                    "• Equipo o servicio afectado.\n"
+                    "• Síntoma o problema que presenta.\n"
+                    "• Una breve descripción de lo ocurrido.\n"
+                    "• Impacto que genera en la operación.\n"
+                    "• Prioridad: Baja, Media, Alta o Crítica.\n\n"
+                    "Puedes contarme el problema con tus propias palabras. "
+                    "No necesitas entregar todos los datos de una vez; "
+                    "si falta información, te iré haciendo preguntas "
                     "para completar el reporte.\n\n"
-                    "Si quieres cancelar un reporte pendiente, "
+                    "Cuando quieras, cuéntame qué está ocurriendo.\n\n"
+                    "Si necesitas cancelar un reporte pendiente, "
                     "escribe /cancelar."
                 ),
             )

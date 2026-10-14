@@ -1,9 +1,17 @@
-from incidents.models import ChannelMessage, TechnicianChannel
+
+from django.conf import settings
+from django.db import IntegrityError, transaction
+
+from incidents.models import (
+    ChannelMessage,
+    Technician,
+    TechnicianChannel,
+)
 from incidents.services.incident_processor import IncidentProcessor
 
 
 class ChannelNotAuthorizedError(Exception):
-    """El usuario no está asociado a un técnico activo."""
+    """El usuario no está asociado a un reportante activo."""
 
 
 class IncomingMessageService:
@@ -12,6 +20,79 @@ class IncomingMessageService:
             incident_processor
             or IncidentProcessor()
         )
+
+    def _auto_register_telegram_user(
+        self,
+        *,
+        external_user_id: str,
+        external_chat_id: str,
+        raw_payload: dict,
+    ):
+        telegram_message = raw_payload.get("message", {})
+        sender = telegram_message.get("from", {})
+        chat = telegram_message.get("chat", {})
+
+        # Permitir solamente conversaciones privadas.
+        if chat.get("type") != "private":
+            return None
+
+        # Verificar que el ID corresponde al remitente real.
+        if str(sender.get("id", "")) != external_user_id:
+            return None
+
+        # No reactivar automáticamente usuarios bloqueados.
+        existing = TechnicianChannel.objects.filter(
+            provider=TechnicianChannel.Provider.TELEGRAM,
+            external_user_id=external_user_id,
+        ).first()
+
+        if existing is not None:
+            return None
+
+        first_name = str(sender.get("first_name") or "").strip()
+        last_name = str(sender.get("last_name") or "").strip()
+
+        full_name = " ".join(
+            part for part in (first_name, last_name) if part
+        )
+
+        if not full_name:
+            full_name = f"Reportante Telegram {external_user_id}"
+
+        username = str(sender.get("username") or "").strip()
+
+        try:
+            with transaction.atomic():
+                reporter = Technician.objects.create(
+                    full_name=full_name[:150],
+                    is_active=True,
+                )
+
+                channel_account = TechnicianChannel.objects.create(
+                    technician=reporter,
+                    provider=TechnicianChannel.Provider.TELEGRAM,
+                    external_user_id=external_user_id,
+                    external_chat_id=external_chat_id,
+                    username=username[:150],
+                    is_active=True,
+                )
+
+        except IntegrityError:
+            # Evita crear dos cuentas si llegan mensajes simultáneos.
+            channel_account = (
+                TechnicianChannel.objects.select_related(
+                    "technician"
+                )
+                .filter(
+                    provider=TechnicianChannel.Provider.TELEGRAM,
+                    external_user_id=external_user_id,
+                    is_active=True,
+                    technician__is_active=True,
+                )
+                .first()
+            )
+
+        return channel_account
 
     def process_text(
         self,
@@ -36,9 +117,26 @@ class IncomingMessageService:
             .first()
         )
 
+        # Permitir el registro automático solamente durante el desarrollo.
+        if (
+            channel_account is None
+            and provider == TechnicianChannel.Provider.TELEGRAM
+            and settings.DEBUG
+            and getattr(
+                settings,
+                "TELEGRAM_AUTO_REGISTER",
+                False,
+            )
+        ):
+            channel_account = self._auto_register_telegram_user(
+                external_user_id=external_user_id,
+                external_chat_id=external_chat_id,
+                raw_payload=raw_payload,
+            )
+
         if channel_account is None:
             raise ChannelNotAuthorizedError(
-                "No existe un técnico activo asociado "
+                "No existe un reportante activo asociado "
                 "a este usuario y proveedor."
             )
 

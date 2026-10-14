@@ -154,3 +154,13 @@ TELEGRAM_BOT_TOKEN = env(
     "TELEGRAM_BOT_TOKEN",
     default="",
 )
+
+# Registro automático de reportantes de Telegram.
+# Disponible solamente en el entorno de desarrollo.
+TELEGRAM_AUTO_REGISTER = (
+    DEBUG
+    and env.bool(
+        "TELEGRAM_AUTO_REGISTER",
+        default=False,
+    )
+)
