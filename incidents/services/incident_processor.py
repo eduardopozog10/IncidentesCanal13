@@ -333,27 +333,42 @@ class IncidentProcessor:
                     "reply": reply,
                 }
 
+            previous_location = previous_data.get(
+                "location_context"
+            )
+
+            updated_location = self._choose_refined_value(
+                previous_value=previous_location,
+                candidate_value=extraction.location_context,
+                field_name="location_context",
+            )
+
+            updated_equipment = self._choose_refined_value(
+                previous_value=previous_data.get("equipment"),
+                candidate_value=extraction.equipment,
+                field_name="equipment",
+            )
+
+            unit = previous_data.get("unit") or extraction.unit
+
+            if (
+                previous_location
+                and updated_location != previous_location
+            ):
+                unit = updated_location
+
             extracted_data = {
-                "unit": (
-                    previous_data.get("unit")
-                    or extraction.unit
-                ),
+                "unit": unit,
                 "area": self._normalize_area_value(
                     previous_data.get("area")
                     or extraction.area
                 ),
-                "location_context": (
-                    previous_data.get("location_context")
-                    or extraction.location_context
-                ),
+                "location_context": updated_location,
                 "asset_category": (
                     previous_data.get("asset_category")
                     or extraction.asset_category
                 ),
-                "equipment": (
-                    previous_data.get("equipment")
-                    or extraction.equipment
-                ),
+                "equipment": updated_equipment,
                 "failure_type": (
                     previous_data.get("failure_type")
                     or extraction.failure_type
@@ -1438,6 +1453,75 @@ class IncidentProcessor:
             and mentions_failure
         )
 
+    def _choose_refined_value(
+        self,
+        *,
+        previous_value: str | None,
+        candidate_value: str | None,
+        field_name: str,
+    ) -> str | None:
+        """
+        Conserva información válida y acepta valores más precisos.
+        """
+
+        if not previous_value:
+            return candidate_value
+
+        if not candidate_value:
+            return previous_value
+
+        previous_normalized = self._normalize_quick_text(
+            str(previous_value)
+        )
+
+        candidate_normalized = self._normalize_quick_text(
+            str(candidate_value)
+        )
+
+        if previous_normalized == candidate_normalized:
+            return previous_value
+
+        if field_name == "equipment":
+            if (
+                candidate_normalized.startswith(
+                    f"{previous_normalized} "
+                )
+                and len(candidate_normalized.split())
+                <= len(previous_normalized.split()) + 3
+            ):
+                return candidate_value
+
+        if field_name == "location_context":
+            contains_equipment = (
+                self._is_valid_direct_field_value(
+                    field_name="equipment",
+                    value=str(previous_value),
+                    previous_data={},
+                )
+            )
+
+            has_extraneous_clause = (
+                contains_equipment
+                and (
+                    "," in str(previous_value)
+                    or " esta en " in f" {previous_normalized} "
+                    or " queda en " in f" {previous_normalized} "
+                )
+            )
+
+            if (
+                has_extraneous_clause
+                and candidate_normalized in previous_normalized
+                and self._is_valid_direct_field_value(
+                    field_name="location_context",
+                    value=str(candidate_value),
+                    previous_data={},
+                )
+            ):
+                return candidate_value
+
+        return previous_value
+
     def _looks_like_compound_reply(
         self,
         text: str,
@@ -1449,6 +1533,20 @@ class IncidentProcessor:
         )
 
         if text.count(",") >= 2:
+            return True
+
+        if (
+            self._is_valid_direct_field_value(
+                field_name="equipment",
+                value=text,
+                previous_data={},
+            )
+            and self._is_valid_direct_field_value(
+                field_name="location_context",
+                value=text,
+                previous_data={},
+            )
+        ):
             return True
 
         compound_markers = (
@@ -1693,6 +1791,9 @@ class IncidentProcessor:
                 marker in normalized_value
                 for marker in location_markers
             ):
+                continue
+
+            if self._looks_like_compound_reply(value):
                 continue
 
             if value:
