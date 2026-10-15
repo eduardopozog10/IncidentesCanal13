@@ -479,6 +479,28 @@ class IncidentProcessor:
                 extraction.clarification_question
             )
 
+        extracted_data["asset_category"] = (
+            self._refine_asset_category_from_equipment(
+                equipment=extracted_data.get("equipment"),
+                current_category=extracted_data.get(
+                    "asset_category"
+                ),
+            )
+        )
+
+        generic_equipment = extracted_data.get(
+            "equipment"
+        )
+
+        equipment_was_generic = (
+            self._is_generic_equipment_value(
+                generic_equipment
+            )
+        )
+
+        if equipment_was_generic:
+            extracted_data["equipment"] = None
+
         location_context = (
             extracted_data.get("location_context")
             or extracted_data.get("unit")
@@ -515,7 +537,15 @@ class IncidentProcessor:
             if not extracted_data.get(field_name)
         ]
 
-        if details_were_generic:
+        if equipment_was_generic:
+            clarification_question = (
+                "Necesito identificar con mayor precisión "
+                f"qué {str(generic_equipment).lower()} está afectada. "
+                "Indica su número, nombre o identificador. "
+                f"Por ejemplo: {generic_equipment} 3."
+            )
+
+        elif details_were_generic:
             clarification_question = self.FALLBACK_QUESTIONS[
                 "failure_type"
             ]
@@ -599,6 +629,42 @@ class IncidentProcessor:
                 "extracted_data": extracted_data,
             }
 
+        # Si una corrección directa necesita una aclaración,
+        # mostrarla antes de volver al resumen de confirmación.
+        if (
+            direct_draft_result is not None
+            and clarification_question is not None
+        ):
+            draft.last_question = clarification_question
+            draft.status = IncidentDraft.Status.COLLECTING
+            draft.save(
+                update_fields=[
+                    "last_question",
+                    "status",
+                    "updated_at",
+                ]
+            )
+
+            message.draft = draft
+            message.status = ChannelMessage.Status.PROCESSED
+            message.processed_at = timezone.now()
+            message.save(
+                update_fields=[
+                    "draft",
+                    "status",
+                    "processed_at",
+                ]
+            )
+
+            return {
+                "action": "ask_clarification",
+                "incident_created": False,
+                "draft_id": draft.pk,
+                "missing_fields": missing_fields,
+                "reply": clarification_question,
+                "extracted_data": extracted_data,
+            }
+
         confirmation_reply = self._build_confirmation_reply(
             extracted_data
         )
@@ -647,7 +713,31 @@ class IncidentProcessor:
                 draft=draft,
             )
 
-        if normalized_message in self.CONFIRMATION_NEGATIVE:
+        is_negative_confirmation = (
+            normalized_message in self.CONFIRMATION_NEGATIVE
+            or (
+                normalized_message.startswith("no ")
+                and any(
+                    marker in normalized_message
+                    for marker in (
+                        "me equivoque",
+                        "quiero corregir",
+                        "quiero cambiar",
+                        "corregir",
+                        "cambiar",
+                        "ubicacion",
+                        "area",
+                        "equipo",
+                        "sintoma",
+                        "descripcion",
+                        "impacto",
+                        "prioridad",
+                    )
+                )
+            )
+        )
+
+        if is_negative_confirmation:
             reply = (
                 "De acuerdo. Indícame qué dato quieres corregir "
                 "antes de crear el incidente."
@@ -1098,6 +1188,7 @@ class IncidentProcessor:
             "ayuda",
             "que",
             "como",
+            "como asi",
         }
 
         explanation_phrases = (
@@ -1231,11 +1322,49 @@ class IncidentProcessor:
                     value
                 )
 
-                if not self._is_valid_direct_field_value(
-                    field_name=field_name,
-                    value=value,
-                    previous_data=extracted_data,
+                is_valid_for_field = (
+                    self._is_valid_direct_field_value(
+                        field_name=field_name,
+                        value=value,
+                        previous_data=extracted_data,
+                    )
+                )
+
+                if (
+                    field_name == "area"
+                    and not is_valid_for_field
+                    and self._is_valid_direct_field_value(
+                        field_name="location_context",
+                        value=value,
+                        previous_data=extracted_data,
+                    )
                 ):
+                    suggested_location = re.sub(
+                        r"^(?:el\s+|la\s+)",
+                        "",
+                        value,
+                        count=1,
+                        flags=re.IGNORECASE,
+                    ).strip()
+
+                    if suggested_location:
+                        suggested_location = (
+                            suggested_location[0].upper()
+                            + suggested_location[1:]
+                        )
+
+                    return (
+                        extracted_data,
+                        (
+                            f"Entiendo. {suggested_location} corresponde "
+                            "a una ubicación, no a un área. "
+                            "Si quieres corregir la ubicación, puedes "
+                            f"responder: “La ubicación correcta es "
+                            f"{suggested_location}”."
+                        ),
+                    )
+
+                if not is_valid_for_field:
                     return None
 
             self._apply_direct_field_value(
@@ -1300,6 +1429,11 @@ class IncidentProcessor:
 
         if not value:
             return None
+
+        if expected_field == "operational_impact":
+            value = self._clean_operational_impact_value(
+                value
+            )
 
         if (
             expected_field == "equipment"
@@ -1508,18 +1642,51 @@ class IncidentProcessor:
         if field_name == "operational_impact":
             impact_markers = (
                 "detiene",
+                "detener",
                 "interrumpe",
+                "interrumpir",
                 "impide",
+                "impedir",
                 "retrasa",
+                "retraso",
+                "demora",
                 "degrada",
                 "afecta",
+                "afectacion",
                 "sin impacto",
                 "no afecta",
                 "respaldo",
+                "alternativa",
+                "obliga",
+                "obligar",
+                "no permite",
+                "no deja",
+                "deja sin",
                 "puede continuar",
+                "podemos continuar",
                 "permite continuar",
                 "continuar operando",
                 "continua operando",
+                "no puede continuar",
+                "no podemos continuar",
+                "no puede operar",
+                "no podemos operar",
+                "no puede grabar",
+                "no podemos grabar",
+                "no puede transmitir",
+                "no podemos transmitir",
+                "no puede emitir",
+                "no podemos emitir",
+                "no puede iniciar",
+                "no podemos iniciar",
+                "paraliza",
+                "suspende",
+                "bloquea",
+            )
+
+            return any(
+                marker in normalized_value
+                for marker in impact_markers
             )
 
             return any(
@@ -1580,6 +1747,39 @@ class IncidentProcessor:
 
         return False
 
+    def _is_generic_equipment_value(
+        self,
+        value: str | None,
+    ) -> bool:
+        if not value:
+            return False
+
+        normalized_value = self._normalize_quick_text(
+            str(value)
+        )
+
+        generic_equipment_values = {
+            "camara",
+            "microfono",
+            "monitor",
+            "intercom",
+            "switch",
+            "servidor",
+            "computador",
+            "pc",
+            "encoder",
+            "decodificador",
+            "transmisor",
+            "receptor",
+            "antena",
+            "consola",
+            "mezclador",
+            "luminaria",
+            "panel",
+        }
+
+        return normalized_value in generic_equipment_values
+
     def _is_ambiguous_equipment_reply(
         self,
         value: str,
@@ -1633,6 +1833,36 @@ class IncidentProcessor:
             mentions_generic_equipment
             and mentions_failure
         )
+
+    def _refine_asset_category_from_equipment(
+        self,
+        *,
+        equipment: str | None,
+        current_category: str | None,
+    ) -> str | None:
+        if not equipment:
+            return current_category
+
+        normalized_equipment = (
+            self._normalize_quick_text(
+                str(equipment)
+            )
+        )
+
+        audio_markers = (
+            "consola de audio",
+            "microfono",
+            "mezclador de audio",
+            "mesa de audio",
+        )
+
+        if any(
+            marker in normalized_equipment
+            for marker in audio_markers
+        ):
+            return Incident.AssetCategory.AUDIO
+
+        return current_category
 
     def _choose_refined_value(
         self,
@@ -1712,9 +1942,6 @@ class IncidentProcessor:
                 text
             )
         )
-
-        if text.count(",") >= 2:
-            return True
 
         if (
             self._is_valid_direct_field_value(
@@ -1928,13 +2155,17 @@ class IncidentProcessor:
 
         patterns = (
             (
-                r"^(?:en\s+realidad\s+)?"
-                r"(?:es|sería|seria)\s+en\s+"
+                r"^(?:(?:me\s+equivoqu[eé]|perd[oó]n)"
+                r"\s*[,;:\-]?\s*)?"
+                r"(?:en\s+realidad\s+)?"
+                r"(?:es|era|ser[ií]a)\s+en\s+"
                 r"(?:el\s+|la\s+)?(.+)$"
             ),
             (
-                r"^(?:en\s+realidad\s+)?"
-                r"(?:es|sería|seria)\s+"
+                r"^(?:(?:me\s+equivoqu[eé]|perd[oó]n)"
+                r"\s*[,;:\-]?\s*)?"
+                r"(?:en\s+realidad\s+)?"
+                r"(?:es|era|ser[ií]a)\s+"
                 r"(?:el\s+|la\s+)?(.+)$"
             ),
         )
@@ -2002,6 +2233,16 @@ class IncidentProcessor:
                     r"^(?:el\s+)?equipo"
                     r"(?:\s+correcto)?"
                     r"\s+(?:es|sería|seria)\s+(.+)$"
+                ),
+            ),
+            (
+                "area",
+                (
+                    r"^quiero\s+corregir\s+"
+                    r"(?:el\s+|la\s+)?[áa]rea"
+                    r"\s*[,;:\-]?\s*"
+                    r"(?:la\s+correcta\s+)?"
+                    r"(?:es|sería|seria)\s+(.+)$"
                 ),
             ),
             (
@@ -2087,6 +2328,16 @@ class IncidentProcessor:
 
         if field_name == "area" and value:
             value = self._normalize_area_value(
+                value
+            )
+
+        if field_name == "location_context" and value:
+            value = self._clean_location_value(
+                value
+            )
+
+        if field_name == "equipment" and value:
+            value = self._clean_equipment_value(
                 value
             )
 
@@ -2421,29 +2672,36 @@ class IncidentProcessor:
             )
         )
 
-    def _clean_direct_value(
-        self,
-        text: str,
-    ) -> str:
-        value = " ".join(
-            text.strip().split()
-        )
-
-        return value.strip(" .")
-
-    def _clean_operational_impact_value(
+    def _clean_equipment_value(
         self,
         value: str,
     ) -> str:
-        clean_value = (
-            self._clean_direct_value(
-                value
-            )
+        clean_value = self._clean_direct_value(
+            value
         )
 
+        if not clean_value:
+            return clean_value
+
+        # Eliminar explicaciones agregadas después del nombre
+        # del equipo.
         clean_value = re.sub(
-            r"^(?:sí|si|claro|correcto|exacto)"
-            r"[\s,;:\-]+",
+            (
+                r"\s+que\s+"
+                r"(?:tiene|presenta)\s+"
+                r"(?:problemas?|fallas?|una\s+falla)"
+                r"(?:\s+.*)?$"
+            ),
+            "",
+            clean_value,
+            count=1,
+            flags=re.IGNORECASE,
+        ).strip()
+
+        # Eliminar introducciones conversacionales:
+        # "Es la consola...", "Es el router...", etc.
+        clean_value = re.sub(
+            r"^(?:es\s+)?(?:el|la)\s+",
             "",
             clean_value,
             count=1,
@@ -2458,6 +2716,174 @@ class IncidentProcessor:
             + clean_value[1:]
         )
 
+    def _clean_location_value(
+        self,
+        value: str,
+    ) -> str:
+        clean_value = self._clean_direct_value(
+            value
+        )
+
+        if not clean_value:
+            return clean_value
+
+        prefix_patterns = (
+            r"^estamos\s+en\s+",
+            r"^estoy\s+en\s+",
+            r"^esta\s+en\s+",
+            r"^está\s+en\s+",
+            r"^se\s+encuentra\s+en\s+",
+            r"^queda\s+en\s+",
+            r"^la\s+ubicacion\s+es\s+",
+            r"^la\s+ubicación\s+es\s+",
+            r"^ubicacion\s+es\s+",
+            r"^ubicación\s+es\s+",
+            r"^es\s+en\s+",
+            r"^era\s+en\s+",
+            r"^seria\s+en\s+",
+            r"^sería\s+en\s+",
+            r"^aca\s+en\s+",
+            r"^acá\s+en\s+",
+            r"^aqui\s+en\s+",
+            r"^aquí\s+en\s+",
+        )
+
+        for pattern in prefix_patterns:
+            updated_value = re.sub(
+                pattern,
+                "",
+                clean_value,
+                count=1,
+                flags=re.IGNORECASE,
+            )
+
+            if updated_value != clean_value:
+                clean_value = updated_value.strip()
+                break
+
+        clean_value = re.sub(
+            r"^(?:el|la)\s+",
+            "",
+            clean_value,
+            count=1,
+            flags=re.IGNORECASE,
+        ).strip()
+
+        if not clean_value:
+            return value
+
+        return (
+            clean_value[0].upper()
+            + clean_value[1:]
+        )
+
+    def _clean_direct_value(
+        self,
+        text: str,
+    ) -> str:
+        value = " ".join(
+            text.strip().split()
+        )
+
+        return value.strip(" .")
+
+    def _clean_operational_impact_value(
+        self,
+        value: str,
+    ) -> str:
+        clean_value = self._clean_direct_value(
+            value
+        )
+
+        if not clean_value:
+            return clean_value
+
+        filler_pattern = (
+            r"(?:"
+            r"ah+m*|"
+            r"eh+m*|"
+            r"em+|"
+            r"hm+|"
+            r"mm+|"
+            r"uh+m*|"
+            r"este+|"
+            r"si|"
+            r"sí|"
+            r"claro|"
+            r"correcto|"
+            r"exacto|"
+            r"ya|"
+            r"bueno|"
+            r"ok|"
+            r"okay|"
+            r"vale|"
+            r"pues|"
+            r"entonces|"
+            r"mira|"
+            r"oye|"
+            r"bueno\s+si|"
+            r"bueno\s+sí|"
+            r"claro\s+si|"
+            r"claro\s+sí|"
+            r"a\s+ver|"
+            r"en\s+realidad"
+            r")"
+        )
+
+        clean_value = re.sub(
+            (
+                r"^(?:"
+                + filler_pattern
+                + r"[\s,;:\-]*)+"
+            ),
+            "",
+            clean_value,
+            flags=re.IGNORECASE,
+        ).strip()
+
+        conversational_replacements = (
+            (
+                r"^nos\s+obliga\s+a\s+",
+                "Obliga a ",
+            ),
+            (
+                r"^nos\s+impide\s+",
+                "Impide ",
+            ),
+            (
+                r"^no\s+nos\s+permite\s+",
+                "No permite ",
+            ),
+            (
+                r"^no\s+nos\s+deja\s+",
+                "No permite ",
+            ),
+            (
+                r"^nos\s+deja\s+sin\s+",
+                "Deja sin ",
+            ),
+        )
+
+        for pattern, replacement in conversational_replacements:
+            updated_value = re.sub(
+                pattern,
+                replacement,
+                clean_value,
+                count=1,
+                flags=re.IGNORECASE,
+            )
+
+            if updated_value != clean_value:
+                clean_value = updated_value.strip()
+                break
+
+        if not clean_value:
+            return value
+
+        return (
+            clean_value[0].upper()
+            + clean_value[1:]
+        )
     def _normalize_area_value(
         self,
         value: str | None,

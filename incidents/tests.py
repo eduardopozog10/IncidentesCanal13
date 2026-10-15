@@ -49,134 +49,180 @@ class IncomingMessageServiceTests(TestCase):
 
         self.service = IncomingMessageService()
 
-    def test_creates_incident_from_complete_message_with_explicit_priority(self):
-        result = self.service.process_text(
-            provider="telegram",
-            external_user_id="123456789",
-            external_chat_id="123456789",
-            external_message_id="123456789:1",
-            text=(
-                "Área Producción, la cámara de la unidad móvil 9 "
-                "no enciende y detiene la producción, prioridad alta"
-            ),
-            raw_payload={
-                "test": True,
-            },
-        )
+def test_creates_incident_from_complete_message_with_explicit_priority(self):
+    result = self.service.process_text(
+        provider="telegram",
+        external_user_id="123456789",
+        external_chat_id="123456789",
+        external_message_id="123456789:1",
+        text=(
+            "Área Producción, la cámara de la unidad móvil 9 "
+            "no enciende y detiene la producción, prioridad alta"
+        ),
+        raw_payload={
+            "test": True,
+        },
+    )
 
-        self.assertFalse(result["duplicate"])
+    self.assertFalse(result["duplicate"])
 
-        processing = result["processing"]
+    processing = result["processing"]
 
-        self.assertEqual(
-            processing["action"],
-            "ask_clarification",
-        )
-        self.assertFalse(
-            processing["incident_created"],
-        )
-        self.assertEqual(
-            processing["missing_fields"],
-            [],
-        )
-        self.assertIn(
-            "¿Confirmas la creación del incidente?",
-            processing["reply"],
-        )
-        self.assertEqual(
-            Incident.objects.count(),
-            0,
-        )
+    # "Cámara" es demasiado genérico, por lo que el bot
+    # debe solicitar un identificador antes de confirmar.
+    self.assertEqual(
+        processing["action"],
+        "ask_clarification",
+    )
+    self.assertFalse(
+        processing["incident_created"],
+    )
+    self.assertIn(
+        "equipment",
+        processing["missing_fields"],
+    )
+    self.assertIsNone(
+        processing["extracted_data"]["equipment"],
+    )
+    self.assertEqual(
+        Incident.objects.count(),
+        0,
+    )
 
-        draft = IncidentDraft.objects.get()
+    draft = IncidentDraft.objects.get()
 
-        self.assertEqual(
-            draft.status,
-            IncidentDraft.Status.READY,
-        )
+    self.assertEqual(
+        draft.status,
+        IncidentDraft.Status.COLLECTING,
+    )
 
-        confirmation_result = self.service.process_text(
-            provider="telegram",
-            external_user_id="123456789",
-            external_chat_id="123456789",
-            external_message_id="123456789:1-confirm",
-            text="Sí",
-            raw_payload={
-                "test": True,
-            },
-        )
+    # El reportante identifica la cámara específica.
+    equipment_result = self.service.process_text(
+        provider="telegram",
+        external_user_id="123456789",
+        external_chat_id="123456789",
+        external_message_id="123456789:1-equipment",
+        text="Cámara 3",
+        raw_payload={
+            "test": True,
+        },
+    )
 
-        confirmation_processing = confirmation_result[
-            "processing"
-        ]
+    equipment_processing = equipment_result[
+        "processing"
+    ]
 
-        self.assertEqual(
-            confirmation_processing["action"],
-            "incident_created",
-        )
-        self.assertTrue(
-            confirmation_processing["incident_created"],
-        )
+    self.assertEqual(
+        equipment_processing["action"],
+        "ask_clarification",
+    )
+    self.assertFalse(
+        equipment_processing["incident_created"],
+    )
+    self.assertEqual(
+        equipment_processing["missing_fields"],
+        [],
+    )
+    self.assertEqual(
+        equipment_processing[
+            "extracted_data"
+        ]["equipment"],
+        "Cámara 3",
+    )
+    self.assertIn(
+        "¿Confirmas la creación del incidente?",
+        equipment_processing["reply"],
+    )
 
-        incident = Incident.objects.get()
+    draft.refresh_from_db()
 
-        self.assertEqual(
-            incident.technician,
-            self.technician,
-        )
-        self.assertEqual(
-            incident.unit,
-            "Unidad movil 9",
-        )
-        self.assertEqual(
-            incident.area,
-            "Producción",
-        )
-        self.assertEqual(
-            incident.operational_impact,
-            "Detiene la producción",
-        )
-        self.assertEqual(
-            incident.asset_category,
-            Incident.AssetCategory.VIDEO_CAMERAS,
-        )
-        self.assertEqual(
-            incident.equipment,
-            "Cámara",
-        )
-        self.assertEqual(
-            incident.failure_type,
-            "No enciende",
-        )
-        self.assertEqual(
-            incident.priority,
-            Incident.Priority.HIGH,
-        )
+    self.assertEqual(
+        draft.status,
+        IncidentDraft.Status.READY,
+    )
 
-        message = ChannelMessage.objects.get(
-            provider="telegram",
-            external_message_id="123456789:1-confirm",
-        )
+    confirmation_result = self.service.process_text(
+        provider="telegram",
+        external_user_id="123456789",
+        external_chat_id="123456789",
+        external_message_id="123456789:1-confirm",
+        text="Sí",
+        raw_payload={
+            "test": True,
+        },
+    )
 
-        self.assertEqual(
-            message.status,
-            ChannelMessage.Status.PROCESSED,
-        )
-        self.assertEqual(
-            message.incident,
-            incident,
-        )
+    confirmation_processing = confirmation_result[
+        "processing"
+    ]
 
-        draft.refresh_from_db()
+    self.assertEqual(
+        confirmation_processing["action"],
+        "incident_created",
+    )
+    self.assertTrue(
+        confirmation_processing["incident_created"],
+    )
 
-        self.assertEqual(
-            draft.status,
-            IncidentDraft.Status.COMPLETED,
-        )
-        self.assertEqual(
-            draft.incident,
-            incident,
-        )
+    incident = Incident.objects.get()
+
+    self.assertEqual(
+        incident.technician,
+        self.technician,
+    )
+    self.assertEqual(
+        incident.unit,
+        "Unidad movil 9",
+    )
+    self.assertEqual(
+        incident.area,
+        "Producción",
+    )
+    self.assertEqual(
+        incident.operational_impact,
+        "Detiene la producción",
+    )
+    self.assertEqual(
+        incident.asset_category,
+        Incident.AssetCategory.VIDEO_CAMERAS,
+    )
+    self.assertEqual(
+        incident.equipment,
+        "Cámara 3",
+    )
+    self.assertEqual(
+        incident.failure_type,
+        "No enciende",
+    )
+    self.assertEqual(
+        incident.priority,
+        Incident.Priority.HIGH,
+    )
+
+    message = ChannelMessage.objects.get(
+        provider="telegram",
+        external_message_id="123456789:1-confirm",
+    )
+
+    self.assertEqual(
+        message.status,
+        ChannelMessage.Status.PROCESSED,
+    )
+    self.assertEqual(
+        message.incident,
+        incident,
+    )
+
+    draft.refresh_from_db()
+
+    self.assertEqual(
+        draft.status,
+        IncidentDraft.Status.COMPLETED,
+    )
+    self.assertEqual(
+        draft.incident,
+        incident,
+    )
 
     def test_requires_explicit_priority_before_creating_incident(self):
         first_result = self.service.process_text(

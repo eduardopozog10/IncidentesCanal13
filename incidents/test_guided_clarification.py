@@ -290,6 +290,7 @@ class GuidedClarificationTests(TestCase):
         for text in (
             "¿Qué?",
             "¿Cómo?",
+            "¿Cómo así?",
         ):
             with self.subTest(message=text):
                 result = self.send(
