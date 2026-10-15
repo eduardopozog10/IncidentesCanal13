@@ -11,7 +11,7 @@ class AIProvider(ABC):
         previous_data: dict | None = None,
     ) -> IncidentExtractionResult:
         """
-        Extrae información estructurada desde el mensaje de un técnico.
+        Extrae información estructurada desde el mensaje de un reportante.
 
         Cada proveedor de IA debe implementar este método y devolver
         siempre un IncidentExtractionResult.

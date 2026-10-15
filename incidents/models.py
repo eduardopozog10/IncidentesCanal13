@@ -39,8 +39,8 @@ class Technician(models.Model):
 
     class Meta:
         db_table = "technicians"
-        verbose_name = "técnico"
-        verbose_name_plural = "técnicos"
+        verbose_name = "reportante"
+        verbose_name_plural = "reportantes"
         ordering = ["full_name"]
 
     def __str__(self):
@@ -56,7 +56,7 @@ class TechnicianChannel(models.Model):
         Technician,
         on_delete=models.CASCADE,
         related_name="channels",
-        verbose_name="técnico",
+        verbose_name="reportante",
     )
     provider = models.CharField(
         max_length=20,
@@ -92,8 +92,8 @@ class TechnicianChannel(models.Model):
 
     class Meta:
         db_table = "technician_channels"
-        verbose_name = "canal de técnico"
-        verbose_name_plural = "canales de técnicos"
+        verbose_name = "canal de reportante"
+        verbose_name_plural = "canales de reportantes"
         ordering = ["technician__full_name", "provider"]
         constraints = [
             models.UniqueConstraint(
@@ -139,7 +139,7 @@ class Incident(models.Model):
         Technician,
         on_delete=models.PROTECT,
         related_name="incidents",
-        verbose_name="técnico",
+        verbose_name="reportante",
     )
     unit = models.CharField(
         max_length=150,
@@ -285,7 +285,7 @@ class ChannelMessage(models.Model):
         related_name="messages",
         null=True,
         blank=True,
-        verbose_name="canal del técnico",
+        verbose_name="canal del reportante",
     )
     technician = models.ForeignKey(
         Technician,
@@ -293,7 +293,7 @@ class ChannelMessage(models.Model):
         related_name="messages",
         null=True,
         blank=True,
-        verbose_name="técnico",
+        verbose_name="reportante",
     )
     incident = models.ForeignKey(
         Incident,
@@ -386,7 +386,7 @@ class IncidentDraft(models.Model):
         Technician,
         on_delete=models.PROTECT,
         related_name="incident_drafts",
-        verbose_name="técnico",
+        verbose_name="reportante",
     )
     initial_message = models.OneToOneField(
         ChannelMessage,
