@@ -49,180 +49,180 @@ class IncomingMessageServiceTests(TestCase):
 
         self.service = IncomingMessageService()
 
-def test_creates_incident_from_complete_message_with_explicit_priority(self):
-    result = self.service.process_text(
-        provider="telegram",
-        external_user_id="123456789",
-        external_chat_id="123456789",
-        external_message_id="123456789:1",
-        text=(
-            "Área Producción, la cámara de la unidad móvil 9 "
-            "no enciende y detiene la producción, prioridad alta"
-        ),
-        raw_payload={
-            "test": True,
-        },
-    )
+    def test_creates_incident_from_complete_message_with_explicit_priority(self):
+        result = self.service.process_text(
+            provider="telegram",
+            external_user_id="123456789",
+            external_chat_id="123456789",
+            external_message_id="123456789:1",
+            text=(
+                "Área Producción, la cámara de la unidad móvil 9 "
+                "no enciende y detiene la producción, prioridad alta"
+            ),
+            raw_payload={
+                "test": True,
+            },
+        )
 
-    self.assertFalse(result["duplicate"])
+        self.assertFalse(result["duplicate"])
 
-    processing = result["processing"]
+        processing = result["processing"]
 
-    # "Cámara" es demasiado genérico, por lo que el bot
-    # debe solicitar un identificador antes de confirmar.
-    self.assertEqual(
-        processing["action"],
-        "ask_clarification",
-    )
-    self.assertFalse(
-        processing["incident_created"],
-    )
-    self.assertIn(
-        "equipment",
-        processing["missing_fields"],
-    )
-    self.assertIsNone(
-        processing["extracted_data"]["equipment"],
-    )
-    self.assertEqual(
-        Incident.objects.count(),
-        0,
-    )
+        # "Cámara" es demasiado genérico, por lo que el bot
+        # debe solicitar un identificador antes de confirmar.
+        self.assertEqual(
+            processing["action"],
+            "ask_clarification",
+        )
+        self.assertFalse(
+            processing["incident_created"],
+        )
+        self.assertIn(
+            "equipment",
+            processing["missing_fields"],
+        )
+        self.assertIsNone(
+            processing["extracted_data"]["equipment"],
+        )
+        self.assertEqual(
+            Incident.objects.count(),
+            0,
+        )
 
-    draft = IncidentDraft.objects.get()
+        draft = IncidentDraft.objects.get()
 
-    self.assertEqual(
-        draft.status,
-        IncidentDraft.Status.COLLECTING,
-    )
+        self.assertEqual(
+            draft.status,
+            IncidentDraft.Status.COLLECTING,
+        )
 
-    # El reportante identifica la cámara específica.
-    equipment_result = self.service.process_text(
-        provider="telegram",
-        external_user_id="123456789",
-        external_chat_id="123456789",
-        external_message_id="123456789:1-equipment",
-        text="Cámara 3",
-        raw_payload={
-            "test": True,
-        },
-    )
+        # El reportante identifica la cámara específica.
+        equipment_result = self.service.process_text(
+            provider="telegram",
+            external_user_id="123456789",
+            external_chat_id="123456789",
+            external_message_id="123456789:1-equipment",
+            text="Cámara 3",
+            raw_payload={
+                "test": True,
+            },
+        )
 
-    equipment_processing = equipment_result[
-        "processing"
-    ]
+        equipment_processing = equipment_result[
+            "processing"
+        ]
 
-    self.assertEqual(
-        equipment_processing["action"],
-        "ask_clarification",
-    )
-    self.assertFalse(
-        equipment_processing["incident_created"],
-    )
-    self.assertEqual(
-        equipment_processing["missing_fields"],
-        [],
-    )
-    self.assertEqual(
-        equipment_processing[
-            "extracted_data"
-        ]["equipment"],
-        "Cámara 3",
-    )
-    self.assertIn(
-        "¿Confirmas la creación del incidente?",
-        equipment_processing["reply"],
-    )
+        self.assertEqual(
+            equipment_processing["action"],
+            "ask_clarification",
+        )
+        self.assertFalse(
+            equipment_processing["incident_created"],
+        )
+        self.assertEqual(
+            equipment_processing["missing_fields"],
+            [],
+        )
+        self.assertEqual(
+            equipment_processing[
+                "extracted_data"
+            ]["equipment"],
+            "Cámara 3",
+        )
+        self.assertIn(
+            "¿Confirmas la creación del incidente?",
+            equipment_processing["reply"],
+        )
 
-    draft.refresh_from_db()
+        draft.refresh_from_db()
 
-    self.assertEqual(
-        draft.status,
-        IncidentDraft.Status.READY,
-    )
+        self.assertEqual(
+            draft.status,
+            IncidentDraft.Status.READY,
+        )
 
-    confirmation_result = self.service.process_text(
-        provider="telegram",
-        external_user_id="123456789",
-        external_chat_id="123456789",
-        external_message_id="123456789:1-confirm",
-        text="Sí",
-        raw_payload={
-            "test": True,
-        },
-    )
+        confirmation_result = self.service.process_text(
+            provider="telegram",
+            external_user_id="123456789",
+            external_chat_id="123456789",
+            external_message_id="123456789:1-confirm",
+            text="Sí",
+            raw_payload={
+                "test": True,
+            },
+        )
 
-    confirmation_processing = confirmation_result[
-        "processing"
-    ]
+        confirmation_processing = confirmation_result[
+            "processing"
+        ]
 
-    self.assertEqual(
-        confirmation_processing["action"],
-        "incident_created",
-    )
-    self.assertTrue(
-        confirmation_processing["incident_created"],
-    )
+        self.assertEqual(
+            confirmation_processing["action"],
+            "incident_created",
+        )
+        self.assertTrue(
+            confirmation_processing["incident_created"],
+        )
 
-    incident = Incident.objects.get()
+        incident = Incident.objects.get()
 
-    self.assertEqual(
-        incident.technician,
-        self.technician,
-    )
-    self.assertEqual(
-        incident.unit,
-        "Unidad movil 9",
-    )
-    self.assertEqual(
-        incident.area,
-        "Producción",
-    )
-    self.assertEqual(
-        incident.operational_impact,
-        "Detiene la producción",
-    )
-    self.assertEqual(
-        incident.asset_category,
-        Incident.AssetCategory.VIDEO_CAMERAS,
-    )
-    self.assertEqual(
-        incident.equipment,
-        "Cámara 3",
-    )
-    self.assertEqual(
-        incident.failure_type,
-        "No enciende",
-    )
-    self.assertEqual(
-        incident.priority,
-        Incident.Priority.HIGH,
-    )
+        self.assertEqual(
+            incident.technician,
+            self.technician,
+        )
+        self.assertEqual(
+            incident.unit,
+            "Unidad movil 9",
+        )
+        self.assertEqual(
+            incident.area,
+            "Producción",
+        )
+        self.assertEqual(
+            incident.operational_impact,
+            "Detiene la producción",
+        )
+        self.assertEqual(
+            incident.asset_category,
+            Incident.AssetCategory.VIDEO_CAMERAS,
+        )
+        self.assertEqual(
+            incident.equipment,
+            "Cámara 3",
+        )
+        self.assertEqual(
+            incident.failure_type,
+            "No enciende",
+        )
+        self.assertEqual(
+            incident.priority,
+            Incident.Priority.HIGH,
+        )
 
-    message = ChannelMessage.objects.get(
-        provider="telegram",
-        external_message_id="123456789:1-confirm",
-    )
+        message = ChannelMessage.objects.get(
+            provider="telegram",
+            external_message_id="123456789:1-confirm",
+        )
 
-    self.assertEqual(
-        message.status,
-        ChannelMessage.Status.PROCESSED,
-    )
-    self.assertEqual(
-        message.incident,
-        incident,
-    )
+        self.assertEqual(
+            message.status,
+            ChannelMessage.Status.PROCESSED,
+        )
+        self.assertEqual(
+            message.incident,
+            incident,
+        )
 
-    draft.refresh_from_db()
+        draft.refresh_from_db()
 
-    self.assertEqual(
-        draft.status,
-        IncidentDraft.Status.COMPLETED,
-    )
-    self.assertEqual(
-        draft.incident,
-        incident,
-    )
+        self.assertEqual(
+            draft.status,
+            IncidentDraft.Status.COMPLETED,
+        )
+        self.assertEqual(
+            draft.incident,
+            incident,
+        )
 
     def test_requires_explicit_priority_before_creating_incident(self):
         first_result = self.service.process_text(
@@ -231,7 +231,7 @@ def test_creates_incident_from_complete_message_with_explicit_priority(self):
             external_chat_id="123456789",
             external_message_id="123456789:priority-1",
             text=(
-                "Área Producción, la cámara de la unidad móvil 9 "
+                "Área Producción, la cámara 3 de la unidad móvil 9 "
                 "no enciende y detiene la producción"
             ),
             raw_payload={
@@ -332,7 +332,7 @@ def test_creates_incident_from_complete_message_with_explicit_priority(self):
             external_chat_id="123456789",
             external_message_id="123456789:2",
             text=(
-                "Área Producción, la cámara de la unidad móvil 10 "
+                "Área Producción, la cámara 3 de la unidad móvil 10 "
                 "no enciende y detiene la producción, prioridad alta"
             ),
             raw_payload={
@@ -346,7 +346,7 @@ def test_creates_incident_from_complete_message_with_explicit_priority(self):
             external_chat_id="123456789",
             external_message_id="123456789:2",
             text=(
-                "La cámara de la unidad móvil 10 no enciende, "
+                "La cámara 3 de la unidad móvil 10 no enciende, "
                 "prioridad alta"
             ),
             raw_payload={
@@ -474,7 +474,7 @@ def test_creates_incident_from_complete_message_with_explicit_priority(self):
             external_user_id="123456789",
             external_chat_id="123456789",
             external_message_id="123456789:4",
-            text="La consola no funciona",
+            text="La consola principal no funciona",
             raw_payload={
                 "test": True,
             },
@@ -601,7 +601,7 @@ def test_creates_incident_from_complete_message_with_explicit_priority(self):
         )
         self.assertEqual(
             incident.equipment,
-            "Consola",
+            "Consola principal",
         )
         self.assertEqual(
             incident.asset_category,
@@ -638,7 +638,7 @@ def test_creates_incident_from_complete_message_with_explicit_priority(self):
             external_chat_id="123456789",
             external_message_id="123456789:urgent-1",
             text=(
-                "Área Producción, la cámara de la unidad móvil 7 "
+                "Área Producción, la cámara 3 de la unidad móvil 7 "
                 "no enciende y obliga a usar un respaldo"
             ),
             raw_payload={
@@ -690,7 +690,7 @@ def test_creates_incident_from_complete_message_with_explicit_priority(self):
             external_chat_id="123456789",
             external_message_id="123456789:direct-impact-1",
             text=(
-                "Área Audio. En el Estudio 4, un micrófono "
+                "Área Audio. En el Estudio 4, el micrófono 2 "
                 "presenta audio cortado."
             ),
             raw_payload={

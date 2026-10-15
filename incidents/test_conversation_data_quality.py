@@ -234,7 +234,12 @@ class ConversationDataQualityTests(TestCase):
         )
 
         self.assertIn(
-            "corregir",
+            "ubicación",
+            processing["reply"].lower(),
+        )
+
+        self.assertIn(
+            "correcto",
             processing["reply"].lower(),
         )
 
@@ -427,6 +432,273 @@ class ConversationDataQualityTests(TestCase):
             Incident.objects.count(),
             0,
         )
+
+    def test_selecting_equipment_correction_asks_for_new_value(self):
+        draft = IncidentDraft.objects.create(
+            technician=self.reporter,
+            status=IncidentDraft.Status.READY,
+            extracted_data={
+                "unit": "Estadio Nacional",
+                "area": "Producción",
+                "location_context": "Estadio Nacional",
+                "asset_category": Incident.AssetCategory.VIDEO_CAMERAS,
+                "equipment": "Cámara principal",
+                "failure_type": "No da imagen",
+                "description": (
+                    "La Cámara principal no da imagen "
+                    "en el Estadio Nacional."
+                ),
+                "operational_impact": (
+                    "Obliga a ocupar otra cámara."
+                ),
+                "priority": Incident.Priority.HIGH,
+            },
+            missing_fields=[],
+            last_question=(
+                "¿Confirmas la creación del incidente?"
+            ),
+        )
+
+        service = IncomingMessageService(
+            incident_processor=IncidentProcessor(
+                ai_provider=SequentialAIProvider([])
+            )
+        )
+
+        first_result = self.send(
+            service,
+            "No, quiero cambiar el equipo",
+        )
+
+        first_processing = first_result["processing"]
+
+        self.assertEqual(
+            first_processing["action"],
+            "ask_clarification",
+        )
+
+        self.assertFalse(
+            first_processing["incident_created"],
+        )
+
+        self.assertIn(
+            "equipo",
+            first_processing["reply"].lower(),
+        )
+
+        self.assertIn(
+            "correcto",
+            first_processing["reply"].lower(),
+        )
+
+        draft.refresh_from_db()
+
+        self.assertEqual(
+            draft.status,
+            IncidentDraft.Status.COLLECTING,
+        )
+
+        second_result = self.send(
+            service,
+            "Cámara de sala prensa",
+        )
+
+        second_processing = second_result["processing"]
+
+        self.assertEqual(
+            second_processing["action"],
+            "ask_clarification",
+        )
+
+        self.assertFalse(
+            second_processing["incident_created"],
+        )
+
+        self.assertEqual(
+            second_processing[
+                "extracted_data"
+            ]["equipment"],
+            "Cámara de sala prensa",
+        )
+
+        self.assertEqual(
+            second_processing[
+                "extracted_data"
+            ]["asset_category"],
+            Incident.AssetCategory.VIDEO_CAMERAS,
+        )
+
+        self.assertIn(
+            "Cámara de sala prensa",
+            second_processing[
+                "extracted_data"
+            ]["description"],
+        )
+
+        self.assertNotIn(
+            "Cámara principal",
+            second_processing[
+                "extracted_data"
+            ]["description"],
+        )
+
+        self.assertIn(
+            "¿Confirmas la creación del incidente?",
+            second_processing["reply"],
+        )
+
+        draft.refresh_from_db()
+
+        self.assertEqual(
+            draft.extracted_data["equipment"],
+            "Cámara de sala prensa",
+        )
+
+        self.assertEqual(
+            draft.status,
+            IncidentDraft.Status.READY,
+        )
+
+    def test_natural_equipment_correction_uses_ai_context(self):
+        draft = IncidentDraft.objects.create(
+            technician=self.reporter,
+            status=IncidentDraft.Status.READY,
+            extracted_data={
+                "unit": "Estadio Nacional",
+                "area": "Producción",
+                "location_context": "Estadio Nacional",
+                "asset_category": Incident.AssetCategory.VIDEO_CAMERAS,
+                "equipment": "Cámara principal",
+                "failure_type": "No da imagen",
+                "description": (
+                    "La Cámara principal no da imagen "
+                    "en el Estadio Nacional."
+                ),
+                "operational_impact": (
+                    "Obliga a ocupar otra cámara."
+                ),
+                "priority": Incident.Priority.HIGH,
+            },
+            missing_fields=[],
+            last_question=(
+                "¿Confirmas la creación del incidente?"
+            ),
+        )
+
+        fake_ai = SequentialAIProvider(
+            [
+                IncidentExtractionResult(
+                    intent="incident_followup",
+                    unit="Estadio Nacional",
+                    area="Producción",
+                    location_context="Estadio Nacional",
+                    asset_category="video_cameras",
+                    equipment="Cámara de sala prensa",
+                    failure_type="No da imagen",
+                    description=(
+                        "La Cámara de sala prensa no da imagen "
+                        "en el Estadio Nacional."
+                    ),
+                    operational_impact=(
+                        "Obliga a ocupar otra cámara."
+                    ),
+                    priority=Incident.Priority.HIGH,
+                    clarification_question=None,
+                ),
+            ]
+        )
+
+        service = IncomingMessageService(
+            incident_processor=IncidentProcessor(
+                ai_provider=fake_ai
+            )
+        )
+
+        result = self.send(
+            service,
+            (
+                "No era cámara principal, "
+                "era la de sala prensa"
+            ),
+        )
+
+        processing = result["processing"]
+
+        self.assertEqual(
+            processing["action"],
+            "ask_clarification",
+        )
+
+        self.assertFalse(
+            processing["incident_created"],
+        )
+
+        self.assertEqual(
+            processing[
+                "extracted_data"
+            ]["equipment"],
+            "Cámara de sala prensa",
+        )
+
+        self.assertEqual(
+            processing[
+                "extracted_data"
+            ]["asset_category"],
+            Incident.AssetCategory.VIDEO_CAMERAS,
+        )
+
+        self.assertIn(
+            "Cámara de sala prensa",
+            processing[
+                "extracted_data"
+            ]["description"],
+        )
+
+        self.assertNotIn(
+            "Cámara principal",
+            processing[
+                "extracted_data"
+            ]["description"],
+        )
+
+        self.assertEqual(
+            processing[
+                "extracted_data"
+            ]["location_context"],
+            "Estadio Nacional",
+        )
+
+        self.assertEqual(
+            processing[
+                "extracted_data"
+            ]["area"],
+            "Producción",
+        )
+
+        self.assertEqual(
+            processing[
+                "extracted_data"
+            ]["priority"],
+            Incident.Priority.HIGH,
+        )
+
+        self.assertIn(
+            "¿Confirmas la creación del incidente?",
+            processing["reply"],
+        )
+
+        draft.refresh_from_db()
+
+        self.assertEqual(
+            draft.extracted_data["equipment"],
+            "Cámara de sala prensa",
+        )
+
+        self.assertEqual(
+            draft.status,
+            IncidentDraft.Status.READY,
+        )
+
     def test_natural_equipment_reply_is_cleaned(self):
         IncidentDraft.objects.create(
             technician=self.reporter,

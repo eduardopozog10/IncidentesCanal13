@@ -233,11 +233,51 @@ class MockAIProvider(AIProvider):
                 equipment_name
             )
 
-            if normalized_equipment in normalized_message:
+            specific_patterns = (
+                (
+                    rf"\b{re.escape(normalized_equipment)}\s+"
+                    r"([0-9]+(?:-[a-zA-Z0-9]+)?)\b"
+                ),
+                (
+                    rf"\b{re.escape(normalized_equipment)}\s+"
+                    r"(principal|secundario|secundaria|respaldo)\b"
+                ),
+            )
+
+            for pattern in specific_patterns:
+                match = re.search(
+                    pattern,
+                    normalized_message,
+                    flags=re.IGNORECASE,
+                )
+
+                if match is not None:
+                    identifier = match.group(1)
+
+                    return (
+                        f"{equipment_name.capitalize()} "
+                        f"{identifier}"
+                    )
+
+            if normalized_equipment == "consola":
+                console_match = re.search(
+                    r"\bconsola\s+de\s+audio\b",
+                    normalized_message,
+                    flags=re.IGNORECASE,
+                )
+
+                if console_match is not None:
+                    return "Consola de audio"
+
+            if re.search(
+                rf"\b{re.escape(normalized_equipment)}\b",
+                normalized_message,
+                flags=re.IGNORECASE,
+            ):
                 return equipment_name.capitalize()
 
         return None
-
+    
     def _extract_asset_category(
         self,
         equipment: str | None,
@@ -249,10 +289,19 @@ class MockAIProvider(AIProvider):
             equipment
         )
 
-        return self.ASSET_CATEGORY_BY_EQUIPMENT.get(
-            normalized_equipment
-        )
+        for (
+            equipment_name,
+            asset_category,
+        ) in self.ASSET_CATEGORY_BY_EQUIPMENT.items():
+            if (
+                normalized_equipment == equipment_name
+                or normalized_equipment.startswith(
+                    f"{equipment_name} "
+                )
+            ):
+                return asset_category
 
+        return None
     def _extract_failure_type(self, normalized_message: str):
         for failure_pattern in self.FAILURE_PATTERNS:
             normalized_failure = self._normalize_text(

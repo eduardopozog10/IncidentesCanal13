@@ -115,6 +115,64 @@ class IncidentProcessor:
         ),
     }
 
+    CORRECTION_PROMPT = (
+        "De acuerdo. Indícame qué dato quieres corregir "
+        "antes de crear el incidente."
+    )
+
+    CORRECTION_QUESTIONS = {
+        "area": (
+            "Entendido. ¿Cuál es el área correcta?"
+        ),
+        "location_context": (
+            "Entendido. ¿Cuál es la ubicación o contexto correcto?"
+        ),
+        "equipment": (
+            "Entendido. ¿Qué equipo o servicio es el correcto?"
+        ),
+        "failure_type": (
+            "Entendido. ¿Cuál es el síntoma correcto?"
+        ),
+        "description": (
+            "Entendido. ¿Cuál es la descripción correcta?"
+        ),
+        "operational_impact": (
+            "Entendido. ¿Cuál es el impacto operacional correcto?"
+        ),
+        "priority": (
+            "Entendido. ¿Cuál es la prioridad correcta: "
+            "Baja, Media, Alta o Crítica?"
+        ),
+    }
+
+    CORRECTION_FIELD_ALIASES = {
+        "area": (
+            "area",
+        ),
+        "location_context": (
+            "ubicacion",
+            "contexto",
+            "lugar",
+        ),
+        "equipment": (
+            "equipo",
+            "servicio",
+        ),
+        "failure_type": (
+            "sintoma",
+        ),
+        "description": (
+            "descripcion",
+        ),
+        "operational_impact": (
+            "impacto operacional",
+            "impacto",
+        ),
+        "priority": (
+            "prioridad",
+        ),
+    }
+
     GENERIC_FAILURE_TYPES = {
         "problema",
         "problemas",
@@ -306,6 +364,10 @@ class IncidentProcessor:
                 "extracted_data": previous_data,
             }
 
+        correction_mode = self._is_draft_correction_mode(
+            draft
+        )
+
         direct_draft_result = self._try_process_direct_draft_reply(
             draft=draft,
             text=message.content,
@@ -399,7 +461,10 @@ class IncidentProcessor:
                     pending_messages=pending_messages,
                 )
 
-            if extraction.intent == "conversation":
+            if (
+                extraction.intent == "conversation"
+                and not correction_mode
+            ):
                 reply = (
                     extraction.conversation_reply
                     or "De acuerdo. ¿En qué puedo ayudarte?"
@@ -421,63 +486,110 @@ class IncidentProcessor:
                     "reply": reply,
                 }
 
-            previous_location = previous_data.get(
-                "location_context"
-            )
+            if correction_mode:
+                correction_target_field = (
+                    self._infer_correction_target_field(
+                        draft=draft,
+                        text=message.content,
+                        previous_data=previous_data,
+                    )
+                )
 
-            updated_location = self._choose_refined_value(
-                previous_value=previous_location,
-                candidate_value=extraction.location_context,
-                field_name="location_context",
-            )
+                (
+                    extracted_data,
+                    correction_applied,
+                ) = self._merge_ai_correction(
+                    previous_data=previous_data,
+                    extraction=extraction,
+                    message_text=message.content,
+                    target_field=correction_target_field,
+                )
 
-            updated_equipment = self._choose_refined_value(
-                previous_value=previous_data.get("equipment"),
-                candidate_value=extraction.equipment,
-                field_name="equipment",
-            )
+                if correction_applied:
+                    clarification_question = None
 
-            unit = previous_data.get("unit") or extraction.unit
+                else:
+                    clarification_question = (
+                        self.CORRECTION_QUESTIONS.get(
+                            correction_target_field,
+                            self.CORRECTION_PROMPT,
+                        )
+                    )
 
-            if (
-                previous_location
-                and updated_location != previous_location
-            ):
-                unit = updated_location
+            else:
+                previous_location = previous_data.get(
+                    "location_context"
+                )
 
-            extracted_data = {
-                "unit": unit,
-                "area": self._normalize_area_value(
-                    previous_data.get("area")
-                    or extraction.area
-                ),
-                "location_context": updated_location,
-                "asset_category": (
-                    previous_data.get("asset_category")
-                    or extraction.asset_category
-                ),
-                "equipment": updated_equipment,
-                "failure_type": (
-                    previous_data.get("failure_type")
-                    or extraction.failure_type
-                ),
-                "description": (
-                    extraction.description
-                    or previous_data.get("description")
-                ),
-                "operational_impact": (
-                    previous_data.get("operational_impact")
-                    or extraction.operational_impact
-                ),
-                "priority": (
-                    previous_data.get("priority")
-                    or extraction.priority
-                ),
-            }
+                updated_location = self._choose_refined_value(
+                    previous_value=previous_location,
+                    candidate_value=extraction.location_context,
+                    field_name="location_context",
+                )
 
-            clarification_question = (
-                extraction.clarification_question
-            )
+                updated_equipment = self._choose_refined_value(
+                    previous_value=previous_data.get(
+                        "equipment"
+                    ),
+                    candidate_value=extraction.equipment,
+                    field_name="equipment",
+                )
+
+                unit = (
+                    previous_data.get("unit")
+                    or extraction.unit
+                )
+
+                if (
+                    previous_location
+                    and updated_location
+                    != previous_location
+                ):
+                    unit = updated_location
+
+                extracted_data = {
+                    "unit": unit,
+                    "area": self._normalize_area_value(
+                        previous_data.get("area")
+                        or extraction.area
+                    ),
+                    "location_context": updated_location,
+                    "asset_category": (
+                        previous_data.get(
+                            "asset_category"
+                        )
+                        or extraction.asset_category
+                    ),
+                    "equipment": updated_equipment,
+                    "failure_type": (
+                        previous_data.get(
+                            "failure_type"
+                        )
+                        or extraction.failure_type
+                    ),
+                    "description": (
+                        extraction.description
+                        or previous_data.get(
+                            "description"
+                        )
+                    ),
+                    "operational_impact": (
+                        previous_data.get(
+                            "operational_impact"
+                        )
+                        or extraction.operational_impact
+                    ),
+                    "priority": (
+                        previous_data.get(
+                            "priority"
+                        )
+                        or extraction.priority
+                    ),
+                }
+
+                clarification_question = (
+                    extraction.clarification_question
+                )
 
         extracted_data["asset_category"] = (
             self._refine_asset_category_from_equipment(
@@ -632,8 +744,11 @@ class IncidentProcessor:
         # Si una corrección directa necesita una aclaración,
         # mostrarla antes de volver al resumen de confirmación.
         if (
-            direct_draft_result is not None
-            and clarification_question is not None
+            clarification_question is not None
+            and (
+                direct_draft_result is not None
+                or correction_mode
+            )
         ):
             draft.last_question = clarification_question
             draft.status = IncidentDraft.Status.COLLECTING
@@ -713,35 +828,81 @@ class IncidentProcessor:
                 draft=draft,
             )
 
-        is_negative_confirmation = (
-            normalized_message in self.CONFIRMATION_NEGATIVE
-            or (
-                normalized_message.startswith("no ")
-                and any(
-                    marker in normalized_message
-                    for marker in (
-                        "me equivoque",
-                        "quiero corregir",
-                        "quiero cambiar",
-                        "corregir",
-                        "cambiar",
-                        "ubicacion",
-                        "area",
-                        "equipo",
-                        "sintoma",
-                        "descripcion",
-                        "impacto",
-                        "prioridad",
-                    )
-                )
+        requested_field = (
+            self._extract_requested_correction_field(
+                message.content
             )
         )
 
-        if is_negative_confirmation:
-            reply = (
-                "De acuerdo. Indícame qué dato quieres corregir "
-                "antes de crear el incidente."
+        if (
+            requested_field is not None
+            and self._is_correction_field_selection(
+                text=message.content,
+                field_name=requested_field,
             )
+        ):
+            reply = self.CORRECTION_QUESTIONS[
+                requested_field
+            ]
+
+            draft.status = IncidentDraft.Status.COLLECTING
+            draft.last_question = reply
+            draft.save(
+                update_fields=[
+                    "status",
+                    "last_question",
+                    "updated_at",
+                ]
+            )
+
+            message.draft = draft
+            message.status = ChannelMessage.Status.PROCESSED
+            message.processed_at = timezone.now()
+            message.save(
+                update_fields=[
+                    "draft",
+                    "status",
+                    "processed_at",
+                ]
+            )
+
+            return {
+                "action": "ask_clarification",
+                "incident_created": False,
+                "draft_id": draft.pk,
+                "missing_fields": [],
+                "reply": reply,
+                "extracted_data": dict(
+                    draft.extracted_data or {}
+                ),
+            }
+
+        if self._looks_like_natural_correction_statement(
+            message.content
+        ):
+            draft.status = IncidentDraft.Status.COLLECTING
+            draft.last_question = self.CORRECTION_PROMPT
+            draft.save(
+                update_fields=[
+                    "status",
+                    "last_question",
+                    "updated_at",
+                ]
+            )
+
+            # No terminamos el procesamiento aquí.
+            # El mismo mensaje seguirá hacia la IA para que
+            # interprete la corrección usando el contexto
+            # completo del borrador.
+            return None
+
+        is_negative_confirmation = (
+            normalized_message in self.CONFIRMATION_NEGATIVE
+            or normalized_message.startswith("no ")
+        )
+
+        if is_negative_confirmation:
+            reply = self.CORRECTION_PROMPT
 
             draft.status = IncidentDraft.Status.COLLECTING
             draft.last_question = reply
@@ -776,6 +937,502 @@ class IncidentProcessor:
             }
 
         return None
+
+    def _extract_requested_correction_field(
+        self,
+        text: str,
+    ) -> str | None:
+        normalized_text = self._normalize_quick_text(
+            text
+        )
+
+        detected_fields = []
+
+        for (
+            field_name,
+            aliases,
+        ) in self.CORRECTION_FIELD_ALIASES.items():
+            field_detected = any(
+                re.search(
+                    (
+                        r"(?<!\w)"
+                        + re.escape(alias)
+                        + r"(?!\w)"
+                    ),
+                    normalized_text,
+                )
+                is not None
+                for alias in aliases
+            )
+
+            if field_detected:
+                detected_fields.append(
+                    field_name
+                )
+
+        detected_fields = list(
+            dict.fromkeys(
+                detected_fields
+            )
+        )
+
+        if len(detected_fields) != 1:
+            return None
+
+        return detected_fields[0]
+
+    def _is_correction_field_selection(
+        self,
+        text: str,
+        field_name: str,
+    ) -> bool:
+        normalized_text = self._normalize_quick_text(
+            text
+        )
+
+        raw_text = text.strip().lower()
+
+        # "No quiero cambiar el equipo" significa que no
+        # desea hacer esa corrección.
+        #
+        # "No, quiero cambiar el equipo" sí significa que
+        # rechazó el resumen y quiere corregir ese campo.
+        if (
+            normalized_text.startswith(
+                "no quiero "
+            )
+            and re.match(
+                r"^\s*no\s*[,;:]",
+                raw_text,
+            )
+            is None
+        ):
+            return False
+
+        aliases = self.CORRECTION_FIELD_ALIASES.get(
+            field_name,
+            (),
+        )
+
+        for alias in aliases:
+            patterns = (
+                (
+                    r"^(?:no\s+)?"
+                    r"(?:(?:quiero\s+)?"
+                    r"(?:cambiar|corregir|modificar)\s+)"
+                    r"(?:el\s+|la\s+)?"
+                    + re.escape(alias)
+                    + r"$"
+                ),
+                (
+                    r"^(?:no\s+)?"
+                    r"(?:me\s+equivoque|me\s+confundi)\s+"
+                    r"(?:con|en)\s+"
+                    r"(?:el\s+|la\s+)?"
+                    + re.escape(alias)
+                    + r"$"
+                ),
+                (
+                    r"^(?:no\s+)?"
+                    r"(?:el\s+|la\s+)?"
+                    + re.escape(alias)
+                    + r"$"
+                ),
+            )
+
+            if any(
+                re.fullmatch(
+                    pattern,
+                    normalized_text,
+                )
+                is not None
+                for pattern in patterns
+            ):
+                return True
+
+        return False
+
+    def _looks_like_natural_correction_statement(
+        self,
+        text: str,
+    ) -> bool:
+        if self._is_correction_field_selection(
+            text=text,
+            field_name=(
+                self._extract_requested_correction_field(
+                    text
+                )
+                or ""
+            ),
+        ):
+            return False
+
+        normalized_text = self._normalize_quick_text(
+            text
+        )
+
+        raw_text = text.strip().lower()
+
+        if (
+            normalized_text.startswith(
+                "no quiero cambiar"
+            )
+            and re.match(
+                r"^\s*no\s*[,;:]",
+                raw_text,
+            )
+            is None
+        ):
+            return False
+
+        correction_markers = (
+            "no era ",
+            "no es ",
+            "en realidad",
+            "me equivoque",
+            "quise decir",
+            "queria decir",
+            "corrijo ",
+            "correccion ",
+        )
+
+        if any(
+            marker in normalized_text
+            for marker in correction_markers
+        ):
+            return True
+
+        return (
+            self._extract_requested_correction_field(
+                text
+            )
+            is not None
+        )
+
+    def _is_draft_correction_mode(
+        self,
+        draft: IncidentDraft | None,
+    ) -> bool:
+        if (
+            draft is None
+            or draft.status
+            != IncidentDraft.Status.COLLECTING
+        ):
+            return False
+
+        normalized_question = (
+            self._normalize_quick_text(
+                draft.last_question or ""
+            )
+        )
+
+        if normalized_question == self._normalize_quick_text(
+            self.CORRECTION_PROMPT
+        ):
+            return True
+
+        for question in self.CORRECTION_QUESTIONS.values():
+            if (
+                normalized_question
+                == self._normalize_quick_text(
+                    question
+                )
+            ):
+                return True
+
+        return False
+
+    def _infer_correction_target_field(
+        self,
+        draft: IncidentDraft | None,
+        text: str,
+        previous_data: dict,
+    ) -> str | None:
+        if draft is not None:
+            normalized_question = (
+                self._normalize_quick_text(
+                    draft.last_question or ""
+                )
+            )
+
+            for (
+                field_name,
+                question,
+            ) in self.CORRECTION_QUESTIONS.items():
+                if (
+                    normalized_question
+                    == self._normalize_quick_text(
+                        question
+                    )
+                ):
+                    return field_name
+
+        requested_field = (
+            self._extract_requested_correction_field(
+                text
+            )
+        )
+
+        if requested_field is not None:
+            return requested_field
+
+        explicit_priority = (
+            self._extract_explicit_priority(
+                text
+            )
+        )
+
+        if (
+            explicit_priority is not None
+            and explicit_priority
+            != previous_data.get("priority")
+        ):
+            return "priority"
+
+        normalized_text = (
+            self._normalize_quick_text(
+                text
+            )
+        )
+
+        fields_to_compare = (
+            "equipment",
+            "location_context",
+            "failure_type",
+            "operational_impact",
+        )
+
+        for field_name in fields_to_compare:
+            previous_value = previous_data.get(
+                field_name
+            )
+
+            if not previous_value:
+                continue
+
+            normalized_previous = (
+                self._normalize_quick_text(
+                    str(previous_value)
+                )
+            )
+
+            if (
+                normalized_previous
+                and len(
+                    normalized_previous.split()
+                ) >= 2
+                and normalized_previous
+                in normalized_text
+            ):
+                return field_name
+
+        return None
+
+    def _merge_ai_correction(
+        self,
+        *,
+        previous_data: dict,
+        extraction,
+        message_text: str,
+        target_field: str | None,
+    ) -> tuple[dict, bool]:
+        extracted_data = dict(
+            previous_data
+        )
+
+        candidate_values = {
+            "area": extraction.area,
+            "location_context": extraction.location_context,
+            "equipment": extraction.equipment,
+            "failure_type": extraction.failure_type,
+            "operational_impact": extraction.operational_impact,
+            "priority": extraction.priority,
+        }
+
+        structural_fields = (
+            "area",
+            "location_context",
+            "equipment",
+            "failure_type",
+            "operational_impact",
+            "priority",
+        )
+
+        if (
+            target_field is not None
+            and target_field != "description"
+        ):
+            fields_to_process = (
+                target_field,
+            )
+        elif target_field == "description":
+            fields_to_process = ()
+        else:
+            fields_to_process = structural_fields
+
+        changed_fields = []
+
+        for field_name in fields_to_process:
+            candidate_value = candidate_values.get(
+                field_name
+            )
+
+            if not candidate_value:
+                continue
+
+            previous_value = previous_data.get(
+                field_name
+            )
+
+            if (
+                previous_value
+                and self._normalize_quick_text(
+                    str(previous_value)
+                )
+                == self._normalize_quick_text(
+                    str(candidate_value)
+                )
+            ):
+                continue
+
+            if field_name == "priority":
+                explicit_priority = (
+                    self._extract_explicit_priority(
+                        message_text
+                    )
+                )
+
+                if explicit_priority is None:
+                    continue
+
+                candidate_value = explicit_priority
+
+            elif field_name == "area":
+                candidate_value = (
+                    self._normalize_area_value(
+                        candidate_value
+                    )
+                )
+
+            elif field_name == "location_context":
+                candidate_value = (
+                    self._clean_location_value(
+                        str(candidate_value)
+                    )
+                )
+
+            elif field_name == "equipment":
+                candidate_value = (
+                    self._clean_equipment_value(
+                        str(candidate_value)
+                    )
+                )
+
+            elif field_name == "operational_impact":
+                candidate_value = (
+                    self._clean_operational_impact_value(
+                        str(candidate_value)
+                    )
+                )
+
+            else:
+                candidate_value = (
+                    self._clean_direct_value(
+                        str(candidate_value)
+                    )
+                )
+
+            if not candidate_value:
+                continue
+
+            self._apply_direct_field_value(
+                extracted_data=extracted_data,
+                field_name=field_name,
+                value=candidate_value,
+            )
+
+            changed_fields.append(
+                field_name
+            )
+
+        should_process_description = (
+            target_field == "description"
+            or (
+                target_field is None
+                and not changed_fields
+            )
+        )
+
+        if should_process_description:
+            candidate_description = (
+                extraction.description
+            )
+
+            if candidate_description:
+                candidate_description = (
+                    self._clean_direct_value(
+                        str(candidate_description)
+                    )
+                )
+
+                previous_description = (
+                    previous_data.get(
+                        "description"
+                    )
+                )
+
+                description_changed = (
+                    candidate_description
+                    and (
+                        not previous_description
+                        or self._normalize_quick_text(
+                            str(previous_description)
+                        )
+                        != self._normalize_quick_text(
+                            candidate_description
+                        )
+                    )
+                )
+
+                if (
+                    description_changed
+                    and len(
+                        candidate_description.split()
+                    ) >= 3
+                ):
+                    extracted_data["description"] = (
+                        candidate_description
+                    )
+
+                    changed_fields.append(
+                        "description"
+                    )
+
+        if "equipment" in changed_fields:
+            valid_asset_categories = {
+                choice[0]
+                for choice in Incident.AssetCategory.choices
+            }
+
+            if (
+                extraction.asset_category
+                in valid_asset_categories
+            ):
+                extracted_data["asset_category"] = (
+                    extraction.asset_category
+                )
+
+        if extracted_data.get("location_context"):
+            extracted_data["unit"] = (
+                extracted_data[
+                    "location_context"
+                ]
+            )
+
+        return (
+            extracted_data,
+            bool(changed_fields),
+        )
 
     def _build_confirmation_reply(
         self,
@@ -1251,25 +1908,43 @@ class IncidentProcessor:
 
             candidate_text = pending_messages[0]
 
+        is_correction_mode = (
+            self._is_draft_correction_mode(
+                draft
+            )
+        )
+
+        if is_correction_mode:
+            requested_field = (
+                self._extract_requested_correction_field(
+                    candidate_text
+                )
+            )
+
+            if (
+                requested_field is not None
+                and self._is_correction_field_selection(
+                    text=candidate_text,
+                    field_name=requested_field,
+                )
+            ):
+                return (
+                    dict(previous_data),
+                    self.CORRECTION_QUESTIONS[
+                        requested_field
+                    ],
+                )
+
         correction = (
             self._extract_explicit_field_correction(
                 candidate_text
             )
         )
 
-        if correction is None:
-            normalized_question = (
-                self._normalize_quick_text(
-                    draft.last_question
-                )
-            )
-
-            is_correction_mode = (
-                "dato quieres corregir"
-                in normalized_question
-            )
-
-            if is_correction_mode:
+        if (
+            correction is None
+            and is_correction_mode
+        ):
                 natural_failure = (
                     self._extract_natural_failure_correction(
                         candidate_text
@@ -1390,8 +2065,14 @@ class IncidentProcessor:
         if expected_field is None:
             return None
 
-        if self._looks_like_compound_reply(
-            text
+        if (
+            self._looks_like_compound_reply(
+                text
+            )
+            and not (
+                is_correction_mode
+                and expected_field == "equipment"
+            )
         ):
             return None
 
@@ -2039,7 +2720,8 @@ class IncidentProcessor:
             return "failure_type"
 
         if (
-            "puedes describir"
+            "descripcion" in normalized_question
+            or "puedes describir"
             in normalized_question
             or "describe con un poco mas de detalle"
             in normalized_question
@@ -2224,6 +2906,13 @@ class IncidentProcessor:
     ) -> tuple[str, str] | None:
         cleaned_text = " ".join(
             text.strip().split()
+        )
+        cleaned_text = re.sub(
+            r"^no\s*[,;:\-]\s*",
+            "",
+            cleaned_text,
+            count=1,
+            flags=re.IGNORECASE,
         )
 
         patterns = (
