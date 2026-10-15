@@ -70,8 +70,8 @@ class TelegramUpdateHandler:
             self.messaging_provider.send_text(
                 external_chat_id,
                 (
-                    "Hola. Soy el asistente de incidentes técnicos "
-                    "de Canal 13.\n\n"
+                    "Hola. Soy el asistente de Gestión de Incidencias "
+                    "Operativas de Secuoya Chile.\n\n"
                     "Estoy aquí para ayudarte a registrar una falla "
                     "o incidente operacional de forma simple.\n\n"
                     "Para completar el reporte necesitaré conocer:\n\n"

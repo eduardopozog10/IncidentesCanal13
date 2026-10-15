@@ -224,9 +224,9 @@ class Incident(models.Model):
     @property
     def code(self):
         if self.pk is None:
-            return "C13-PENDIENTE"
+            return "SC-PENDIENTE"
 
-        return f"C13-{self.pk:06d}"
+        return f"SC-{self.pk:06d}"
 
     def __str__(self):
         return f"{self.code} - {self.equipment}"

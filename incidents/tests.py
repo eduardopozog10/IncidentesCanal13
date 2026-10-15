@@ -2453,25 +2453,25 @@ class IncidentDetailViewTests(TestCase):
 
         )
 
-    def test_incident_code_uses_canal13_prefix(self):
+    def test_incident_code_uses_secuoya_prefix(self):
         self.assertEqual(
             self.incident.code,
-            f"C13-{self.incident.pk:06d}",
+            f"SC-{self.incident.pk:06d}",
         )
 
         self.assertTrue(
-            self.incident.code.startswith("C13-"),
+            self.incident.code.startswith("SC-"),
         )
 
         self.assertFalse(
-            self.incident.code.startswith("TVT-"),
+            self.incident.code.startswith("C13-"),
         )
 
         pending_incident = Incident()
 
         self.assertEqual(
             pending_incident.code,
-            "C13-PENDIENTE",
+            "SC-PENDIENTE",
         )
 
     def test_retrieves_incident_detail(self):
@@ -3105,7 +3105,7 @@ class IncidentAnalyticsViewTests(TestCase):
             ),
         )
 
-    def test_returns_canal13_incident_analytics(self):
+    def test_returns_secuoya_incident_analytics(self):
         response = self.client.get(
             "/api/v1/incidents/analytics/",
         )

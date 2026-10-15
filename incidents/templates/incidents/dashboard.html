@@ -7,10 +7,10 @@
     name="viewport"
     content="width=device-width, initial-scale=1.0"
   >
-  <title>Canal 13 - Centro de Control de Incidentes</title>
+  <title>Secuoya Chile | Gestión de Incidencias Operativas</title>
   <script>
     (() => {
-      const storageKey = "canal13-dashboard-theme";
+      const storageKey = "secuoya-dashboard-theme";
       try {
         const savedTheme = localStorage.getItem(
           storageKey
@@ -45,18 +45,21 @@
   <div class="app-shell">
     <aside class="sidebar">
       <div class="brand">
-        <div
-          class="brand-mark"
-          aria-hidden="true"
-        >
-          13
+        <div class="brand-mark">
+          <img
+            src="{% static 'incidents/images/secuoya-chile-logo.png' %}"
+            alt="Secuoya Chile"
+            class="brand-logo"
+          >
         </div>
-        <div>
+
+        <div class="brand-copy">
           <div class="brand-name">
-            Canal 13
+            Secuoya Chile
           </div>
+
           <div class="brand-subtitle">
-            Control operacional
+            Gestión de incidencias operativas
           </div>
         </div>
       </div>
@@ -145,9 +148,10 @@
           <h1 id="page-title">
             Centro de control de incidentes
           </h1>
+
           <p id="page-description">
-            Visión ejecutiva del estado operacional
-            de Canal 13.
+            Visión ejecutiva de la operación
+            de Secuoya Chile.
           </p>
         </div>
         <div class="topbar-actions">
@@ -1066,7 +1070,7 @@
      TEMA
     =========================================== */
 
-    const THEME_STORAGE_KEY = "canal13-dashboard-theme";
+    const THEME_STORAGE_KEY = "secuoya-dashboard-theme";
 
     const themeToggle = document.getElementById(
       "theme-toggle"
@@ -1201,7 +1205,7 @@
       control: {
         title: "Centro de control de incidentes",
         description:
-          "Visión ejecutiva del estado operacional de Canal 13.",
+          "Visión ejecutiva de la operación de Secuoya Chile.",
       },
 
       incidents: {

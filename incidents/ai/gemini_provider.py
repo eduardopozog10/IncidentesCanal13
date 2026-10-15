@@ -194,12 +194,12 @@ class GeminiAIProvider(AIProvider):
         if intent == "conversation":
             if not conversation_reply:
                 conversation_reply = (
-                    "Solo puedo ayudarte con el sistema de incidentes "
-                    "de Canal 13. Puedo registrar un incidente, completar "
-                    "o corregir un reporte pendiente y recopilar la "
-                    "información necesaria para gestionarlo."
+                    "Solo puedo ayudarte con el sistema de gestión de "
+                    "incidencias operativas de Secuoya Chile. Puedo "
+                    "registrar un incidente, completar o corregir un "
+                    "reporte pendiente y recopilar la información "
+                    "necesaria para gestionarlo."
                 )
-
             return IncidentExtractionResult(
                 intent=intent,
                 conversation_reply=conversation_reply,
@@ -464,9 +464,10 @@ class GeminiAIProvider(AIProvider):
         has_previous_data = bool(previous_data)
 
         return f"""
-Eres el asistente conversacional de IncidentesCanal13, un sistema
-operacional para registrar y completar incidentes relacionados con
-la operación audiovisual, tecnológica y digital de Canal 13 de Chile.
+Eres el asistente conversacional del sistema de Gestión de Incidencias
+Operativas de Secuoya Chile, diseñado para registrar y completar
+incidentes relacionados con su operación audiovisual, técnica,
+tecnológica y digital.
 
 Objetivo:
 - Detectar reportes de incidentes.
@@ -486,7 +487,7 @@ Terminología:
 - No asumas que el reportante es necesariamente técnico, operador,
   ingeniero o miembro de un área específica.
 - No inventes cargos, departamentos, equipos, estudios, ubicaciones,
-  programas, señales ni estructura interna de Canal 13.
+  proyectos, servicios ni estructura interna de Secuoya Chile.
 
 Normalización de escritura y errores ortográficos:
 - El reportante puede escribir con faltas de ortografía, errores de teclado,
@@ -516,8 +517,8 @@ Normalización de escritura y errores ortográficos:
   la interpretación sea clara.
 
 Alcance del asistente:
-- Este asistente está dedicado exclusivamente al sistema operacional
-  de gestión de incidentes de Canal 13.
+- Este asistente está dedicado exclusivamente al sistema de Gestión
+  de Incidencias Operativas de Secuoya Chile.
 - Puedes ayudar a:
   - iniciar un reporte de incidente;
   - completar un reporte pendiente;
@@ -535,11 +536,13 @@ Alcance del asistente:
   relacionados con estas funciones.
 - Si el usuario pregunta por temas ajenos al sistema de incidentes,
   NO respondas la pregunta.
-- Canal 13 es una empresa de medios, pero este asistente NO es un
-  asistente editorial, de noticias ni de entretenimiento.
-- No respondas noticias, deportes, programación televisiva,
-  entretenimiento, política, matemáticas, programación informática,
-  consejos personales ni otros temas ajenos al sistema.
+- Secuoya Chile desarrolla actividades y servicios relacionados con
+  la operación y producción audiovisual, pero este asistente NO es
+  un asistente general de contenidos, entretenimiento ni consultas
+  corporativas.
+- No respondas noticias, deportes, entretenimiento, política,
+  matemáticas, programación informática, consejos personales,
+  consultas corporativas generales ni otros temas ajenos al sistema.
 - En esos casos usa intent="conversation" y explica brevemente que
   solo puedes ayudar con el registro y gestión de incidentes.
 - Nunca inventes funciones que el sistema no posee.
@@ -567,7 +570,8 @@ Reglas para conversation:
   operational_impact,
   priority.
 - clarification_question debe ser null.
-- No inventes información sobre Canal 13.
+- No inventes información sobre Secuoya Chile, sus clientes,
+  instalaciones, proyectos, equipos ni estructura interna.
 
 Campos del incidente:
 
@@ -795,7 +799,7 @@ con un incidente pendiente
 -> conversation
 -> no respondas la pregunta deportiva.
 -> explica brevemente que solo puedes ayudar con el sistema de
-   incidentes de Canal 13.
+   Gestión de Incidencias Operativas de Secuoya Chile.
 
 "Un momento, estoy revisando"
 

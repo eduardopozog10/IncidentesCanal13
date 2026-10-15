@@ -1,51 +1,37 @@
 :root {
-
     color-scheme: dark;
 
-    --bg: #0a0c0f;
+    --bg: #07131b;
+    --bg-soft: #091923;
 
-    --bg-soft: #0d1014;
+    --surface: #0d1d27;
+    --surface-muted: #122630;
+    --surface-elevated: #17313f;
 
-    --surface: #0f1217;
+    --border: rgba(160, 202, 220, 0.10);
+    --border-strong: rgba(160, 202, 220, 0.18);
 
-    --surface-muted: #151920;
+    --text: #f7fbfd;
+    --text-secondary: #d5e3ea;
+    --text-soft: #a2b7c1;
+    --text-muted: #718b98;
 
-    --surface-elevated: #181d24;
+    --primary: #0a4764;
+    --primary-dark: #07364d;
+    --primary-soft: rgba(10, 71, 100, 0.18);
 
-    --border: rgba(255, 255, 255, 0.075);
-
-    --border-strong: rgba(255, 255, 255, 0.13);
-
-    --text: #f8fafc;
-
-    --text-secondary: #cbd2da;
-
-    --text-soft: #89939f;
-
-    --text-muted: #616b76;
-
-    --primary: #fa6428;
-
-    --primary-dark: #db4f18;
-
-    --primary-soft: rgba(250, 100, 40, 0.10);
-
-    --purple: #60a5fa;
+    --purple: #5b9fbe;
 
     --success: #34d399;
-
     --success-soft: rgba(52, 211, 153, 0.09);
 
     --warning: #fbbf24;
-
     --warning-soft: rgba(251, 191, 36, 0.08);
 
     --danger: #f87171;
-
     --danger-soft: rgba(248, 113, 113, 0.08);
 
     --info: #38bdf8;
-
     --info-soft: rgba(56, 189, 248, 0.08);
 
     --shadow:
@@ -55,69 +41,53 @@
         0 12px 38px rgba(0, 0, 0, 0.16);
 
     --radius-small: 12px;
-
     --radius: 18px;
-
     --radius-large: 24px;
 
     --transition: 0.18s ease;
 }
 
 :root[data-theme="light"] {
-
     color-scheme: light;
 
-    --bg: #f5f3f1;
-
-    --bg-soft: #f9f7f5;
+    --bg: #f3f7f9;
+    --bg-soft: #f8fafb;
 
     --surface: #ffffff;
-
-    --surface-muted: #faf8f6;
-
+    --surface-muted: #f0f5f7;
     --surface-elevated: #ffffff;
 
-    --border: rgba(74, 46, 31, 0.11);
+    --border: rgba(10, 71, 100, 0.11);
+    --border-strong: rgba(10, 71, 100, 0.19);
 
-    --border-strong: rgba(74, 46, 31, 0.18);
+    --text: #102b38;
+    --text-secondary: #3f5966;
+    --text-soft: #667e89;
+    --text-muted: #8ba0aa;
 
-    --text: #211d1b;
+    --primary: #0a4764;
+    --primary-dark: #07364d;
+    --primary-soft: #e7f1f5;
 
-    --text-secondary: #4f4742;
-
-    --text-soft: #756b65;
-
-    --text-muted: #a09690;
-
-    --primary: #fa6428;
-
-    --primary-dark: #d94f18;
-
-    --primary-soft: #fff1ea;
-
-    --purple: #2563eb;
+    --purple: #256b8d;
 
     --success: #15803d;
-
     --success-soft: #ecfdf3;
 
     --warning: #b45309;
-
     --warning-soft: #fff7ed;
 
     --danger: #b91c1c;
-
     --danger-soft: #fef2f2;
 
     --info: #0369a1;
-
     --info-soft: #f0f9ff;
 
     --shadow:
-        0 18px 55px rgba(88, 55, 34, 0.09);
+        0 18px 55px rgba(10, 71, 100, 0.08);
 
     --shadow-soft:
-        0 8px 28px rgba(88, 55, 34, 0.07);
+        0 8px 28px rgba(10, 71, 100, 0.06);
 }
 
 /* -------------------------------------------------
@@ -145,8 +115,8 @@ body {
     background:
         radial-gradient(
             circle at 18% 0%,
-            rgba(250, 100, 40, 0.07),
-            transparent 30rem
+            rgba(10, 71, 100, 0.14),
+            transparent 32rem
         ),
         var(--bg);
 
@@ -252,48 +222,47 @@ main {
 
 .brand {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
+    flex-direction: column;
 
-    gap: 12px;
+    gap: 8px;
 
-    padding: 0 8px;
+    padding: 2px 8px 8px;
 }
 
 .brand-mark {
-    display: grid;
-    place-items: center;
+    display: block;
 
-    width: 44px;
-    height: 44px;
+    width: 164px;
+    height: auto;
 
-    flex: 0 0 44px;
+    flex: none;
 
-    color: #ffffff;
+    background: transparent;
 
-    background:
-        linear-gradient(
-            145deg,
-            #ff7b45,
-            var(--primary)
-        );
+    border-radius: 0;
 
-    border-radius: 14px;
+    box-shadow: none;
+}
 
-    box-shadow:
-        0 10px 34px
-        rgba(250, 100, 40, 0.25);
+.brand-logo {
+    display: block;
 
-    font-size: 14px;
-    font-weight: 900;
+    width: 164px;
+    max-width: 100%;
+    height: auto;
+
+    object-fit: contain;
+    object-position: left center;
+}
+
+.brand-copy {
+    width: 100%;
 }
 
 .brand-name {
-    font-size: 15px;
-    font-weight: 850;
-
-    letter-spacing: -0.2px;
+    display: none;
 }
-
 .brand-subtitle,
 .sidebar-label {
     color: var(--text-muted);
@@ -306,7 +275,18 @@ main {
 }
 
 .brand-subtitle {
-    margin-top: 4px;
+    margin-top: 0;
+
+    max-width: 180px;
+
+    color: var(--text-muted);
+
+    font-size: 9px;
+    font-weight: 750;
+    line-height: 1.45;
+    text-transform: uppercase;
+
+    letter-spacing: 0.11em;
 }
 
 .sidebar-label {
@@ -361,7 +341,7 @@ main {
 
     box-shadow:
         0 0 0 3px
-        rgba(250, 100, 40, 0.12);
+        rgba(10, 71, 100, 0.12);
 }
 
 .sidebar-link:active {
@@ -402,7 +382,7 @@ main {
 
     text-shadow:
         0 0 12px
-        rgba(250, 100, 40, 0.7);
+        rgba(10, 71, 100, 0.7);
 }
 
 .system-card {
@@ -526,7 +506,7 @@ main {
 
     box-shadow:
         0 0 10px
-        rgba(250, 100, 40, 0.85);
+        rgba(10, 71, 100, 0.85);
 }
 
 .topbar h1 {
@@ -625,11 +605,11 @@ select:hover {
 input:focus,
 select:focus {
     border-color:
-        rgba(250, 100, 40, 0.65);
+        rgba(10, 71, 100, 0.65);
 
     box-shadow:
         0 0 0 4px
-        rgba(250, 100, 40, 0.10);
+        rgba(10, 71, 100, 0.10);
 }
 
 /* -------------------------------------------------
@@ -673,7 +653,7 @@ select:focus {
 
     box-shadow:
         0 0 0 4px
-        rgba(250, 100, 40, 0.12);
+        rgba(10, 71, 100, 0.12);
 }
 
 .theme-toggle:active {
@@ -996,7 +976,7 @@ select:focus {
         linear-gradient(
             90deg,
             var(--primary),
-            rgba(250, 100, 40, 0.35),
+            rgba(10, 71, 100, 0.35),
             transparent
         );
 }
@@ -1169,7 +1149,7 @@ select:focus {
 }
 
 .text-action:hover {
-    color: #ff8a58;
+    color: #1780a8;
 }
 
 .compact-ranking {
@@ -1253,7 +1233,7 @@ select:focus {
         linear-gradient(
             90deg,
             var(--primary),
-            #ff986c
+            #2494ba
         );
 
     border-radius: 999px;
@@ -2065,7 +2045,7 @@ tbody tr.is-new:not(.is-selected) {
         linear-gradient(
             90deg,
             var(--primary),
-            #ff7b45
+            #126b8f
         );
 
     border: 0;
@@ -2073,7 +2053,7 @@ tbody tr.is-new:not(.is-selected) {
 
     box-shadow:
         0 10px 28px
-        rgba(250, 100, 40, 0.20);
+        rgba(10, 71, 100, 0.20);
 
     cursor: pointer;
 
