@@ -10,6 +10,9 @@ from incidents.models import (
     Incident,
     IncidentDraft,
 )
+from incidents.services.incident_notification_service import (
+    send_incident_created_email,
+)
 
 
 class IncidentProcessor:
@@ -1583,6 +1586,15 @@ class IncidentProcessor:
                 "status",
                 "processed_at",
             ]
+        )
+
+        transaction.on_commit(
+            lambda incident_id=incident.pk: (
+                send_incident_created_email(
+                    incident_id
+                )
+            ),
+            robust=True,
         )
 
         return {
