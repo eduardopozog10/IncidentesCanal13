@@ -417,7 +417,10 @@ class IncidentProcessor:
                 direct_draft_result
             )
 
-        elif self._is_waiting_only_for_priority(draft):
+        elif (
+            self._is_waiting_only_for_priority(draft)
+            and not correction_mode
+        ):
             priority = self._extract_explicit_priority(
                 message.content
             )
@@ -648,6 +651,8 @@ class IncidentProcessor:
                 ),
             )
         )
+
+        self._validate_equipment_change(previous_data, extracted_data, message.content)
 
         generic_equipment = extracted_data.get(
             "equipment"
@@ -1198,18 +1203,99 @@ class IncidentProcessor:
             return False
 
         correction_markers = (
+            # Negaciones y rectificaciones.
             "no era ",
             "no es ",
             "no esta ",
-            "revise ",
-            "ademas afecta ",
+            "no fue ",
+            "no son ",
+            "no corresponde ",
+            "no se trata de ",
+            "no es el ",
+            "no es la ",
+
+            # Correcciones explícitas.
             "en realidad",
             "me equivoque",
+            "me confundi",
             "quise decir",
             "queria decir",
             "corrijo ",
             "correccion ",
+            "rectifico ",
+            "rectificacion ",
+            "perdon, era ",
+            "disculpa, era ",
+            "disculpa, es ",
+            "quise poner ",
+
+            # Cambio de ubicación.
+            "era en ",
+            "es en ",
+            "ocurre en ",
+            "ocurria en ",
+            "fue en ",
+            "la ubicacion correcta es ",
+            "el lugar correcto es ",
+            "el estudio correcto es ",
+            "el movil correcto es ",
+            "cambia la ubicacion ",
+            "cambiar la ubicacion ",
+            "cambia el lugar ",
+            "cambia el estudio ",
+
+            # Cambio de equipo o servicio.
+            "lo que falla es ",
+            "el que falla es ",
+            "la que falla es ",
+            "el equipo correcto es ",
+            "el equipo afectado es ",
+            "la camara correcta es ",
+            "el microfono correcto es ",
+            "cambia el equipo ",
+            "cambiar el equipo ",
+
+            # Cambio de síntoma o descripción.
+            "la falla real es ",
+            "el problema real es ",
+            "el sintoma correcto es ",
+            "lo que pasa es ",
+            "lo que sucede es ",
+            "el problema es que ",
+            "en vez de ",
+            "en lugar de ",
+            "mejor dicho ",
+
+            # Cambio de prioridad o impacto.
+            "la prioridad correcta es ",
+            "cambia la prioridad ",
+            "cambiar la prioridad ",
+            "la prioridad es ",
+            "el impacto real es ",
+            "el impacto correcto es ",
+            "cambia el impacto ",
+
+            # Instrucciones naturales de edición.
+            "revisa ",
+            "revise ",
+            "modifica ",
+            "modificar ",
+            "actualiza ",
+            "actualizar ",
+            "reemplaza ",
+            "reemplazar ",
+            "sustituye ",
+            "sustituir ",
+            "pon en su lugar ",
+            "deberia decir ",
+            "debe decir ",
+            "agrega que ",
+            "anade que ",
+            "ademas afecta ",
         )
+
+        if re.search(r"\b(?:perdon|disculpa)\b.*\b(?:era|es|estamos|falla)\b", normalized_text):
+            return True
 
         if any(
             marker in normalized_text
@@ -1263,6 +1349,18 @@ class IncidentProcessor:
         text: str,
         previous_data: dict,
     ) -> str | None:
+        if self._contains_multiple_fields(text):
+            return None
+        explicit = self._extract_explicit_field_correction(text)
+        if explicit:
+            return explicit[0]
+        requested = self._extract_requested_correction_field(text)
+        if requested:
+            return requested
+        # Una rectificación natural sin etiqueta puede referirse a otro campo;
+        # la última pregunta no debe restringir la extracción completa.
+        if self._looks_like_natural_correction_statement(text):
+            return None
         if draft is not None:
             normalized_question = (
                 self._normalize_quick_text(
@@ -1342,6 +1440,41 @@ class IncidentProcessor:
                 return field_name
 
         return None
+
+    def _validate_equipment_change(self, previous, current, message):
+        """No trasladar datos de otra familia de equipo sin evidencia nueva.
+
+        Los cambios de identificador dentro de una familia conservan datos.
+        Ante otra familia (o una desconocida), pedir de nuevo los detalles
+        que el mensaje no haya indicado expresamente. Nunca inventarlos.
+        """
+        old, new = previous.get("equipment"), current.get("equipment")
+        if not old or not new or self._normalize_quick_text(old) == self._normalize_quick_text(new):
+            return
+
+        def family(value):
+            value = self._normalize_quick_text(value)
+            for pattern, category in (
+                (r"\b(?:camara|monitor|video)\b", "video_cameras"),
+                (r"\b(?:consola|microfono|audio|mezclador)\b", "audio"),
+                (r"\b(?:router|switch|red)\b", "networks"),
+                (r"\b(?:servidor|sistema|software)\b", "systems"),
+            ):
+                if re.search(pattern, value):
+                    return category
+            return None
+
+        old_family, new_family = family(old), family(new)
+        if old_family and old_family == new_family:
+            return
+        current["asset_category"] = new_family
+        normalized_message = self._normalize_quick_text(message)
+        for field in ("failure_type", "description", "operational_impact"):
+            candidate = current.get(field)
+            # La extracción puede repetir el dato previo o reformularlo sin
+            # evidencia; solo aceptarlo si está expresado en este mensaje.
+            if not candidate or self._normalize_quick_text(candidate) not in normalized_message:
+                current[field] = None
 
     def _merge_ai_correction(
         self,
@@ -1475,6 +1608,12 @@ class IncidentProcessor:
 
         should_process_description = (
             target_field == "description"
+            or (
+                "equipment" in changed_fields
+                and extraction.description
+                and self._normalize_quick_text(extraction.description)
+                in self._normalize_quick_text(message_text)
+            )
             or (
                 target_field is None
                 and not changed_fields
@@ -2073,6 +2212,11 @@ class IncidentProcessor:
             )
         )
 
+        if (correction is None
+                and re.search(r"\bprioridad\b", normalized_text)
+                and self._extract_explicit_priority(candidate_text)):
+            correction = ("priority", candidate_text)
+
         if (
             correction is None
             and is_correction_mode
@@ -2195,6 +2339,17 @@ class IncidentProcessor:
         )
 
         if expected_field is None:
+            return None
+
+        # Los atajos de respuesta simple ya se evaluaron. Una rectificación
+        # no debe responder accidentalmente a la última pregunta de prioridad.
+        if (
+            self._looks_like_natural_correction_statement(candidate_text)
+            and not (
+                expected_field == "equipment"
+                and self._is_ambiguous_equipment_reply(candidate_text)
+            )
+        ):
             return None
 
         if (
@@ -2804,21 +2959,69 @@ class IncidentProcessor:
         return detected_markers >= 2
 
     def _contains_multiple_fields(self, text):
-        """Detectar datos independientes, conservando nombres como Cámara de sala prensa."""
+        """Detectar datos independientes sin confundir nombres de equipos."""
         normalized = self._normalize_quick_text(text)
-        has_priority = bool(re.search(r"\bprioridad\b", normalized))
-        has_asset = bool(re.search(r"\b(?:camara|microfono|router|consola|switcher|encoder)\s+\w+", normalized))
-        has_location = bool(re.search(r"\b(?:estudio|movil|sala)\s+\d+\b|\bsala tecnica\b", normalized))
-        has_impact = bool(re.search(r"\b(?:impide|afecta|obliga|detiene|usamos|podemos|impacto)\b", normalized))
-        has_area = bool(re.search(r"\barea\b", normalized))
-        has_failure = bool(re.search(r"\b(?:intermitente|corta|enciende)\b|\bsin (?:audio|imagen|conexion)\b", normalized))
-        if has_area and not (has_priority or has_asset or has_impact):
+
+        has_priority = bool(
+            re.search(r"\bprioridad\b", normalized)
+        )
+
+        has_asset = bool(
+            re.search(
+                r"\b(?:camara|microfono|router|consola|switcher|encoder)"
+                r"\s+(?:\w+)|\b(?:equipo|servicio)\b",
+                normalized,
+            )
+        )
+
+        has_location = bool(
+            re.search(
+                r"\b(?:estudio|movil|sala)\s+\d+\b"
+                r"|\bsala tecnica\b"
+                r"|\b(?:estadio|recinto)\s+\w+\b"
+                r"|\b(?:era|es|estamos|ocurre|fue)\s+en\s+\w+"
+                r"|\bubicacion\b",
+                normalized,
+            )
+        )
+
+        has_impact = bool(
+            re.search(
+                r"\b(?:impide|afecta|obliga|detiene|usamos|podemos|impacto)\b",
+                normalized,
+            )
+        )
+
+        has_area = bool(
+            re.search(r"\barea\b", normalized)
+        )
+
+        has_failure = bool(
+            re.search(
+                r"\b(?:intermitente|corta|enciende)\b"
+                r"|\bsin (?:audio|imagen|conexion)\b",
+                normalized,
+            )
+        )
+
+        if has_area and not (
+            has_priority or has_asset or has_impact
+        ):
             correction = self._extract_explicit_field_correction(text)
+
             if correction and correction[0] == "area":
-                # «El área correcta es Estudio 12» requiere la guía existente
-                # que diferencia área de ubicación, no una consulta a Gemini.
                 return False
-        return sum([has_priority, has_asset, has_location, has_impact, has_area, has_failure]) >= 2
+
+        return sum(
+            [
+                has_priority,
+                has_asset,
+                has_location,
+                has_impact,
+                has_area,
+                has_failure,
+            ]
+        ) >= 2
 
     def _infer_expected_field_from_last_question(
         self,

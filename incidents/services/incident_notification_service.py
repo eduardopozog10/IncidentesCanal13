@@ -1,14 +1,42 @@
 import logging
+import ipaddress
+from urllib.parse import urlsplit
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.core.validators import URLValidator
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.utils import timezone
+from django.urls import reverse
 
 from incidents.models import Incident
 
 
 logger = logging.getLogger(__name__)
+
+
+def build_incident_url(incident_id):
+    """Origen público HTTPS, con excepción exacta para el piloto local DEBUG."""
+    base = getattr(settings, "INCIDENT_PUBLIC_BASE_URL", "").strip().rstrip("/")
+    if settings.DEBUG and base == "http://127.0.0.1:8000":
+        return base + reverse("dashboard-incident-detail", kwargs={"pk": incident_id})
+    try:
+        URLValidator(schemes=["https"])(base)
+        parsed = urlsplit(base)
+        host = (parsed.hostname or "").rstrip(".")
+        if (parsed.scheme != "https" or not host or parsed.username or parsed.password
+                or parsed.query or parsed.fragment or parsed.path or parsed.port not in (None, 443)
+                or "." not in host or host.endswith((".localhost", ".local", ".internal"))):
+            return None
+        try:
+            if not ipaddress.ip_address(host).is_global:
+                return None
+        except ValueError:
+            pass
+    except (ValueError, ValidationError):
+        return None
+    return base + reverse("dashboard-incident-detail", kwargs={"pk": incident_id})
 
 
 def send_incident_created_email(
@@ -87,6 +115,10 @@ def send_incident_created_email(
         f"Fecha y hora: {created_at}\n"
     )
 
+    incident_url = build_incident_url(incident.pk)
+    if incident_url:
+        body += f"\nVer incidencia: {incident_url}\n"
+
     try:
         send_mail(
             subject=subject,
@@ -103,6 +135,7 @@ def send_incident_created_email(
                     "asset_category": asset_category,
                     "reporter": reporter,
                     "created_at": created_at,
+                    "incident_url": incident_url,
                 },
             ),
         )

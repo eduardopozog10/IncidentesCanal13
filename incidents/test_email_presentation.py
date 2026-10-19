@@ -13,7 +13,7 @@ class EmailTemplateTests(SimpleTestCase):
         html = render_to_string("incidents/email/incident_created.html", {})
         self.assertIn("No informada", html)
         self.assertIn("No informado", html)
-        self.assertNotIn("Ver reporte", html)
+        self.assertNotIn("Ver incidencia", html)
         self.assertNotIn('href=', html)
         # Context-only example; no public link is configured in the sender.
         html = render_to_string("incidents/email/incident_created.html", {
@@ -51,7 +51,7 @@ class EmailPresentationTests(TestCase):
         self.assertNotIn("<script>", html)
         self.assertIn("&lt;script&gt;", html)
         self.assertIn("<br>", html)
-        self.assertNotIn("Ver reporte", html)
+        self.assertNotIn("Ver incidencia", html)
 
     def test_send_failure_still_returns_false(self):
         with patch("incidents.services.incident_notification_service.send_mail", side_effect=RuntimeError("QA")):

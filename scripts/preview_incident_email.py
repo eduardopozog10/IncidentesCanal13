@@ -29,7 +29,7 @@ context = {
 for name, data in (
     ("correo.html", context),
     ("campos-opcionales.html", {}),
-    ("boton-condicional.html", {**context, "incident_url": "https://example.org/reportes/38/"}),
+    ("boton-condicional.html", {**context, "incident_url": "https://example.org/dashboard/incidents/38/"}),
 ):
     (output / name).write_text(render_to_string("incidents/email/incident_created.html", data), encoding="utf-8")
 print(output)

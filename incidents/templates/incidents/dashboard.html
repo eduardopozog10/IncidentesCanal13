@@ -10,6 +10,10 @@
   <title>Secuoya Chile | Gestión de Incidencias Operativas</title>
   {% include "incidents/brand_head.html" %}
   <script>
+    // Revalidar la sesión al restaurar una página desde la caché Atrás/Adelante.
+    window.addEventListener("pageshow", (event) => {
+      if (event.persisted) window.location.reload();
+    });
     (() => {
       const storageKey = "secuoya-dashboard-theme";
       try {
@@ -139,6 +143,7 @@
           Consulta y gestión del registro
           de incidentes.
         </p>
+        {% include "incidents/account_controls.html" %}
       </div>
     </aside>
     <div class="workspace">
@@ -158,6 +163,7 @@
           </p>
         </div>
         <div class="topbar-actions">
+          <p class="account-welcome">Bienvenido, <strong>{{ request.user.get_full_name|default:request.user.username }}</strong></p>
           <form
             id="period-controls"
             autocomplete="off"
@@ -238,10 +244,6 @@
               Tema
             </span>
           </button>
-          <div class="sync-badge">
-            <span></span>
-            Sincronizado
-          </div>
         </div>
       </header>
       <main id="main-content" tabindex="-1">
@@ -4574,6 +4576,12 @@
       );
 
       await refreshDashboardData();
+
+      const linkedIncidentId = {{ incident_id|default:"null" }};
+      if (linkedIncidentId !== null) {
+        showView("management", false);
+        await loadIncidentDetail(linkedIncidentId);
+      }
 
       window.setInterval(
         checkForNewIncidents,

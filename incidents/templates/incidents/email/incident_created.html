@@ -35,12 +35,13 @@
 <p style="margin:0;color:#f3f8fb;font-size:15px;line-height:1.7;overflow-wrap:anywhere;word-wrap:break-word;">{{ incident.operational_impact|default:"No informado"|linebreaksbr }}</p>
 </td></tr></table>
 </td></tr>
-{% comment %}incident_url debe ser una URL absoluta pública del detalle, validada por quien renderiza. El envío actual no la proporciona: el botón permanece oculto hasta disponer de dominio y enlace de detalle configurados.{% endcomment %}
+{% comment %}incident_url se construye y valida desde INCIDENT_PUBLIC_BASE_URL; sin origen público válido, no se emite enlace.{% endcomment %}
 {% if incident_url %}
 <tr><td align="center" style="padding:0 24px 28px;">
 <table role="presentation" cellpadding="0" cellspacing="0"><tr><td align="center" bgcolor="#53cbe6" style="border-radius:8px;mso-padding-alt:16px 28px;">
-<a href="{{ incident_url }}" style="display:inline-block;padding:16px 28px;color:#07151e;font-size:15px;font-weight:bold;text-decoration:none;">Ver reporte →</a>
+<a href="{{ incident_url }}" style="display:inline-block;padding:16px 28px;color:#07151e;font-size:15px;font-weight:bold;text-decoration:none;">Ver incidencia →</a>
 </td></tr></table>
+<p style="margin:16px 0 0;font-size:12px;line-height:1.6;word-break:break-all;"><a href="{{ incident_url }}" style="color:#53cbe6;">{{ incident_url }}</a></p>
 </td></tr>
 {% endif %}
 <tr><td style="padding:20px 24px;border-top:1px solid #26404e;color:#acc0cc;font-size:12px;line-height:1.8;">

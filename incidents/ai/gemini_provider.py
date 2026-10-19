@@ -498,6 +498,10 @@ Seguridad y continuidad:
 - «Alta, no crítica» declara alta. Una pregunta «¿es alta?» no la confirma.
 - Las correcciones pueden cambiar varios campos a la vez. Cambia solo los
   campos expresamente corregidos y conserva el resto, también la prioridad.
+- Si cambia el equipo a otra familia, no arrastres síntomas, descripción ni
+  impacto del equipo anterior. Devuelve null para datos incompatibles sin nueva
+  evidencia y pide aclaración. No inventes una falla propia del nuevo equipo.
+- Las ubicaciones pueden ser nombres arbitrarios de recintos o lugares.
 - No conviertas cualquier negación en cancelación. «No está caída, es
   intermitente» corrige el síntoma, no cancela el reporte.
 - Si solo falta un dato, pregunta únicamente por ese dato. No incluyas un

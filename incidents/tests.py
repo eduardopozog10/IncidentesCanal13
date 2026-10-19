@@ -1,3 +1,4 @@
+from django.contrib.auth import get_user_model
 from types import SimpleNamespace
 from django.test import TestCase, override_settings
 
@@ -1812,6 +1813,7 @@ class IncomingMessageServiceTests(TestCase):
 class IncidentListViewTests(TestCase):
 
     def setUp(self):
+        self.client.force_login(get_user_model().objects.create_user(username="staff-qa", is_staff=True))
 
         self.technician = Technician.objects.create(
 
@@ -2410,6 +2412,7 @@ class IncidentListViewTests(TestCase):
 class IncidentDetailViewTests(TestCase):
 
     def setUp(self):
+        self.client.force_login(get_user_model().objects.create_user(username="staff-qa", is_staff=True))
 
         self.technician = Technician.objects.create(
 
@@ -2824,6 +2827,7 @@ class IncidentDetailViewTests(TestCase):
 class IncidentSummaryViewTests(TestCase):
 
     def setUp(self):
+        self.client.force_login(get_user_model().objects.create_user(username="staff-qa", is_staff=True))
 
         self.technician = Technician.objects.create(
 
@@ -3043,6 +3047,7 @@ class IncidentSummaryViewTests(TestCase):
 
 class IncidentAnalyticsViewTests(TestCase):
     def setUp(self):
+        self.client.force_login(get_user_model().objects.create_user(username="staff-qa", is_staff=True))
         self.technician = Technician.objects.create(
             full_name="Reportante Analytics",
             is_active=True,
