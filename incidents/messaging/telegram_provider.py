@@ -6,6 +6,16 @@ from django.conf import settings
 from .base import MessagingProvider
 
 
+class TelegramDeliveryUncertainError(RuntimeError):
+    """No hay acuse suficiente para reenviar sin riesgo de duplicado."""
+
+
+class TelegramRejectedError(RuntimeError):
+    def __init__(self, retryable=True):
+        super().__init__("Telegram rechazó el envío.")
+        self.retryable = retryable
+
+
 class TelegramProvider(MessagingProvider):
     provider_name = "telegram"
 
@@ -62,25 +72,21 @@ class TelegramProvider(MessagingProvider):
                 timeout=self.timeout,
             )
         except httpx.RequestError:
-            raise RuntimeError(
+            raise TelegramDeliveryUncertainError(
                 "No fue posible conectar con Telegram."
             ) from None
 
         try:
             response_data = response.json()
         except ValueError:
-            raise RuntimeError(
+            raise TelegramDeliveryUncertainError(
                 "Telegram devolvió una respuesta inválida."
             ) from None
 
+        if response_data.get("ok") is False:
+            code = response_data.get("error_code", response.status_code)
+            raise TelegramRejectedError(retryable=code == 429 or code >= 500)
         if response.status_code >= 400 or not response_data.get("ok"):
-            error_description = response_data.get(
-                "description",
-                "Error desconocido de Telegram.",
-            )
-
-            raise RuntimeError(
-                f"Telegram rechazó el mensaje: {error_description}"
-            )
+            raise TelegramDeliveryUncertainError("Respuesta de envío no confirmada.")
 
         return response_data

@@ -1,5 +1,7 @@
 import logging
 import ipaddress
+import smtplib
+from socket import gaierror
 from urllib.parse import urlsplit
 
 from django.conf import settings
@@ -9,8 +11,10 @@ from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.utils import timezone
 from django.urls import reverse
+from django.db import transaction
 
-from incidents.models import Incident
+from incidents.models import Incident, IncidentNotification
+from incidents.services.conversation_lock import conversation_lock
 
 
 logger = logging.getLogger(__name__)
@@ -42,6 +46,42 @@ def build_incident_url(incident_id):
 def send_incident_created_email(
     incident_id: int,
 ) -> bool:
+    with conversation_lock(f"notification:{incident_id}"):
+        return _send_tracked_notification(incident_id)
+
+
+def _send_tracked_notification(incident_id):
+    if not Incident.objects.filter(pk=incident_id).exists():
+        return False
+    notification, _ = IncidentNotification.objects.get_or_create(incident_id=incident_id)
+    with transaction.atomic():
+        notification = IncidentNotification.objects.select_for_update().get(pk=notification.pk)
+        if notification.status == "sent":
+            return True
+        if notification.status not in ("pending", "failed") or notification.attempts >= 3:
+            return False
+        notification.status = "sending"
+        notification.attempts += 1
+        notification.attempted_at = timezone.now()
+        notification.save(update_fields=["status", "attempts", "attempted_at"])
+    try:
+        sent = _send_incident_created_email(incident_id)
+        status = "sent" if sent else "failed"
+        error_name = "" if sent else "NotSent"
+    except (smtplib.SMTPConnectError, smtplib.SMTPAuthenticationError,
+            smtplib.SMTPRecipientsRefused, smtplib.SMTPSenderRefused,
+            ConnectionRefusedError, gaierror) as error:
+        status, error_name, sent = "failed", type(error).__name__, False
+    except Exception as error:
+        # DATA pudo haber sido aceptado aunque no recibamos el acuse SMTP.
+        status, error_name, sent = "uncertain", type(error).__name__, False
+    IncidentNotification.objects.filter(pk=notification.pk).update(
+        status=status, error_message=error_name, sent_at=timezone.now() if sent else None,
+    )
+    return sent
+
+
+def _send_incident_created_email(incident_id):
     recipient = (
         settings.INCIDENT_NOTIFICATION_EMAIL.strip()
     )
@@ -120,7 +160,7 @@ def send_incident_created_email(
         body += f"\nVer incidencia: {incident_url}\n"
 
     try:
-        send_mail(
+        sent_count = send_mail(
             subject=subject,
             message=body,
             from_email=settings.DEFAULT_FROM_EMAIL,
@@ -139,17 +179,13 @@ def send_incident_created_email(
                 },
             ),
         )
-    except Exception:
-        logger.exception(
-            "No fue posible enviar por correo "
-            "la notificación del incidente %s.",
-            incident.code,
-        )
-        return False
+    except Exception as error:
+        logger.warning("Notificación %s: %s", incident.code, type(error).__name__)
+        raise
 
     logger.info(
         "Notificación por correo enviada para %s.",
         incident.code,
     )
 
-    return True
+    return sent_count == 1

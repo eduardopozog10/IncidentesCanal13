@@ -9,6 +9,11 @@ from django.db import close_old_connections
 from incidents.messaging.telegram_update_handler import (
     TelegramUpdateHandler,
 )
+from incidents.services.notification_worker import start_notification_worker
+
+
+class TelegramPollingTemporaryError(RuntimeError):
+    pass
 
 
 class Command(BaseCommand):
@@ -59,6 +64,8 @@ class Command(BaseCommand):
             "Presiona Ctrl+C para detenerlo."
         )
 
+        mail_stop = threading.Event()
+        mail_thread = start_notification_worker(mail_stop)
         try:
             with httpx.Client(timeout=timeout) as client:
                 if options["discard_pending"]:
@@ -68,6 +75,10 @@ class Command(BaseCommand):
                     )
 
                 while True:
+                    # Reanudar lo que quedó durable antes de pedir/confirmar
+                    # nuevas actualizaciones. No vuelve a ejecutar mensajes
+                    # cuyo resultado ya está confirmado en PostgreSQL.
+                    handler.recover_pending(limit=1)
                     try:
                         updates = self._get_updates(
                             client=client,
@@ -75,7 +86,7 @@ class Command(BaseCommand):
                             offset=offset,
                             timeout_seconds=25,
                         )
-                    except httpx.RequestError:
+                    except (httpx.RequestError, TelegramPollingTemporaryError):
                         self.stderr.write(
                             self.style.WARNING(
                                 "No fue posible conectar con Telegram. "
@@ -89,9 +100,6 @@ class Command(BaseCommand):
 
                     for update in updates:
                         update_id = update.get("update_id")
-
-                        if isinstance(update_id, int):
-                            offset = update_id + 1
 
                         started_at = time.perf_counter()
 
@@ -125,7 +133,9 @@ class Command(BaseCommand):
                                     f"{error}"
                                 )
                             )
-                            continue
+                            # No confirmar un fallo anterior a la persistencia
+                            # avanzando con actualizaciones posteriores.
+                            break
                         finally:
                             processing_notice_timer.cancel()
 
@@ -144,6 +154,10 @@ class Command(BaseCommand):
                             f"{action} "
                             f"({elapsed:.2f} s)"
                         )
+                        if action == "processing_failed" and not result.get("durable"):
+                            break
+                        if isinstance(update_id, int):
+                            offset = update_id + 1
 
         except KeyboardInterrupt:
             self.stdout.write("")
@@ -152,6 +166,9 @@ class Command(BaseCommand):
                     "Bot de Telegram detenido."
                 )
             )
+        finally:
+            mail_stop.set()
+            mail_thread.join(timeout=1)
 
     def _send_processing_notice(
         self,
@@ -210,28 +227,35 @@ class Command(BaseCommand):
             json=payload,
         )
 
+        if response.status_code == 429 or response.status_code >= 500:
+            raise TelegramPollingTemporaryError("Telegram temporalmente no disponible.")
         try:
             response_data = response.json()
         except ValueError:
-            raise RuntimeError(
+            raise TelegramPollingTemporaryError(
                 "Telegram devolvió una respuesta inválida."
             ) from None
+
+        if not isinstance(response_data, dict):
+            raise TelegramPollingTemporaryError("Telegram devolvió una respuesta inválida.")
 
         if (
             response.status_code >= 400
             or not response_data.get("ok")
         ):
-            description = response_data.get(
-                "description",
-                "Error desconocido de Telegram.",
-            )
+            code = response_data.get("error_code", response.status_code)
+            if isinstance(code, int) and (code == 429 or code >= 500):
+                raise TelegramPollingTemporaryError("Telegram temporalmente no disponible.")
 
             raise RuntimeError(
                 "Telegram rechazó getUpdates: "
-                f"{description}"
+                f"código {code}."
             )
 
-        return response_data.get("result", [])
+        result = response_data.get("result", [])
+        if not isinstance(result, list):
+            raise TelegramPollingTemporaryError("Telegram devolvió actualizaciones inválidas.")
+        return result
 
     def _discard_pending_updates(
         self,

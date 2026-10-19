@@ -187,6 +187,9 @@ EMAIL_USE_TLS = env.bool(
     default=True,
 )
 
+# Límite de espera por operación SMTP; no modificar credenciales.
+EMAIL_TIMEOUT = env.int("EMAIL_TIMEOUT", default=10)
+
 EMAIL_HOST_USER = env(
     "EMAIL_HOST_USER",
     default="",

@@ -11,9 +11,13 @@ from incidents.models import (
     IncidentDraft,
     Technician,
 )
-from incidents.services.incident_notification_service import (
-    send_incident_created_email,
-)
+from incidents.services.conversation_lock import conversation_lock
+from incidents.models import IncidentNotification
+
+
+class _ExtractionNeeded(Exception):
+    def __init__(self, message, previous_data):
+        self.message, self.previous_data = message, previous_data
 
 
 class IncidentProcessor:
@@ -260,8 +264,29 @@ class IncidentProcessor:
         self.ai_provider = ai_provider or get_ai_provider()
         self.require_delivered_summary = require_delivered_summary
 
-    @transaction.atomic
     def process(self, message: ChannelMessage):
+        with conversation_lock(f"reporter:{message.technician_id}"):
+            outcome = None
+            for _ in range(3):
+                try:
+                    with transaction.atomic():
+                        result = self._process_atomic(message, outcome)
+                        ChannelMessage.objects.filter(pk=message.pk).update(processing_result=result)
+                        ChannelMessage.objects.filter(in_reply_to=message).update(draft_id=message.draft_id, incident_id=message.incident_id)
+                    return result
+                except _ExtractionNeeded as needed:
+                    # El intento de planificación se revierte antes de Gemini.
+                    # La exclusión lógica por reportante conserva el contexto.
+                    try:
+                        extracted = self.ai_provider.extract_incident(message=needed.message, previous_data=needed.previous_data)
+                        outcome = (needed.message, needed.previous_data, extracted, None)
+                    except (TimeoutError, ValueError, ConnectionError) as error:
+                        outcome = (needed.message, needed.previous_data, None, error)
+                    message.refresh_from_db()
+            raise RuntimeError("El contexto cambió repetidamente; mensaje pendiente de recuperación.")
+
+    @transaction.atomic
+    def _process_atomic(self, message: ChannelMessage, outcome=None):
         if message.technician is None:
             raise ValueError(
                 "El mensaje debe estar asociado a un reportante."
@@ -488,11 +513,12 @@ class IncidentProcessor:
                 pending_messages=pending_messages,
             )
 
+            if outcome is None or outcome[:2] != (ai_message, previous_data):
+                raise _ExtractionNeeded(ai_message, previous_data)
             try:
-                extraction = self.ai_provider.extract_incident(
-                    message=ai_message,
-                    previous_data=previous_data,
-                )
+                if outcome[3] is not None:
+                    raise outcome[3]
+                extraction = outcome[2]
             except (TimeoutError, ValueError, ConnectionError):
                 return self._handle_ai_timeout(
                     message=message,
@@ -1842,14 +1868,9 @@ class IncidentProcessor:
             ]
         )
 
-        transaction.on_commit(
-            lambda incident_id=incident.pk: (
-                send_incident_created_email(
-                    incident_id
-                )
-            ),
-            robust=True,
-        )
+        # Persistir la intención en el mismo commit que la incidencia. El
+        # receptor envía el correo desde su worker local, fuera de esta ruta.
+        IncidentNotification.objects.get_or_create(incident=incident)
 
         return {
             "action": "incident_created",

@@ -19,6 +19,14 @@ Ejecutar cada proceso en su terminal, con el `.env` local existente. No ejecutar
 - Se ignoran grupos, canales y chats inconsistentes, también para `/start`, `/cancelar` y avisos de procesamiento. Un canal antiguo sin chat guardado admite su chat privado coherente; si tiene un chat guardado diferente, se rechaza y debe revisarse administrativamente, sin reasignarlo automáticamente.
 - La marca interna `trusted_telegram` solo la proporciona el receptor desde Python. No es una credencial ni un campo aceptado desde HTTP. No se requiere configurar secretos de webhook ni cambiar credenciales para estos ajustes.
 
+### Recuperación del piloto (Codex 2)
+
+La migración aditiva `0011_pilot_recovery` es necesaria antes de ejecutar esta versión. No se aplica automáticamente a la base operativa: requiere autorización previa. Añade resultados/intentos/origen de mensajes, respuestas vinculadas y estado de notificación; conserva el historial existente.
+
+El receptor de polling reanuda mensajes durables al iniciar y en cada ciclo. Un worker local de ese mismo proceso envía las notificaciones persistidas, con `EMAIL_TIMEOUT=10` por defecto. No requiere otro servicio. Hay hasta tres intentos automáticos; una entrega incierta no se reenvía automáticamente.
+
+`uv run python manage.py recover_pilot` **solo lista IDs y estados, sin enviar**. Las opciones `--run`, `--message-id`, `--reply-id` y `--notification-id` ejecutan recuperaciones explícitas y pueden contactar servicios reales según el entorno. Ver [procedimiento, límites y validación](docs/pilot-recovery.md) antes de utilizarlas. No usar `--discard-pending` para recuperar mensajes: descarta actualizaciones aún no almacenadas.
+
 ## Validación aislada
 
 ```powershell

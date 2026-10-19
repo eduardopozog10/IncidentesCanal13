@@ -6,6 +6,8 @@ from incidents.services.incident_draft_service import (
     IncidentDraftService,
 )
 from incidents.services.incident_processor import IncidentProcessor
+from incidents.services.conversation_lock import conversation_lock
+from incidents.messaging.telegram_provider import TelegramRejectedError
 from incidents.services.incoming_message_service import (
     ChannelNotAuthorizedError,
     IncomingMessageService,
@@ -71,31 +73,6 @@ class TelegramUpdateHandler:
                 "reason": "El mensaje no contiene identificadores válidos.",
             }
 
-        if text == "/start":
-            self.messaging_provider.send_text(
-                external_chat_id,
-                (
-                    "Hola. Soy el asistente de Gestión de Incidencias "
-                    "Operativas de Secuoya Chile.\n\n"
-                    "Cuéntame qué está fallando, dónde ocurre y cómo "
-                    "afecta la operación. Puedes dar varios datos juntos "
-                    "o enviarlos de a poco; te preguntaré lo que falte.\n\n"
-                    "Antes de registrar el incidente revisaremos un "
-                    "resumen y te pediré confirmación. Para cancelar "
-                    "un reporte pendiente, escribe /cancelar."
-                ),
-            )
-
-            return {
-                "action": "welcome_sent",
-            }
-
-        if text == "/cancelar":
-            return self._handle_cancel_command(
-                external_user_id=external_user_id,
-                external_chat_id=external_chat_id,
-            )
-
         if not isinstance(text, str) or not text.strip():
             self.messaging_provider.send_text(
                 external_chat_id,
@@ -122,6 +99,7 @@ class TelegramUpdateHandler:
                 text=text,
                 raw_payload=update,
                 trusted_telegram=True,
+                command_handler=self._process_command if text in {"/start", "/cancelar"} else None,
             )
         except ChannelNotAuthorizedError:
             self.messaging_provider.send_text(
@@ -150,39 +128,24 @@ class TelegramUpdateHandler:
 
         incoming_message = result["message"]
 
-        if result["duplicate"]:
+        if result.get("pending"):
+            self.send_processing_notice(update)
+            return {"action": "processing_pending", "message_id": incoming_message.pk, "durable": True}
+
+        if result["duplicate"] and not (result["processing"] or result.get("cached_processing")):
             return {
                 "action": "duplicate_message",
                 "message_id": incoming_message.pk,
             }
 
-        processing_result = result["processing"]
+        processing_result = result["processing"] or result.get("cached_processing")
         reply_text = processing_result["reply"]
 
-        try:
-            telegram_response = (
-                self._send_complete_reply(
-                    external_chat_id,
-                    reply_text,
-                )
-            )
-        except Exception as error:
-            self._record_failed_reply(
-                incoming_message=incoming_message,
-                reply_text=reply_text,
-                error=error,
-            )
-
-            return {
-                "action": "reply_failed",
-                "message_id": incoming_message.pk,
-            }
-
-        outgoing_message = self._record_sent_reply(
-            incoming_message=incoming_message,
-            reply_text=reply_text,
-            telegram_response=telegram_response,
-        )
+        outgoing_message, delivered = self._deliver_reply(incoming_message, reply_text)
+        if not delivered:
+            return {"action": "reply_failed", "message_id": incoming_message.pk, "durable": True}
+        if result["duplicate"]:
+            return {"action": "duplicate_message", "message_id": incoming_message.pk, "durable": True}
 
         return {
             "action": processing_result["action"],
@@ -193,14 +156,55 @@ class TelegramUpdateHandler:
             ],
         }
 
-    def _send_complete_reply(self, recipient_id, text):
+    def _deliver_reply(self, incoming, text, purpose="reply"):
+        with conversation_lock(f"reply:{incoming.pk}:{purpose}"):
+            outgoing, _ = ChannelMessage.objects.get_or_create(
+                in_reply_to=incoming, reply_purpose=purpose,
+                defaults=dict(provider=self.PROVIDER, external_sender_id="bot",
+                              external_chat_id=incoming.external_chat_id, channel_account=incoming.channel_account,
+                              technician=incoming.technician, incident=incoming.incident, draft=incoming.draft,
+                              direction="outbound", message_type="text", content=text, status="received"),
+            )
+            if outgoing.status == "sent":
+                return outgoing, True
+            done = outgoing.raw_payload.get("parts_done", [])
+            all_done = bool(done) and len(done) == outgoing.raw_payload.get("parts_total")
+            if outgoing.status == "processing" and not all_done:
+                outgoing.status = "uncertain"
+                outgoing.error_message = "InterruptedDelivery"
+                outgoing.save(update_fields=["status", "error_message"])
+                return outgoing, False
+            if outgoing.status == "uncertain" or (outgoing.processing_attempts >= 3 and not all_done):
+                return outgoing, False
+            outgoing.status = "processing"
+            outgoing.processing_attempts += 1
+            outgoing.save(update_fields=["status", "processing_attempts"])
+            try:
+                response = self._send_complete_reply(incoming.external_chat_id, outgoing.content, outgoing)
+                outgoing.external_message_id = f"{incoming.external_chat_id}:{response['result']['message_id']}"
+                outgoing.status = "sent"
+                outgoing.processed_at = timezone.now()
+                outgoing.save(update_fields=["external_message_id", "status", "processed_at"])
+                return outgoing, True
+            except TelegramRejectedError as error:
+                outgoing.status = "failed"
+                if not error.retryable:
+                    outgoing.processing_attempts = 3
+                outgoing.error_message = "TelegramRejectedError"
+                outgoing.save(update_fields=["status", "processing_attempts", "error_message"])
+            except Exception as error:
+                # Mantener PROCESSING: pudo llegar la parte que no tiene acuse.
+                ChannelMessage.objects.filter(pk=outgoing.pk).update(status="uncertain", error_message=type(error).__name__)
+            return outgoing, False
+
+    def _send_complete_reply(self, recipient_id, text, outgoing=None):
         """Entregar resúmenes extensos completos antes de registrar SENT.
 
         Margen bajo 4096; cuenta UTF-16 también para caracteres como emojis.
         Si falla una parte, el handler registra FAILED para el resumen lógico.
         """
         remaining = text
-        responses = []
+        parts = []
         while remaining:
             units = 0
             end = 0
@@ -219,7 +223,17 @@ class TelegramUpdateHandler:
             part = remaining[:end].strip()
             remaining = remaining[end:].lstrip()
             if part:
-                responses.append(self.messaging_provider.send_text(recipient_id, part))
+                parts.append(part)
+        responses = list(outgoing.raw_payload.get("parts_done", [])) if outgoing else []
+        if outgoing:
+            outgoing.raw_payload = {"parts_total": len(parts), "parts_done": responses}
+            outgoing.save(update_fields=["raw_payload"])
+        for part in parts[len(responses):]:
+            response = self.messaging_provider.send_text(recipient_id, part)
+            responses.append(response)
+            if outgoing:
+                outgoing.raw_payload = {"parts_total": len(parts), "parts_done": list(responses)}
+                outgoing.save(update_fields=["raw_payload"])
         response = dict(responses[-1])
         if len(responses) > 1:
             response["delivery_parts"] = [item["result"]["message_id"] for item in responses]
@@ -285,46 +299,36 @@ class TelegramUpdateHandler:
                 "action": "processing_notice_ignored",
             }
 
-        if incoming_message.status in {
-            ChannelMessage.Status.PROCESSED,
-            ChannelMessage.Status.FAILED,
-        }:
+        if incoming_message.status == ChannelMessage.Status.PROCESSED or incoming_message.processing_attempts >= 3:
             return {
                 "action": "processing_notice_ignored",
             }
 
         reply_text = self.PROCESSING_NOTICE
 
-        try:
-            telegram_response = (
-                self.messaging_provider.send_text(
-                    external_chat_id,
-                    reply_text,
-                )
-            )
-        except Exception as error:
-            self._record_failed_reply(
-                incoming_message=incoming_message,
-                reply_text=reply_text,
-                error=error,
-            )
-
-            return {
-                "action": "processing_notice_failed",
-                "message_id": incoming_message.pk,
-            }
-
-        outgoing_message = self._record_sent_reply(
-            incoming_message=incoming_message,
-            reply_text=reply_text,
-            telegram_response=telegram_response,
-        )
+        outgoing_message, delivered = self._deliver_reply(incoming_message, reply_text, "notice")
+        if not delivered:
+            return {"action": "processing_notice_failed", "message_id": incoming_message.pk}
 
         return {
             "action": "processing_notice_sent",
             "incoming_message_id": incoming_message.pk,
             "outgoing_message_id": outgoing_message.pk,
         }
+
+    def recover_pending(self, limit=10):
+        # Solo actualizaciones durables recibidas por el handler privado. Los
+        # registros históricos sin contexto verificable no se reproducen.
+        inbound = IncomingMessageService.recoverable_messages().filter(provider=self.PROVIDER).order_by("pk")
+        results = []
+        for message in inbound[:limit]:
+            payload = message.raw_payload.get("message", {})
+            canonical_id = f"{message.external_chat_id}:{payload.get('message_id')}" if isinstance(payload, dict) else ""
+            if (isinstance(payload, dict) and message.external_message_id == canonical_id and payload.get("text") == message.content
+                    and self._is_admitted_private_update(message.raw_payload)):
+                self.send_processing_notice(message.raw_payload)
+                results.append(self.handle(message.raw_payload))
+        return results
 
     def _is_admitted_private_update(self, update):
         if not isinstance(update, dict) or not isinstance(update.get("message"), dict):
@@ -339,128 +343,25 @@ class TelegramUpdateHandler:
         account = TechnicianChannel.objects.filter(provider=self.PROVIDER, external_user_id=user_id).first()
         return account is None or not account.external_chat_id or account.external_chat_id == chat_id
 
-    def _handle_cancel_command(
-        self,
-        *,
-        external_user_id: str,
-        external_chat_id: str,
-    ) -> dict:
-        channel_account = (
-            TechnicianChannel.objects.select_related(
-                "technician"
-            )
-            .filter(
-                provider=self.PROVIDER,
-                external_user_id=external_user_id,
-                is_active=True,
-                technician__is_active=True,
-            )
-            .first()
-        )
-
-        if channel_account is None:
-            self.messaging_provider.send_text(
-                external_chat_id,
-                (
-                    "Tu cuenta de Telegram no está autorizada "
-                    "para registrar incidentes."
+    def _process_command(self, message):
+        if message.content == "/start":
+            return {
+                "action": "welcome_sent", "incident_created": False,
+                "reply": (
+                    "Hola. Soy el asistente de Gestión de Incidencias "
+                    "Operativas de Secuoya Chile.\n\n"
+                    "Cuéntame qué está fallando, dónde ocurre y cómo "
+                    "afecta la operación. Puedes dar varios datos juntos "
+                    "o enviarlos de a poco; te preguntaré lo que falte.\n\n"
+                    "Antes de registrar el incidente revisaremos un "
+                    "resumen y te pediré confirmación. Para cancelar "
+                    "un reporte pendiente, escribe /cancelar."
                 ),
-            )
-
-            return {
-                "action": "unauthorized_user",
             }
-
-        draft = self.draft_service.cancel_active_draft(
-            technician=channel_account.technician,
-        )
-
-        if draft is None:
-            self.messaging_provider.send_text(
-                external_chat_id,
-                "No tienes ningún reporte pendiente.",
-            )
-
-            return {
-                "action": "no_active_draft",
-            }
-
-        self.messaging_provider.send_text(
-            external_chat_id,
-            "El reporte pendiente fue cancelado.",
-        )
-
+        draft = self.draft_service.cancel_active_draft(technician=message.technician)
+        message.draft = draft
         return {
-            "action": "draft_cancelled",
-            "draft_id": draft.pk,
+            "action": "draft_cancelled" if draft else "no_active_draft", "incident_created": False,
+            "draft_id": draft.pk if draft else None,
+            "reply": "El reporte pendiente fue cancelado." if draft else "No tienes ningún reporte pendiente.",
         }
-
-    def _record_sent_reply(
-        self,
-        *,
-        incoming_message: ChannelMessage,
-        reply_text: str,
-        telegram_response: dict,
-    ) -> ChannelMessage:
-        telegram_result = telegram_response["result"]
-        telegram_message_id = telegram_result["message_id"]
-
-        external_message_id = (
-            f"{incoming_message.external_chat_id}:"
-            f"{telegram_message_id}"
-        )
-
-        return ChannelMessage.objects.create(
-            provider=self.PROVIDER,
-            external_message_id=external_message_id,
-            external_sender_id=str(
-                telegram_result.get("from", {}).get(
-                    "id",
-                    "bot",
-                )
-            ),
-            external_chat_id=(
-                incoming_message.external_chat_id
-            ),
-            channel_account=(
-                incoming_message.channel_account
-            ),
-            technician=incoming_message.technician,
-            incident=incoming_message.incident,
-            draft=incoming_message.draft,
-            direction=ChannelMessage.Direction.OUTBOUND,
-            message_type=ChannelMessage.MessageType.TEXT,
-            content=reply_text,
-            raw_payload=telegram_response,
-            status=ChannelMessage.Status.SENT,
-            processed_at=timezone.now(),
-        )
-
-    def _record_failed_reply(
-        self,
-        *,
-        incoming_message: ChannelMessage,
-        reply_text: str,
-        error: Exception,
-    ) -> ChannelMessage:
-        return ChannelMessage.objects.create(
-            provider=self.PROVIDER,
-            external_message_id=None,
-            external_sender_id="bot",
-            external_chat_id=(
-                incoming_message.external_chat_id
-            ),
-            channel_account=(
-                incoming_message.channel_account
-            ),
-            technician=incoming_message.technician,
-            incident=incoming_message.incident,
-            draft=incoming_message.draft,
-            direction=ChannelMessage.Direction.OUTBOUND,
-            message_type=ChannelMessage.MessageType.TEXT,
-            content=reply_text,
-            raw_payload={},
-            status=ChannelMessage.Status.FAILED,
-            error_message=str(error),
-            processed_at=timezone.now(),
-        )

@@ -1,15 +1,20 @@
 from django.db import transaction
 
 from incidents.models import IncidentDraft, Technician
+from incidents.services.conversation_lock import conversation_lock
 
 
 class IncidentDraftService:
-    @transaction.atomic
     def cancel_active_draft(
         self,
         *,
         technician: Technician,
     ) -> IncidentDraft | None:
+        with conversation_lock(f"reporter:{technician.pk}"):
+            return self._cancel_atomic(technician)
+
+    @transaction.atomic
+    def _cancel_atomic(self, technician):
         Technician.objects.select_for_update().get(pk=technician.pk)
         draft = (
             IncidentDraft.objects.filter(

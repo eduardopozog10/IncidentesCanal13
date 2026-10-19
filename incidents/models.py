@@ -232,7 +232,28 @@ class Incident(models.Model):
         return f"{self.code} - {self.equipment}"
 
 
+class IncidentNotification(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pendiente"
+        SENDING = "sending", "Enviando / verificar antes de reintentar"
+        SENT = "sent", "Enviada"
+        FAILED = "failed", "Fallida, recuperable"
+        UNCERTAIN = "uncertain", "Entrega incierta, revisión manual"
+
+    incident = models.OneToOneField(Incident, on_delete=models.CASCADE, related_name="notification")
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    error_message = models.TextField(blank=True)
+    attempted_at = models.DateTimeField(null=True, blank=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+
+
 class ChannelMessage(models.Model):
+    received_via_polling = models.BooleanField(default=False)
+    processing_result = models.JSONField(default=dict, blank=True)
+    processing_attempts = models.PositiveSmallIntegerField(default=0)
+    in_reply_to = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="replies")
+    reply_purpose = models.CharField(max_length=16, default="reply")
     class Provider(models.TextChoices):
         TELEGRAM = "telegram", "Telegram"
         WHATSAPP = "whatsapp", "WhatsApp"
@@ -257,6 +278,7 @@ class ChannelMessage(models.Model):
         DELIVERED = "delivered", "Entregado"
         READ = "read", "Leído"
         FAILED = "failed", "Fallido"
+        UNCERTAIN = "uncertain", "Entrega incierta, revisión manual"
 
     provider = models.CharField(
         max_length=20,
@@ -364,6 +386,7 @@ class ChannelMessage(models.Model):
                 ),
                 name="unique_message_per_provider",
             ),
+            models.UniqueConstraint(fields=["in_reply_to", "reply_purpose"], condition=models.Q(in_reply_to__isnull=False), name="unique_logical_reply"),
         ]
 
     def __str__(self):
