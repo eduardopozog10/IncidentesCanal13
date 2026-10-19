@@ -11,6 +11,14 @@ uv run python manage.py run_telegram_bot
 
 Ejecutar cada proceso en su terminal, con el `.env` local existente. No ejecutar dos receptores del mismo bot simultáneamente. Ctrl+C detiene el receptor.
 
+### Seguridad de entradas de Telegram en el piloto
+
+- El polling es la única entrada de Telegram habilitada. El webhook HTTP devuelve 404 y no procesa actualizaciones, aunque incluyan un supuesto token secreto.
+- `/api/v1/messages/test/` requiere personal autenticado y `DEBUG=True`; con sesión exige CSRF. Solo permite probar cuentas existentes: un JSON HTTP nunca habilita autorregistro.
+- El autorregistro conserva su configuración actual (`DEBUG=True` y `TELEGRAM_AUTO_REGISTER=True`) y funciona desde el receptor de polling, exclusivamente en chats privados con remitente y chat coherentes. No crea usuarios de Django ni concede acceso al dashboard.
+- Se ignoran grupos, canales y chats inconsistentes, también para `/start`, `/cancelar` y avisos de procesamiento. Un canal antiguo sin chat guardado admite su chat privado coherente; si tiene un chat guardado diferente, se rechaza y debe revisarse administrativamente, sin reasignarlo automáticamente.
+- La marca interna `trusted_telegram` solo la proporciona el receptor desde Python. No es una credencial ni un campo aceptado desde HTTP. No se requiere configurar secretos de webhook ni cambiar credenciales para estos ajustes.
+
 ## Validación aislada
 
 ```powershell

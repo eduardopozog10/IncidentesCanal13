@@ -1,6 +1,9 @@
 import unicodedata
 from datetime import timedelta
 
+from django.conf import settings
+from django.http import Http404
+
 from django.db.models import (
     Avg,
     Count,
@@ -17,9 +20,6 @@ from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from incidents.messaging.telegram_update_handler import (
-    TelegramUpdateHandler,
-)
 from incidents.models import Incident
 from incidents.serializers import (
     IncidentSerializer,
@@ -674,9 +674,11 @@ class IncidentDetailView(generics.RetrieveAPIView):
 
 
 class IncomingTextMessageTestView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAdminUser]
 
     def post(self, request):
+        if not settings.DEBUG:
+            raise Http404
         serializer = IncomingTextMessageSerializer(
             data=request.data,
         )
@@ -706,13 +708,12 @@ class IncomingTextMessageTestView(APIView):
                 },
                 status=status.HTTP_404_NOT_FOUND,
             )
-        except Exception as error:
+        except Exception:
             return Response(
                 {
                     "detail": (
                         "No fue posible procesar el mensaje."
                     ),
-                    "error": str(error),
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
@@ -747,25 +748,6 @@ class TelegramWebhookView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        try:
-            result = TelegramUpdateHandler().handle(
-                request.data,
-            )
-        except Exception:
-            return Response(
-                {
-                    "detail": (
-                        "No fue posible procesar la actualización "
-                        "de Telegram."
-                    ),
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-
-        return Response(
-            {
-                "ok": True,
-                "result": result,
-            },
-            status=status.HTTP_200_OK,
-        )
+        # El piloto recibe Telegram exclusivamente por polling autenticado
+        # con el token del bot. Ningún JSON HTTP acredita ese origen.
+        raise Http404

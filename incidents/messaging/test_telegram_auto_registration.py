@@ -25,6 +25,7 @@ class TelegramAutoRegistrationTests(TestCase):
     ):
         return self.service.process_text(
             provider="telegram",
+            trusted_telegram=True,
             external_user_id=self.user_id,
             external_chat_id=self.user_id,
             external_message_id=message_id,

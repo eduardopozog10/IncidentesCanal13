@@ -15,6 +15,25 @@ class ChannelNotAuthorizedError(Exception):
 
 
 class IncomingMessageService:
+    @staticmethod
+    def is_private_telegram_context(raw_payload, external_user_id, external_chat_id):
+        """Validar el contexto, no autenticar JSON: solo usar tras polling."""
+        if not isinstance(raw_payload, dict):
+            return False
+        message = raw_payload.get("message")
+        if not isinstance(message, dict):
+            return False
+        sender, chat = message.get("from"), message.get("chat")
+        return (
+            isinstance(sender, dict) and isinstance(chat, dict)
+            and chat.get("type") == "private"
+            and not sender.get("is_bot", False)
+            and bool(external_user_id)
+            and str(sender.get("id", "")) == external_user_id
+            and str(chat.get("id", "")) == external_chat_id
+            and external_user_id == external_chat_id
+        )
+
     def __init__(self, incident_processor=None):
         self.incident_processor = (
             incident_processor
@@ -103,7 +122,15 @@ class IncomingMessageService:
         external_message_id: str,
         text: str,
         raw_payload: dict,
+        trusted_telegram: bool = False,
     ) -> dict:
+        # Esta capacidad se concede desde Python por el receptor de polling;
+        # nunca se toma del cuerpo de una solicitud HTTP.
+        if trusted_telegram and (
+            provider != TechnicianChannel.Provider.TELEGRAM
+            or not self.is_private_telegram_context(raw_payload, external_user_id, external_chat_id)
+        ):
+            raise ChannelNotAuthorizedError("Contexto de Telegram no admitido.")
         channel_account = (
             TechnicianChannel.objects.select_related(
                 "technician"
@@ -120,6 +147,7 @@ class IncomingMessageService:
         # Permitir el registro automático solamente durante el desarrollo.
         if (
             channel_account is None
+            and trusted_telegram
             and provider == TechnicianChannel.Provider.TELEGRAM
             and settings.DEBUG
             and getattr(
@@ -140,12 +168,18 @@ class IncomingMessageService:
                 "a este usuario y proveedor."
             )
 
+        if (provider == TechnicianChannel.Provider.TELEGRAM
+                and channel_account.external_chat_id
+                and channel_account.external_chat_id != external_chat_id):
+            raise ChannelNotAuthorizedError("El chat no corresponde al canal del reportante.")
+
         existing_message = ChannelMessage.objects.filter(
             provider=provider,
             external_message_id=external_message_id,
         ).first()
 
         if existing_message is not None:
+            self._validate_message_owner(existing_message, channel_account, external_chat_id)
             return {
                 "duplicate": True,
                 "message": existing_message,
@@ -168,6 +202,7 @@ class IncomingMessageService:
             },
         )
         if not created:
+            self._validate_message_owner(message, channel_account, external_chat_id)
             return {"duplicate": True, "message": message, "processing": None}
 
         try:
@@ -190,3 +225,11 @@ class IncomingMessageService:
             "message": message,
             "processing": processing_result,
         }
+
+    @staticmethod
+    def _validate_message_owner(message, channel_account, external_chat_id):
+        if (message.channel_account_id != channel_account.pk
+                or message.technician_id != channel_account.technician_id
+                or message.external_chat_id != external_chat_id
+                or message.direction != ChannelMessage.Direction.INBOUND):
+            raise ChannelNotAuthorizedError("El identificador del mensaje pertenece a otro contexto.")

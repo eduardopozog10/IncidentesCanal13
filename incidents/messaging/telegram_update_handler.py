@@ -41,6 +41,10 @@ class TelegramUpdateHandler:
         )
 
     def handle(self, update: dict) -> dict:
+        # Este handler se utiliza solo desde el receptor de polling. El
+        # webhook HTTP está deshabilitado; un JSON por sí solo no es confiable.
+        if not self._is_admitted_private_update(update):
+            return {"action": "ignored", "reason": "Contexto de conversación no admitido."}
         telegram_message = update.get("message")
 
         if telegram_message is None:
@@ -117,6 +121,7 @@ class TelegramUpdateHandler:
                 external_message_id=external_message_id,
                 text=text,
                 raw_payload=update,
+                trusted_telegram=True,
             )
         except ChannelNotAuthorizedError:
             self.messaging_provider.send_text(
@@ -224,6 +229,8 @@ class TelegramUpdateHandler:
         self,
         update: dict,
     ) -> dict:
+        if not self._is_admitted_private_update(update):
+            return {"action": "processing_notice_ignored"}
         telegram_message = update.get("message")
 
         if telegram_message is None:
@@ -318,6 +325,19 @@ class TelegramUpdateHandler:
             "incoming_message_id": incoming_message.pk,
             "outgoing_message_id": outgoing_message.pk,
         }
+
+    def _is_admitted_private_update(self, update):
+        if not isinstance(update, dict) or not isinstance(update.get("message"), dict):
+            return False
+        message = update["message"]
+        sender, chat = message.get("from"), message.get("chat")
+        if not isinstance(sender, dict) or not isinstance(chat, dict):
+            return False
+        user_id, chat_id = str(sender.get("id", "")), str(chat.get("id", ""))
+        if not IncomingMessageService.is_private_telegram_context(update, user_id, chat_id):
+            return False
+        account = TechnicianChannel.objects.filter(provider=self.PROVIDER, external_user_id=user_id).first()
+        return account is None or not account.external_chat_id or account.external_chat_id == chat_id
 
     def _handle_cancel_command(
         self,
