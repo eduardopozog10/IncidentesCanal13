@@ -1,12 +1,16 @@
+from django.db import transaction
+
 from incidents.models import IncidentDraft, Technician
 
 
 class IncidentDraftService:
+    @transaction.atomic
     def cancel_active_draft(
         self,
         *,
         technician: Technician,
     ) -> IncidentDraft | None:
+        Technician.objects.select_for_update().get(pk=technician.pk)
         draft = (
             IncidentDraft.objects.filter(
                 technician=technician,

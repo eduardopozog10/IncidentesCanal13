@@ -5,6 +5,7 @@ from incidents.models import ChannelMessage, TechnicianChannel
 from incidents.services.incident_draft_service import (
     IncidentDraftService,
 )
+from incidents.services.incident_processor import IncidentProcessor
 from incidents.services.incoming_message_service import (
     ChannelNotAuthorizedError,
     IncomingMessageService,
@@ -32,7 +33,7 @@ class TelegramUpdateHandler:
         )
         self.incoming_service = (
             incoming_service
-            or IncomingMessageService()
+            or IncomingMessageService(IncidentProcessor(require_delivered_summary=True))
         )
         self.draft_service = (
             draft_service
@@ -72,23 +73,12 @@ class TelegramUpdateHandler:
                 (
                     "Hola. Soy el asistente de Gestión de Incidencias "
                     "Operativas de Secuoya Chile.\n\n"
-                    "Estoy aquí para ayudarte a registrar una falla "
-                    "o incidente operacional de forma simple.\n\n"
-                    "Para completar el reporte necesitaré conocer:\n\n"
-                    "• Área asociada al incidente.\n"
-                    "• Ubicación o contexto donde ocurre.\n"
-                    "• Equipo o servicio afectado.\n"
-                    "• Síntoma o problema que presenta.\n"
-                    "• Una breve descripción de lo ocurrido.\n"
-                    "• Impacto que genera en la operación.\n"
-                    "• Prioridad: Baja, Media, Alta o Crítica.\n\n"
-                    "Puedes contarme el problema con tus propias palabras. "
-                    "No necesitas entregar todos los datos de una vez; "
-                    "si falta información, te iré haciendo preguntas "
-                    "para completar el reporte.\n\n"
-                    "Cuando quieras, cuéntame qué está ocurriendo.\n\n"
-                    "Si necesitas cancelar un reporte pendiente, "
-                    "escribe /cancelar."
+                    "Cuéntame qué está fallando, dónde ocurre y cómo "
+                    "afecta la operación. Puedes dar varios datos juntos "
+                    "o enviarlos de a poco; te preguntaré lo que falte.\n\n"
+                    "Antes de registrar el incidente revisaremos un "
+                    "resumen y te pediré confirmación. Para cancelar "
+                    "un reporte pendiente, escribe /cancelar."
                 ),
             )
 
@@ -166,7 +156,7 @@ class TelegramUpdateHandler:
 
         try:
             telegram_response = (
-                self.messaging_provider.send_text(
+                self._send_complete_reply(
                     external_chat_id,
                     reply_text,
                 )
@@ -197,6 +187,38 @@ class TelegramUpdateHandler:
                 "incident_created"
             ],
         }
+
+    def _send_complete_reply(self, recipient_id, text):
+        """Entregar resúmenes extensos completos antes de registrar SENT.
+
+        Margen bajo 4096; cuenta UTF-16 también para caracteres como emojis.
+        Si falla una parte, el handler registra FAILED para el resumen lógico.
+        """
+        remaining = text
+        responses = []
+        while remaining:
+            units = 0
+            end = 0
+            for character in remaining:
+                size = 2 if ord(character) > 0xFFFF else 1
+                if units + size > 4000:
+                    break
+                units += size
+                end += 1
+            if end < len(remaining):
+                boundary = remaining.rfind("\n", 0, end)
+                if boundary < end // 2:
+                    boundary = remaining.rfind(" ", 0, end)
+                if boundary >= end // 2:
+                    end = boundary
+            part = remaining[:end].strip()
+            remaining = remaining[end:].lstrip()
+            if part:
+                responses.append(self.messaging_provider.send_text(recipient_id, part))
+        response = dict(responses[-1])
+        if len(responses) > 1:
+            response["delivery_parts"] = [item["result"]["message_id"] for item in responses]
+        return response
 
     def send_processing_notice(
         self,

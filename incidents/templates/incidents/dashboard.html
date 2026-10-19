@@ -8,6 +8,7 @@
     content="width=device-width, initial-scale=1.0"
   >
   <title>Secuoya Chile | Gestión de Incidencias Operativas</title>
+  {% include "incidents/brand_head.html" %}
   <script>
     (() => {
       const storageKey = "secuoya-dashboard-theme";
@@ -35,10 +36,12 @@
   </script>
   <link
     rel="stylesheet"
-    href="{% static 'incidents/dashboard.css' %}"
+    href="{% static 'incidents/dashboard.css' %}?v=20261019"
   >
+  <link rel="stylesheet" href="{% static 'incidents/operations.css' %}?v=20261019">
 </head>
 <body>
+  <a class="skip-link" href="#main-content">Ir al contenido</a>
   <form hidden>
     {% csrf_token %}
   </form>
@@ -47,7 +50,7 @@
       <div class="brand">
         <div class="brand-mark">
           <img
-            src="{% static 'incidents/images/secuoya-chile-logo.png' %}"
+            src="{% static 'incidents/images/secuoya-chile-wordmark.png' %}"
             alt="Secuoya Chile"
             class="brand-logo"
           >
@@ -122,19 +125,19 @@
       <div class="system-card">
         <div class="system-card-header">
           <span>
-            Estado del sistema
+            Acceso al panel
           </span>
           <span
-            class="online-dot"
-            aria-label="Sistema operativo"
+            class="panel-dot"
+            aria-hidden="true"
           ></span>
         </div>
         <strong>
-          Servicios operativos
+          Panel de gestión disponible
         </strong>
         <p>
-          Dashboard sincronizado con el
-          flujo de incidentes.
+          Consulta y gestión del registro
+          de incidentes.
         </p>
       </div>
     </aside>
@@ -241,7 +244,7 @@
           </div>
         </div>
       </header>
-      <main>
+      <main id="main-content" tabindex="-1">
         <!-- ==========================================
           VISTA: CENTRO DE CONTROL
         =========================================== -->
@@ -305,7 +308,7 @@
                 0
               </strong>
               <small>
-                Reportados con máxima prioridad
+                Máxima prioridad · todos los estados
               </small>
             </article>
             <article class="kpi-card kpi-card--time">
@@ -769,8 +772,8 @@
                         Equipos recurrentes
                       </h3>
                       <p class="analytics-card-description">
-                        Equipos o servicios con mayor
-                        cantidad de incidentes.
+                        Equipos o servicios más mencionados
+                        en los reportes.
                       </p>
                     </div>
                     <span
@@ -1255,6 +1258,11 @@
 
       sidebarButtons.forEach(
         (button) => {
+          if (button.dataset.view === viewName) {
+            button.setAttribute("aria-current", "page");
+          } else {
+            button.removeAttribute("aria-current");
+          }
           button.classList.toggle(
             "is-active",
             (
@@ -1268,6 +1276,7 @@
       pageTitle.textContent = (
         viewMetadata[viewName].title
       );
+      document.title = `${viewMetadata[viewName].title} | Secuoya Chile`;
 
       pageDescription.textContent = (
         viewMetadata[viewName].description
@@ -3135,9 +3144,7 @@
           );
 
           row.innerHTML = `
-            <td>
-              ${escapeHtml(incident.code)}
-            </td>
+            <td><button type="button" class="incident-code-action" aria-label="Abrir incidente ${escapeHtml(incident.code)}">${escapeHtml(incident.code)}</button></td>
 
             <td>
               ${escapeHtml(incident.area)}
@@ -3357,9 +3364,7 @@
             }
 
             row.innerHTML = `
-              <td>
-                ${escapeHtml(incident.code)}
-              </td>
+              <td><button type="button" class="incident-code-action" aria-label="Abrir incidente ${escapeHtml(incident.code)}">${escapeHtml(incident.code)}</button></td>
 
               <td>
                 ${escapeHtml(incident.area)}

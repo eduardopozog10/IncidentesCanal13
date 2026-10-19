@@ -152,19 +152,23 @@ class IncomingMessageService:
                 "processing": None,
             }
 
-        message = ChannelMessage.objects.create(
+        message, created = ChannelMessage.objects.get_or_create(
             provider=provider,
             external_message_id=external_message_id,
-            external_sender_id=external_user_id,
-            external_chat_id=external_chat_id,
-            channel_account=channel_account,
-            technician=channel_account.technician,
-            direction=ChannelMessage.Direction.INBOUND,
-            message_type=ChannelMessage.MessageType.TEXT,
-            content=text,
-            raw_payload=raw_payload,
-            status=ChannelMessage.Status.RECEIVED,
+            defaults={
+                "external_sender_id": external_user_id,
+                "external_chat_id": external_chat_id,
+                "channel_account": channel_account,
+                "technician": channel_account.technician,
+                "direction": ChannelMessage.Direction.INBOUND,
+                "message_type": ChannelMessage.MessageType.TEXT,
+                "content": text,
+                "raw_payload": raw_payload,
+                "status": ChannelMessage.Status.RECEIVED,
+            },
         )
+        if not created:
+            return {"duplicate": True, "message": message, "processing": None}
 
         try:
             processing_result = (

@@ -1,0 +1,39 @@
+/* Identidad compartida sobre los componentes accesibles del admin de Django. */
+:root {
+  --primary: #075c7c;
+  --secondary: #0a202d;
+  --accent: #53cbe6;
+  --header-bg: #0a202d;
+  --header-link-color: #f3f8fb;
+  --header-color: #f3f8fb;
+  --link-fg: #075c7c;
+  --link-selected-fg: #04445e;
+  --button-bg: #075c7c;
+  --button-hover-bg: #04445e;
+  --default-button-bg: #075c7c;
+  --default-button-hover-bg: #04445e;
+  --font-family-primary: "Segoe UI", system-ui, sans-serif;
+}
+html[data-theme="dark"] {
+  --body-bg: #07151e;
+  --body-fg: #f3f8fb;
+  --darkened-bg: #102631;
+  --link-fg: #53cbe6;
+  --link-selected-fg: #8ce5f5;
+  --hairline-color: #26404e;
+  --border-color: #3b6578;
+}
+#header { padding: 20px 28px; }
+#branding #site-name { font-size: 20px; line-height: 1.4; }
+.login #container { border-radius: 14px; overflow: hidden; box-shadow: 0 14px 40px #0a202d16; }
+.login #header { padding: 24px; }
+.login #content { padding: 24px; }
+.login #header #site-name { font-weight: 600; }
+.login input[type="text"], .login input[type="password"] { min-height: 42px; border-radius: 8px; box-sizing: border-box; }
+.login .submit-row input { min-height: 42px; border-radius: 8px; padding-inline: 24px; }
+:is(a, button, input, select):focus-visible { outline: 3px solid #24a4c8; outline-offset: 3px; }
+.errornote { border-radius: 8px; padding: 14px; line-height: 1.5; }
+@media (max-width: 600px) {
+  .login #container { width: calc(100% - 28px); min-width: 0; margin-top: 28px; }
+  #branding #site-name { font-size: 18px; }
+}

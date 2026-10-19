@@ -34,3 +34,6 @@ htmlcov/
 # Sistema operativo
 .DS_Store
 Thumbs.db
+
+# Herramientas y capturas locales de QA
+.qa/

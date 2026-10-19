@@ -1,0 +1,27 @@
+[
+  {
+    "name": "django_check",
+    "exit_code": 0,
+    "output": "System check identified no issues (0 silenced).\r\n"
+  },
+  {
+    "name": "migrations",
+    "exit_code": 0,
+    "output": "No changes detected\r\n"
+  },
+  {
+    "name": "tests",
+    "exit_code": 0,
+    "output": ".........................................................\n----------------------------------------------------------------------\nRan 91 tests in 4.186s\n\nOK\nDestroying test database for alias 'default'...\n\nFound 91 test(s).\nSystem check identified no issues (0 silenced).\n"
+  },
+  {
+    "name": "git_diff_check",
+    "exit_code": 0,
+    "output": ""
+  },
+  {
+    "name": "main_readonly",
+    "exit_code": 0,
+    "output": "{\"main_incidents\": 34, \"highest_id\": 37}\r\n\r\nCount\r\n-----\r\n    0\r\n\r\n"
+  }
+]

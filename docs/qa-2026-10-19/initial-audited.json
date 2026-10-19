@@ -1,0 +1,1547 @@
+[
+  {
+    "id": "01",
+    "title": "Cámara completa",
+    "level": "B",
+    "expected": {
+      "area": "Producción",
+      "location_context": "Móvil 2",
+      "equipment": "Cámara 3",
+      "asset_category": "video_cameras",
+      "priority": "high"
+    },
+    "transcript": [
+      {
+        "user": "En Producción, Cámara 3 del Móvil 2: la imagen se corta y queda negra cada pocos segundos, no podemos usarla durante la producción en vivo. Prioridad alta.",
+        "bot": "Antes de crear el incidente, revisa los datos:\n\n• Área: Producción\n• Ubicación/contexto: Móvil 2\n• Familia: Video / Cámaras\n• Equipo/servicio: Cámara 3\n• Síntoma: Corte de imagen y pantalla negra intermitente\n• Descripción: La Cámara 3 presenta cortes de imagen quedando la pantalla negra cada pocos segundos.\n• Impacto operacional: No es posible utilizar la cámara durante la producción en vivo.\n• Prioridad: Alta\n\n¿Confirmas la creación del incidente? Responde Sí para crearlo o No para corregir algún dato.",
+        "action": "ask_clarification",
+        "data": {
+          "unit": "Móvil 2",
+          "area": "Producción",
+          "location_context": "Móvil 2",
+          "asset_category": "video_cameras",
+          "equipment": "Cámara 3",
+          "failure_type": "Corte de imagen y pantalla negra intermitente",
+          "description": "La Cámara 3 presenta cortes de imagen quedando la pantalla negra cada pocos segundos.",
+          "operational_impact": "No es posible utilizar la cámara durante la producción en vivo.",
+          "priority": "high"
+        },
+        "missing": []
+      },
+      {
+        "user": "confirmo",
+        "bot": "Reporte SC-000001 creado correctamente.",
+        "action": "incident_created",
+        "data": {
+          "area": "Producción",
+          "unit": "Móvil 2",
+          "priority": "high",
+          "equipment": "Cámara 3",
+          "description": "La Cámara 3 presenta cortes de imagen quedando la pantalla negra cada pocos segundos.",
+          "failure_type": "Corte de imagen y pantalla negra intermitente",
+          "asset_category": "video_cameras",
+          "location_context": "Móvil 2",
+          "operational_impact": "No es posible utilizar la cámara durante la producción en vivo."
+        },
+        "missing": null
+      }
+    ],
+    "issues": [],
+    "extracted": {
+      "area": "Producción",
+      "unit": "Móvil 2",
+      "priority": "high",
+      "equipment": "Cámara 3",
+      "description": "La Cámara 3 presenta cortes de imagen quedando la pantalla negra cada pocos segundos.",
+      "failure_type": "Corte de imagen y pantalla negra intermitente",
+      "asset_category": "video_cameras",
+      "location_context": "Móvil 2",
+      "operational_impact": "No es posible utilizar la cámara durante la producción en vivo."
+    },
+    "code": "SC-000001",
+    "incident_id": 1,
+    "persisted": {
+      "area": "Producción",
+      "location_context": "Móvil 2",
+      "equipment": "Cámara 3",
+      "asset_category": "video_cameras",
+      "priority": "high"
+    },
+    "status": "reported",
+    "created_at": "2026-10-19T11:15:28.446314+00:00",
+    "dashboard_api_status": 200,
+    "trace_messages": 2,
+    "result": "Aprobado",
+    "persistence_audit": true
+  },
+  {
+    "id": "02",
+    "title": "Consola de audio",
+    "level": "B",
+    "expected": {
+      "area": "Audio",
+      "location_context": "Estudio 2",
+      "equipment": "Yamaha CL5",
+      "asset_category": "audio",
+      "priority": "medium"
+    },
+    "transcript": [
+      {
+        "user": "Área Audio, consola Yamaha CL5 del Estudio 2 tiene cortes intermitentes de audio durante el programa. Obliga a usar la consola de respaldo. Prioridad media.",
+        "bot": "Antes de crear el incidente, revisa los datos:\n\n• Área: Audio\n• Ubicación/contexto: Estudio 2\n• Familia: Audio\n• Equipo/servicio: Consola Yamaha CL5\n• Síntoma: Cortes intermitentes de audio\n• Descripción: La consola Yamaha CL5 presenta cortes intermitentes de audio durante el programa.\n• Impacto operacional: Obliga a usar la consola de respaldo.\n• Prioridad: Media\n\n¿Confirmas la creación del incidente? Responde Sí para crearlo o No para corregir algún dato.",
+        "action": "ask_clarification",
+        "data": {
+          "unit": "Estudio 2",
+          "area": "Audio",
+          "location_context": "Estudio 2",
+          "asset_category": "audio",
+          "equipment": "Consola Yamaha CL5",
+          "failure_type": "Cortes intermitentes de audio",
+          "description": "La consola Yamaha CL5 presenta cortes intermitentes de audio durante el programa.",
+          "operational_impact": "Obliga a usar la consola de respaldo.",
+          "priority": "medium"
+        },
+        "missing": []
+      },
+      {
+        "user": "confirmo",
+        "bot": "Reporte SC-000002 creado correctamente.",
+        "action": "incident_created",
+        "data": {
+          "area": "Audio",
+          "unit": "Estudio 2",
+          "priority": "medium",
+          "equipment": "Consola Yamaha CL5",
+          "description": "La consola Yamaha CL5 presenta cortes intermitentes de audio durante el programa.",
+          "failure_type": "Cortes intermitentes de audio",
+          "asset_category": "audio",
+          "location_context": "Estudio 2",
+          "operational_impact": "Obliga a usar la consola de respaldo."
+        },
+        "missing": null
+      }
+    ],
+    "issues": [],
+    "extracted": {
+      "area": "Audio",
+      "unit": "Estudio 2",
+      "priority": "medium",
+      "equipment": "Consola Yamaha CL5",
+      "description": "La consola Yamaha CL5 presenta cortes intermitentes de audio durante el programa.",
+      "failure_type": "Cortes intermitentes de audio",
+      "asset_category": "audio",
+      "location_context": "Estudio 2",
+      "operational_impact": "Obliga a usar la consola de respaldo."
+    },
+    "code": "SC-000002",
+    "incident_id": 2,
+    "persisted": {
+      "area": "Audio",
+      "location_context": "Estudio 2",
+      "equipment": "Consola Yamaha CL5",
+      "asset_category": "audio",
+      "priority": "medium"
+    },
+    "status": "reported",
+    "created_at": "2026-10-19T11:15:35.020007+00:00",
+    "dashboard_api_status": 200,
+    "trace_messages": 2,
+    "result": "Aprobado",
+    "persistence_audit": true
+  },
+  {
+    "id": "03",
+    "title": "Micrófono incompleto",
+    "level": "B",
+    "expected": {
+      "area": "Audio",
+      "location_context": "Estudio 3",
+      "equipment": "Micrófono 2",
+      "asset_category": "audio",
+      "priority": "medium"
+    },
+    "transcript": [
+      {
+        "user": "El micrófono no funciona",
+        "bot": "Necesito identificar con mayor precisión qué micrófono está afectada. Indica su número, nombre o identificador. Por ejemplo: Micrófono 3.",
+        "action": "ask_clarification",
+        "data": {
+          "unit": null,
+          "area": null,
+          "location_context": null,
+          "asset_category": "audio",
+          "equipment": null,
+          "failure_type": null,
+          "description": "El micrófono no funciona.",
+          "operational_impact": null,
+          "priority": null
+        },
+        "missing": [
+          "area",
+          "location_context",
+          "equipment",
+          "failure_type",
+          "operational_impact",
+          "priority"
+        ]
+      },
+      {
+        "user": "Audio",
+        "bot": "Para continuar con el registro, ¿podría indicarme en qué ubicación o contexto se encuentra el micrófono afectado?",
+        "action": "ask_clarification",
+        "data": {
+          "unit": null,
+          "area": "Audio",
+          "location_context": null,
+          "asset_category": "audio",
+          "equipment": null,
+          "failure_type": null,
+          "description": "El micrófono no funciona.",
+          "operational_impact": null,
+          "priority": null
+        },
+        "missing": [
+          "location_context",
+          "equipment",
+          "failure_type",
+          "operational_impact",
+          "priority"
+        ]
+      },
+      {
+        "user": "Estudio 3",
+        "bot": "¿Qué equipo presenta la falla?",
+        "action": "ask_clarification",
+        "data": {
+          "area": "Audio",
+          "unit": "Estudio 3",
+          "priority": null,
+          "equipment": null,
+          "description": "El micrófono no funciona.",
+          "failure_type": null,
+          "asset_category": "audio",
+          "location_context": "Estudio 3",
+          "operational_impact": null
+        },
+        "missing": [
+          "equipment",
+          "failure_type",
+          "operational_impact",
+          "priority"
+        ]
+      },
+      {
+        "user": "Micrófono 2",
+        "bot": "¿Qué problema presenta exactamente el equipo? Por ejemplo: pérdida de señal, imagen intermitente, no enciende, ruido, cortes u otro síntoma.",
+        "action": "ask_clarification",
+        "data": {
+          "area": "Audio",
+          "unit": "Estudio 3",
+          "priority": null,
+          "equipment": "Micrófono 2",
+          "description": "El micrófono no funciona.",
+          "failure_type": null,
+          "asset_category": "audio",
+          "location_context": "Estudio 3",
+          "operational_impact": null
+        },
+        "missing": [
+          "failure_type",
+          "operational_impact",
+          "priority"
+        ]
+      },
+      {
+        "user": "No entrega audio",
+        "bot": "¿Qué impacto está generando esta falla sobre la operación?",
+        "action": "ask_clarification",
+        "data": {
+          "unit": "Estudio 3",
+          "area": "Audio",
+          "location_context": "Estudio 3",
+          "asset_category": "audio",
+          "equipment": "Micrófono 2",
+          "failure_type": "No entrega audio",
+          "description": "El micrófono no funciona; no entrega audio.",
+          "operational_impact": null,
+          "priority": null
+        },
+        "missing": [
+          "operational_impact",
+          "priority"
+        ]
+      },
+      {
+        "user": "Obliga a usar respaldo durante el programa",
+        "bot": "Para completar el reporte, ¿qué prioridad le asignas: Baja, Media, Alta o Crítica?",
+        "action": "ask_clarification",
+        "data": {
+          "area": "Audio",
+          "unit": "Estudio 3",
+          "priority": null,
+          "equipment": "Micrófono 2",
+          "description": "El micrófono no funciona; no entrega audio.",
+          "failure_type": "No entrega audio",
+          "asset_category": "audio",
+          "location_context": "Estudio 3",
+          "operational_impact": "Obliga a usar respaldo durante el programa"
+        },
+        "missing": [
+          "priority"
+        ]
+      },
+      {
+        "user": "Media",
+        "bot": "Antes de crear el incidente, revisa los datos:\n\n• Área: Audio\n• Ubicación/contexto: Estudio 3\n• Familia: Audio\n• Equipo/servicio: Micrófono 2\n• Síntoma: No entrega audio\n• Descripción: El micrófono no funciona; no entrega audio.\n• Impacto operacional: Obliga a usar respaldo durante el programa\n• Prioridad: Media\n\n¿Confirmas la creación del incidente? Responde Sí para crearlo o No para corregir algún dato.",
+        "action": "ask_clarification",
+        "data": {
+          "area": "Audio",
+          "unit": "Estudio 3",
+          "priority": "medium",
+          "equipment": "Micrófono 2",
+          "description": "El micrófono no funciona; no entrega audio.",
+          "failure_type": "No entrega audio",
+          "asset_category": "audio",
+          "location_context": "Estudio 3",
+          "operational_impact": "Obliga a usar respaldo durante el programa"
+        },
+        "missing": []
+      },
+      {
+        "user": "confirmo",
+        "bot": "Reporte SC-000003 creado correctamente.",
+        "action": "incident_created",
+        "data": {
+          "area": "Audio",
+          "unit": "Estudio 3",
+          "priority": "medium",
+          "equipment": "Micrófono 2",
+          "description": "El micrófono no funciona; no entrega audio.",
+          "failure_type": "No entrega audio",
+          "asset_category": "audio",
+          "location_context": "Estudio 3",
+          "operational_impact": "Obliga a usar respaldo durante el programa"
+        },
+        "missing": null
+      }
+    ],
+    "issues": [],
+    "extracted": {
+      "area": "Audio",
+      "unit": "Estudio 3",
+      "priority": "medium",
+      "equipment": "Micrófono 2",
+      "description": "El micrófono no funciona; no entrega audio.",
+      "failure_type": "No entrega audio",
+      "asset_category": "audio",
+      "location_context": "Estudio 3",
+      "operational_impact": "Obliga a usar respaldo durante el programa"
+    },
+    "code": "SC-000003",
+    "incident_id": 3,
+    "persisted": {
+      "area": "Audio",
+      "location_context": "Estudio 3",
+      "equipment": "Micrófono 2",
+      "asset_category": "audio",
+      "priority": "medium"
+    },
+    "status": "reported",
+    "created_at": "2026-10-19T11:15:44.208061+00:00",
+    "dashboard_api_status": 200,
+    "trace_messages": 8,
+    "result": "Aprobado",
+    "persistence_audit": true
+  },
+  {
+    "id": "04",
+    "title": "Señal caída",
+    "level": "B",
+    "expected": {
+      "area": "Transmisión",
+      "location_context": "Control Central",
+      "equipment": "enlace principal",
+      "asset_category": "signal_transmission",
+      "priority": "critical"
+    },
+    "transcript": [
+      {
+        "user": "Área Transmisión: el enlace principal de Control Central quedó sin señal. La emisión en vivo está interrumpida y no tenemos respaldo. Prioridad crítica.",
+        "bot": "Antes de crear el incidente, revisa los datos:\n\n• Área: Transmisión\n• Ubicación/contexto: Control Central\n• Familia: Señal / Transmisión\n• Equipo/servicio: Enlace principal\n• Síntoma: Sin señal\n• Descripción: El enlace principal de Control Central se encuentra sin señal.\n• Impacto operacional: La emisión en vivo está interrumpida y no tienen respaldo.\n• Prioridad: Crítica\n\n¿Confirmas la creación del incidente? Responde Sí para crearlo o No para corregir algún dato.",
+        "action": "ask_clarification",
+        "data": {
+          "unit": "Control Central",
+          "area": "Transmisión",
+          "location_context": "Control Central",
+          "asset_category": "signal_transmission",
+          "equipment": "Enlace principal",
+          "failure_type": "Sin señal",
+          "description": "El enlace principal de Control Central se encuentra sin señal.",
+          "operational_impact": "La emisión en vivo está interrumpida y no tienen respaldo.",
+          "priority": "critical"
+        },
+        "missing": []
+      },
+      {
+        "user": "confirmo",
+        "bot": "Reporte SC-000004 creado correctamente.",
+        "action": "incident_created",
+        "data": {
+          "area": "Transmisión",
+          "unit": "Control Central",
+          "priority": "critical",
+          "equipment": "Enlace principal",
+          "description": "El enlace principal de Control Central se encuentra sin señal.",
+          "failure_type": "Sin señal",
+          "asset_category": "signal_transmission",
+          "location_context": "Control Central",
+          "operational_impact": "La emisión en vivo está interrumpida y no tienen respaldo."
+        },
+        "missing": null
+      }
+    ],
+    "issues": [],
+    "extracted": {
+      "area": "Transmisión",
+      "unit": "Control Central",
+      "priority": "critical",
+      "equipment": "Enlace principal",
+      "description": "El enlace principal de Control Central se encuentra sin señal.",
+      "failure_type": "Sin señal",
+      "asset_category": "signal_transmission",
+      "location_context": "Control Central",
+      "operational_impact": "La emisión en vivo está interrumpida y no tienen respaldo."
+    },
+    "code": "SC-000004",
+    "incident_id": 4,
+    "persisted": {
+      "area": "Transmisión",
+      "location_context": "Control Central",
+      "equipment": "Enlace principal",
+      "asset_category": "signal_transmission",
+      "priority": "critical"
+    },
+    "status": "reported",
+    "created_at": "2026-10-19T11:16:17.034631+00:00",
+    "dashboard_api_status": 200,
+    "trace_messages": 2,
+    "result": "Aprobado",
+    "persistence_audit": true
+  },
+  {
+    "id": "05",
+    "title": "Móvil en terreno",
+    "level": "B",
+    "expected": {
+      "area": "Operaciones",
+      "location_context": "Móvil 4",
+      "equipment": "intercom",
+      "asset_category": "audio",
+      "priority": "medium"
+    },
+    "transcript": [
+      {
+        "user": "En Operaciones, el intercom del Móvil 4 en cobertura exterior no transmite retorno. No podemos coordinar a los camarógrafos, estamos usando teléfonos. Prioridad media.",
+        "bot": "Necesito identificar con mayor precisión qué intercom está afectada. Indica su número, nombre o identificador. Por ejemplo: Intercom 3.",
+        "action": "ask_clarification",
+        "data": {
+          "unit": "Móvil 4",
+          "area": "Operaciones",
+          "location_context": "Móvil 4",
+          "asset_category": "audio",
+          "equipment": null,
+          "failure_type": "No transmite retorno",
+          "description": "El intercom del Móvil 4 en cobertura exterior no transmite retorno.",
+          "operational_impact": "No podemos coordinar a los camarógrafos, estamos usando teléfonos.",
+          "priority": "medium"
+        },
+        "missing": [
+          "equipment"
+        ]
+      },
+      {
+        "user": "intercom",
+        "bot": "Necesito identificar el equipo o servicio afectado. Por ejemplo: Cámara 3, Consola de audio o Router principal. ¿Qué equipo presenta la falla?",
+        "action": "ask_clarification",
+        "data": {
+          "unit": "Móvil 4",
+          "area": "Operaciones",
+          "location_context": "Móvil 4",
+          "asset_category": "audio",
+          "equipment": null,
+          "failure_type": "No transmite retorno",
+          "description": "El intercom del Móvil 4 en cobertura exterior no transmite retorno.",
+          "operational_impact": "No podemos coordinar a los camarógrafos, estamos usando teléfonos.",
+          "priority": "medium"
+        },
+        "missing": [
+          "equipment"
+        ]
+      },
+      {
+        "user": "intercom",
+        "bot": "Necesito identificar con mayor precisión qué intercom está afectada. Indica su número, nombre o identificador. Por ejemplo: Intercom 3.",
+        "action": "ask_clarification",
+        "data": {
+          "area": "Operaciones",
+          "unit": "Móvil 4",
+          "priority": "medium",
+          "equipment": null,
+          "description": "El intercom del Móvil 4 en cobertura exterior no transmite retorno.",
+          "failure_type": "No transmite retorno",
+          "asset_category": "audio",
+          "location_context": "Móvil 4",
+          "operational_impact": "No podemos coordinar a los camarógrafos, estamos usando teléfonos."
+        },
+        "missing": [
+          "equipment"
+        ]
+      },
+      {
+        "user": "intercom",
+        "bot": "Necesito identificar el equipo o servicio afectado. Por ejemplo: Cámara 3, Consola de audio o Router principal. ¿Qué equipo presenta la falla?",
+        "action": "ask_clarification",
+        "data": {
+          "unit": "Móvil 4",
+          "area": "Operaciones",
+          "location_context": "Móvil 4",
+          "asset_category": "audio",
+          "equipment": null,
+          "failure_type": "No transmite retorno",
+          "description": "El intercom del Móvil 4 en cobertura exterior no transmite retorno.",
+          "operational_impact": "No podemos coordinar a los camarógrafos, estamos usando teléfonos.",
+          "priority": "medium"
+        },
+        "missing": [
+          "equipment"
+        ]
+      },
+      {
+        "user": "intercom",
+        "bot": "Necesito identificar con mayor precisión qué intercom está afectada. Indica su número, nombre o identificador. Por ejemplo: Intercom 3.",
+        "action": "ask_clarification",
+        "data": {
+          "area": "Operaciones",
+          "unit": "Móvil 4",
+          "priority": "medium",
+          "equipment": null,
+          "description": "El intercom del Móvil 4 en cobertura exterior no transmite retorno.",
+          "failure_type": "No transmite retorno",
+          "asset_category": "audio",
+          "location_context": "Móvil 4",
+          "operational_impact": "No podemos coordinar a los camarógrafos, estamos usando teléfonos."
+        },
+        "missing": [
+          "equipment"
+        ]
+      },
+      {
+        "user": "intercom",
+        "bot": "Necesito identificar el equipo o servicio afectado. Por ejemplo: Cámara 3, Consola de audio o Router principal. ¿Qué equipo presenta la falla?",
+        "action": "ask_clarification",
+        "data": {
+          "unit": "Móvil 4",
+          "area": "Operaciones",
+          "location_context": "Móvil 4",
+          "asset_category": "audio",
+          "equipment": null,
+          "failure_type": "No transmite retorno",
+          "description": "El intercom del Móvil 4 en cobertura exterior no transmite retorno.",
+          "operational_impact": "No podemos coordinar a los camarógrafos, estamos usando teléfonos.",
+          "priority": "medium"
+        },
+        "missing": [
+          "equipment"
+        ]
+      },
+      {
+        "user": "intercom",
+        "bot": "Necesito identificar con mayor precisión qué intercom está afectada. Indica su número, nombre o identificador. Por ejemplo: Intercom 3.",
+        "action": "ask_clarification",
+        "data": {
+          "area": "Operaciones",
+          "unit": "Móvil 4",
+          "priority": "medium",
+          "equipment": null,
+          "description": "El intercom del Móvil 4 en cobertura exterior no transmite retorno.",
+          "failure_type": "No transmite retorno",
+          "asset_category": "audio",
+          "location_context": "Móvil 4",
+          "operational_impact": "No podemos coordinar a los camarógrafos, estamos usando teléfonos."
+        },
+        "missing": [
+          "equipment"
+        ]
+      },
+      {
+        "user": "intercom",
+        "bot": "Necesito identificar el equipo o servicio afectado. Por ejemplo: Cámara 3, Consola de audio o Router principal. ¿Qué equipo presenta la falla?",
+        "action": "ask_clarification",
+        "data": {
+          "unit": "Móvil 4",
+          "area": "Operaciones",
+          "location_context": "Móvil 4",
+          "asset_category": "audio",
+          "equipment": null,
+          "failure_type": "No transmite retorno",
+          "description": "El intercom del Móvil 4 en cobertura exterior no transmite retorno.",
+          "operational_impact": "No podemos coordinar a los camarógrafos, estamos usando teléfonos.",
+          "priority": "medium"
+        },
+        "missing": [
+          "equipment"
+        ]
+      },
+      {
+        "user": "intercom",
+        "bot": "Necesito identificar con mayor precisión qué intercom está afectada. Indica su número, nombre o identificador. Por ejemplo: Intercom 3.",
+        "action": "ask_clarification",
+        "data": {
+          "area": "Operaciones",
+          "unit": "Móvil 4",
+          "priority": "medium",
+          "equipment": null,
+          "description": "El intercom del Móvil 4 en cobertura exterior no transmite retorno.",
+          "failure_type": "No transmite retorno",
+          "asset_category": "audio",
+          "location_context": "Móvil 4",
+          "operational_impact": "No podemos coordinar a los camarógrafos, estamos usando teléfonos."
+        },
+        "missing": [
+          "equipment"
+        ]
+      },
+      {
+        "user": "intercom",
+        "bot": "Necesito identificar el equipo o servicio afectado. Por ejemplo: Cámara 3, Consola de audio o Router principal. ¿Qué equipo presenta la falla?",
+        "action": "ask_clarification",
+        "data": {
+          "unit": "Móvil 4",
+          "area": "Operaciones",
+          "location_context": "Móvil 4",
+          "asset_category": "audio",
+          "equipment": null,
+          "failure_type": "No transmite retorno",
+          "description": "El intercom del Móvil 4 en cobertura exterior no transmite retorno.",
+          "operational_impact": "No podemos coordinar a los camarógrafos, estamos usando teléfonos.",
+          "priority": "medium"
+        },
+        "missing": [
+          "equipment"
+        ]
+      }
+    ],
+    "issues": [
+      "Mensaje completo: pregunta datos entregados: ['equipment']",
+      "equipment: esperado 'intercom'; observado None",
+      "No llegó a resumen válido; no se creó incidente manualmente"
+    ],
+    "extracted": {
+      "area": "Operaciones",
+      "unit": "Móvil 4",
+      "priority": "medium",
+      "equipment": null,
+      "description": "El intercom del Móvil 4 en cobertura exterior no transmite retorno.",
+      "failure_type": "No transmite retorno",
+      "asset_category": "audio",
+      "location_context": "Móvil 4",
+      "operational_impact": "No podemos coordinar a los camarógrafos, estamos usando teléfonos."
+    },
+    "result": "Fallo conversacional/funcional"
+  },
+  {
+    "id": "06",
+    "title": "Switcher",
+    "level": "B",
+    "expected": {
+      "area": "Producción",
+      "location_context": "Control de realización",
+      "equipment": "ATEM",
+      "asset_category": "video_cameras",
+      "priority": "high"
+    },
+    "transcript": [
+      {
+        "user": "En Producción, switcher ATEM del Control de realización: conmuta solo y corta la imagen cada minuto. Impide realizar el programa, no hay alternativa. Prioridad alta.",
+        "bot": "Antes de crear el incidente, revisa los datos:\n\n• Área: Producción\n• Ubicación/contexto: Control de realización\n• Familia: Estudios / Producción\n• Equipo/servicio: Switcher ATEM\n• Síntoma: Conmutación autónoma y pérdida intermitente de imagen\n• Descripción: El switcher ATEM conmuta solo y corta la imagen cada minuto.\n• Impacto operacional: Impide realizar el programa y no existe alternativa.\n• Prioridad: Alta\n\n¿Confirmas la creación del incidente? Responde Sí para crearlo o No para corregir algún dato.",
+        "action": "ask_clarification",
+        "data": {
+          "unit": "Control de realización",
+          "area": "Producción",
+          "location_context": "Control de realización",
+          "asset_category": "studios_production",
+          "equipment": "Switcher ATEM",
+          "failure_type": "Conmutación autónoma y pérdida intermitente de imagen",
+          "description": "El switcher ATEM conmuta solo y corta la imagen cada minuto.",
+          "operational_impact": "Impide realizar el programa y no existe alternativa.",
+          "priority": "high"
+        },
+        "missing": []
+      },
+      {
+        "user": "confirmo",
+        "bot": "Reporte SC-000005 creado correctamente.",
+        "action": "incident_created",
+        "data": {
+          "area": "Producción",
+          "unit": "Control de realización",
+          "priority": "high",
+          "equipment": "Switcher ATEM",
+          "description": "El switcher ATEM conmuta solo y corta la imagen cada minuto.",
+          "failure_type": "Conmutación autónoma y pérdida intermitente de imagen",
+          "asset_category": "studios_production",
+          "location_context": "Control de realización",
+          "operational_impact": "Impide realizar el programa y no existe alternativa."
+        },
+        "missing": null
+      }
+    ],
+    "issues": [],
+    "extracted": {
+      "area": "Producción",
+      "unit": "Control de realización",
+      "priority": "high",
+      "equipment": "Switcher ATEM",
+      "description": "El switcher ATEM conmuta solo y corta la imagen cada minuto.",
+      "failure_type": "Conmutación autónoma y pérdida intermitente de imagen",
+      "asset_category": "studios_production",
+      "location_context": "Control de realización",
+      "operational_impact": "Impide realizar el programa y no existe alternativa."
+    },
+    "code": "SC-000005",
+    "incident_id": 5,
+    "persisted": {
+      "area": "Producción",
+      "location_context": "Control de realización",
+      "equipment": "Switcher ATEM",
+      "asset_category": "studios_production",
+      "priority": "high"
+    },
+    "status": "reported",
+    "created_at": "2026-10-19T11:16:46.943558+00:00",
+    "dashboard_api_status": 200,
+    "trace_messages": 2,
+    "result": "Aprobado",
+    "persistence_audit": true,
+    "expectation_note": "Switcher: Estudios/Produccion es una categoria vigente valida"
+  },
+  {
+    "id": "07",
+    "title": "Red",
+    "level": "B",
+    "expected": {
+      "area": "Redes",
+      "location_context": "Sala técnica",
+      "equipment": "router",
+      "asset_category": "networks",
+      "priority": "medium"
+    },
+    "transcript": [
+      {
+        "user": "En Redes, router principal de Sala técnica sin conexión. Se perdió acceso a los servicios de producción y hay que usar un respaldo. Prioridad media.",
+        "bot": "Antes de crear el incidente, revisa los datos:\n\n• Área: Redes\n• Ubicación/contexto: Sala técnica\n• Familia: Redes\n• Equipo/servicio: Router principal\n• Síntoma: Sin conexión\n• Descripción: El router principal en la Sala técnica se encuentra sin conexión.\n• Impacto operacional: Se perdió acceso a los servicios de producción y se está utilizando un respaldo.\n• Prioridad: Media\n\n¿Confirmas la creación del incidente? Responde Sí para crearlo o No para corregir algún dato.",
+        "action": "ask_clarification",
+        "data": {
+          "unit": "Sala técnica",
+          "area": "Redes",
+          "location_context": "Sala técnica",
+          "asset_category": "networks",
+          "equipment": "Router principal",
+          "failure_type": "Sin conexión",
+          "description": "El router principal en la Sala técnica se encuentra sin conexión.",
+          "operational_impact": "Se perdió acceso a los servicios de producción y se está utilizando un respaldo.",
+          "priority": "medium"
+        },
+        "missing": []
+      },
+      {
+        "user": "confirmo",
+        "bot": "Reporte SC-000006 creado correctamente.",
+        "action": "incident_created",
+        "data": {
+          "area": "Redes",
+          "unit": "Sala técnica",
+          "priority": "medium",
+          "equipment": "Router principal",
+          "description": "El router principal en la Sala técnica se encuentra sin conexión.",
+          "failure_type": "Sin conexión",
+          "asset_category": "networks",
+          "location_context": "Sala técnica",
+          "operational_impact": "Se perdió acceso a los servicios de producción y se está utilizando un respaldo."
+        },
+        "missing": null
+      }
+    ],
+    "issues": [],
+    "extracted": {
+      "area": "Redes",
+      "unit": "Sala técnica",
+      "priority": "medium",
+      "equipment": "Router principal",
+      "description": "El router principal en la Sala técnica se encuentra sin conexión.",
+      "failure_type": "Sin conexión",
+      "asset_category": "networks",
+      "location_context": "Sala técnica",
+      "operational_impact": "Se perdió acceso a los servicios de producción y se está utilizando un respaldo."
+    },
+    "code": "SC-000006",
+    "incident_id": 6,
+    "persisted": {
+      "area": "Redes",
+      "location_context": "Sala técnica",
+      "equipment": "Router principal",
+      "asset_category": "networks",
+      "priority": "medium"
+    },
+    "status": "reported",
+    "created_at": "2026-10-19T11:16:53.005716+00:00",
+    "dashboard_api_status": 200,
+    "trace_messages": 2,
+    "result": "Aprobado",
+    "persistence_audit": true
+  },
+  {
+    "id": "08",
+    "title": "Streaming",
+    "level": "B",
+    "expected": {
+      "area": "Digital",
+      "location_context": "Plataforma digital",
+      "equipment": "encoder",
+      "asset_category": "digital_streaming",
+      "priority": "critical"
+    },
+    "transcript": [
+      {
+        "user": "En Digital, el encoder de streaming de Plataforma digital deja de enviar video. Se interrumpe la transmisión digital en vivo. Prioridad crítica.",
+        "bot": "Antes de crear el incidente, revisa los datos:\n\n• Área: Digital\n• Ubicación/contexto: Plataforma digital\n• Familia: Digital / Streaming\n• Equipo/servicio: Encoder de streaming\n• Síntoma: Deja de enviar video\n• Descripción: El encoder de streaming de la Plataforma digital deja de enviar video.\n• Impacto operacional: Se interrumpe la transmisión digital en vivo.\n• Prioridad: Crítica\n\n¿Confirmas la creación del incidente? Responde Sí para crearlo o No para corregir algún dato.",
+        "action": "ask_clarification",
+        "data": {
+          "unit": "Plataforma digital",
+          "area": "Digital",
+          "location_context": "Plataforma digital",
+          "asset_category": "digital_streaming",
+          "equipment": "Encoder de streaming",
+          "failure_type": "Deja de enviar video",
+          "description": "El encoder de streaming de la Plataforma digital deja de enviar video.",
+          "operational_impact": "Se interrumpe la transmisión digital en vivo.",
+          "priority": "critical"
+        },
+        "missing": []
+      },
+      {
+        "user": "confirmo",
+        "bot": "Reporte SC-000007 creado correctamente.",
+        "action": "incident_created",
+        "data": {
+          "area": "Digital",
+          "unit": "Plataforma digital",
+          "priority": "critical",
+          "equipment": "Encoder de streaming",
+          "description": "El encoder de streaming de la Plataforma digital deja de enviar video.",
+          "failure_type": "Deja de enviar video",
+          "asset_category": "digital_streaming",
+          "location_context": "Plataforma digital",
+          "operational_impact": "Se interrumpe la transmisión digital en vivo."
+        },
+        "missing": null
+      }
+    ],
+    "issues": [],
+    "extracted": {
+      "area": "Digital",
+      "unit": "Plataforma digital",
+      "priority": "critical",
+      "equipment": "Encoder de streaming",
+      "description": "El encoder de streaming de la Plataforma digital deja de enviar video.",
+      "failure_type": "Deja de enviar video",
+      "asset_category": "digital_streaming",
+      "location_context": "Plataforma digital",
+      "operational_impact": "Se interrumpe la transmisión digital en vivo."
+    },
+    "code": "SC-000007",
+    "incident_id": 7,
+    "persisted": {
+      "area": "Digital",
+      "location_context": "Plataforma digital",
+      "equipment": "Encoder de streaming",
+      "asset_category": "digital_streaming",
+      "priority": "critical"
+    },
+    "status": "reported",
+    "created_at": "2026-10-19T11:16:59.490344+00:00",
+    "dashboard_api_status": 200,
+    "trace_messages": 2,
+    "result": "Aprobado",
+    "persistence_audit": true
+  },
+  {
+    "id": "09",
+    "title": "Eléctrico",
+    "level": "B",
+    "expected": {
+      "area": "Infraestructura",
+      "location_context": "Sala eléctrica",
+      "equipment": "UPS 2",
+      "asset_category": "infrastructure",
+      "priority": "medium"
+    },
+    "transcript": [
+      {
+        "user": "Área Infraestructura: UPS 2 de Sala eléctrica no entrega alimentación. Apagó los equipos técnicos de respaldo, la operación sigue con el circuito principal. Prioridad media.",
+        "bot": "Antes de crear el incidente, revisa los datos:\n\n• Área: Infraestructura\n• Ubicación/contexto: Sala eléctrica\n• Familia: Infraestructura\n• Equipo/servicio: UPS 2\n• Síntoma: No entrega alimentación\n• Descripción: La UPS 2 de la Sala eléctrica no entrega alimentación, lo que provocó el apagado de los equipos técnicos de respaldo.\n• Impacto operacional: La operación continúa funcionando con el circuito principal.\n• Prioridad: Media\n\n¿Confirmas la creación del incidente? Responde Sí para crearlo o No para corregir algún dato.",
+        "action": "ask_clarification",
+        "data": {
+          "unit": "Sala eléctrica",
+          "area": "Infraestructura",
+          "location_context": "Sala eléctrica",
+          "asset_category": "infrastructure",
+          "equipment": "UPS 2",
+          "failure_type": "No entrega alimentación",
+          "description": "La UPS 2 de la Sala eléctrica no entrega alimentación, lo que provocó el apagado de los equipos técnicos de respaldo.",
+          "operational_impact": "La operación continúa funcionando con el circuito principal.",
+          "priority": "medium"
+        },
+        "missing": []
+      },
+      {
+        "user": "confirmo",
+        "bot": "Reporte SC-000008 creado correctamente.",
+        "action": "incident_created",
+        "data": {
+          "area": "Infraestructura",
+          "unit": "Sala eléctrica",
+          "priority": "medium",
+          "equipment": "UPS 2",
+          "description": "La UPS 2 de la Sala eléctrica no entrega alimentación, lo que provocó el apagado de los equipos técnicos de respaldo.",
+          "failure_type": "No entrega alimentación",
+          "asset_category": "infrastructure",
+          "location_context": "Sala eléctrica",
+          "operational_impact": "La operación continúa funcionando con el circuito principal."
+        },
+        "missing": null
+      }
+    ],
+    "issues": [],
+    "extracted": {
+      "area": "Infraestructura",
+      "unit": "Sala eléctrica",
+      "priority": "medium",
+      "equipment": "UPS 2",
+      "description": "La UPS 2 de la Sala eléctrica no entrega alimentación, lo que provocó el apagado de los equipos técnicos de respaldo.",
+      "failure_type": "No entrega alimentación",
+      "asset_category": "infrastructure",
+      "location_context": "Sala eléctrica",
+      "operational_impact": "La operación continúa funcionando con el circuito principal."
+    },
+    "code": "SC-000008",
+    "incident_id": 8,
+    "persisted": {
+      "area": "Infraestructura",
+      "location_context": "Sala eléctrica",
+      "equipment": "UPS 2",
+      "asset_category": "infrastructure",
+      "priority": "medium"
+    },
+    "status": "reported",
+    "created_at": "2026-10-19T11:17:02.436990+00:00",
+    "dashboard_api_status": 200,
+    "trace_messages": 2,
+    "result": "Aprobado",
+    "persistence_audit": true
+  },
+  {
+    "id": "10",
+    "title": "Fragmentados",
+    "level": "B",
+    "expected": {
+      "area": "Producción",
+      "location_context": "Móvil 2",
+      "equipment": "Cámara 3",
+      "asset_category": "video_cameras",
+      "priority": "medium"
+    },
+    "transcript": [
+      {
+        "user": "Tenemos una falla en la cámara del móvil",
+        "bot": "Necesito identificar con mayor precisión qué cámara está afectada. Indica su número, nombre o identificador. Por ejemplo: cámara 3.",
+        "action": "ask_clarification",
+        "data": {
+          "unit": "móvil",
+          "area": null,
+          "location_context": "móvil",
+          "asset_category": "video_cameras",
+          "equipment": null,
+          "failure_type": null,
+          "description": null,
+          "operational_impact": null,
+          "priority": null
+        },
+        "missing": [
+          "area",
+          "equipment",
+          "failure_type",
+          "description",
+          "operational_impact",
+          "priority"
+        ]
+      },
+      {
+        "user": "Es el Móvil 2",
+        "bot": "¿A qué área corresponde el incidente? Indica el área operacional o técnica asociada, por ejemplo: Producción, Audio, Redes o Sistemas.",
+        "action": "ask_clarification",
+        "data": {
+          "area": null,
+          "unit": "Móvil 2",
+          "priority": null,
+          "equipment": null,
+          "description": null,
+          "failure_type": null,
+          "asset_category": "video_cameras",
+          "location_context": "Móvil 2",
+          "operational_impact": null
+        },
+        "missing": [
+          "area",
+          "equipment",
+          "failure_type",
+          "description",
+          "operational_impact",
+          "priority"
+        ]
+      },
+      {
+        "user": "Cámara 3",
+        "bot": "¿Qué síntoma o comportamiento anormal presenta la Cámara 3?",
+        "action": "ask_clarification",
+        "data": {
+          "unit": "Móvil 2",
+          "area": null,
+          "location_context": "Móvil 2",
+          "asset_category": "video_cameras",
+          "equipment": "Cámara 3",
+          "failure_type": null,
+          "description": null,
+          "operational_impact": null,
+          "priority": null
+        },
+        "missing": [
+          "area",
+          "failure_type",
+          "description",
+          "operational_impact",
+          "priority"
+        ]
+      },
+      {
+        "user": "Se va a negro cada pocos segundos",
+        "bot": "Para continuar, ¿podrías indicarme qué impacto operacional está generando esta falla en tu labor actual?",
+        "action": "ask_clarification",
+        "data": {
+          "unit": "Móvil 2",
+          "area": null,
+          "location_context": "Móvil 2",
+          "asset_category": "video_cameras",
+          "equipment": "Cámara 3",
+          "failure_type": "Imagen a negro intermitente",
+          "description": "La Cámara 3 presenta imagen a negro cada pocos segundos.",
+          "operational_impact": null,
+          "priority": null
+        },
+        "missing": [
+          "area",
+          "operational_impact",
+          "priority"
+        ]
+      },
+      {
+        "user": "Área Producción; no podemos usarla en el programa y usamos respaldo. Prioridad media.",
+        "bot": "Antes de crear el incidente, revisa los datos:\n\n• Área: Producción\n• Ubicación/contexto: Móvil 2\n• Familia: Video / Cámaras\n• Equipo/servicio: Cámara 3\n• Síntoma: Imagen a negro intermitente\n• Descripción: La Cámara 3 presenta imagen a negro cada pocos segundos.\n• Impacto operacional: No podemos usarla en el programa y usamos respaldo.\n• Prioridad: Media\n\n¿Confirmas la creación del incidente? Responde Sí para crearlo o No para corregir algún dato.",
+        "action": "ask_clarification",
+        "data": {
+          "unit": "Móvil 2",
+          "area": "Producción",
+          "location_context": "Móvil 2",
+          "asset_category": "video_cameras",
+          "equipment": "Cámara 3",
+          "failure_type": "Imagen a negro intermitente",
+          "description": "La Cámara 3 presenta imagen a negro cada pocos segundos.",
+          "operational_impact": "No podemos usarla en el programa y usamos respaldo.",
+          "priority": "medium"
+        },
+        "missing": []
+      },
+      {
+        "user": "confirmo",
+        "bot": "Reporte SC-000009 creado correctamente.",
+        "action": "incident_created",
+        "data": {
+          "area": "Producción",
+          "unit": "Móvil 2",
+          "priority": "medium",
+          "equipment": "Cámara 3",
+          "description": "La Cámara 3 presenta imagen a negro cada pocos segundos.",
+          "failure_type": "Imagen a negro intermitente",
+          "asset_category": "video_cameras",
+          "location_context": "Móvil 2",
+          "operational_impact": "No podemos usarla en el programa y usamos respaldo."
+        },
+        "missing": null
+      }
+    ],
+    "issues": [],
+    "extracted": {
+      "area": "Producción",
+      "unit": "Móvil 2",
+      "priority": "medium",
+      "equipment": "Cámara 3",
+      "description": "La Cámara 3 presenta imagen a negro cada pocos segundos.",
+      "failure_type": "Imagen a negro intermitente",
+      "asset_category": "video_cameras",
+      "location_context": "Móvil 2",
+      "operational_impact": "No podemos usarla en el programa y usamos respaldo."
+    },
+    "code": "SC-000009",
+    "incident_id": 9,
+    "persisted": {
+      "area": "Producción",
+      "location_context": "Móvil 2",
+      "equipment": "Cámara 3",
+      "asset_category": "video_cameras",
+      "priority": "medium"
+    },
+    "status": "reported",
+    "created_at": "2026-10-19T11:17:23.777291+00:00",
+    "dashboard_api_status": 200,
+    "trace_messages": 6,
+    "result": "Aprobado",
+    "persistence_audit": true
+  },
+  {
+    "id": "11",
+    "title": "Corrección múltiple",
+    "level": "B",
+    "expected": {
+      "area": "Producción",
+      "location_context": "Estudio 8",
+      "equipment": "Cámara 4",
+      "asset_category": "video_cameras",
+      "priority": "high"
+    },
+    "transcript": [
+      {
+        "user": "En Producción, Cámara 3 del Móvil 2 pierde imagen a ratos. No podemos usarla en el programa. Prioridad crítica.",
+        "bot": "Antes de crear el incidente, revisa los datos:\n\n• Área: Producción\n• Ubicación/contexto: Móvil 2\n• Familia: Video / Cámaras\n• Equipo/servicio: Cámara 3\n• Síntoma: Pérdida de imagen intermitente\n• Descripción: La Cámara 3 pierde imagen a ratos.\n• Impacto operacional: No se puede usar la cámara en el programa.\n• Prioridad: Crítica\n\n¿Confirmas la creación del incidente? Responde Sí para crearlo o No para corregir algún dato.",
+        "action": "ask_clarification",
+        "data": {
+          "unit": "Móvil 2",
+          "area": "Producción",
+          "location_context": "Móvil 2",
+          "asset_category": "video_cameras",
+          "equipment": "Cámara 3",
+          "failure_type": "Pérdida de imagen intermitente",
+          "description": "La Cámara 3 pierde imagen a ratos.",
+          "operational_impact": "No se puede usar la cámara en el programa.",
+          "priority": "critical"
+        },
+        "missing": []
+      },
+      {
+        "user": "Me equivoqué: es Cámara 4, ocurre en Estudio 8 y la prioridad es alta, no crítica.",
+        "bot": "Entendido. ¿Cuál es la prioridad correcta: Baja, Media, Alta o Crítica?",
+        "action": "ask_clarification",
+        "data": {
+          "area": "Producción",
+          "unit": "Móvil 2",
+          "priority": "critical",
+          "equipment": "Cámara 3",
+          "description": "La Cámara 3 pierde imagen a ratos.",
+          "failure_type": "Pérdida de imagen intermitente",
+          "asset_category": "video_cameras",
+          "location_context": "Móvil 2",
+          "operational_impact": "No se puede usar la cámara en el programa."
+        },
+        "missing": []
+      }
+    ],
+    "issues": [
+      "location_context: esperado 'Estudio 8'; observado 'Móvil 2'",
+      "equipment: esperado 'Cámara 4'; observado 'Cámara 3'",
+      "priority: esperado 'high'; observado 'critical'",
+      "No llegó a resumen válido; no se creó incidente manualmente"
+    ],
+    "extracted": {
+      "area": "Producción",
+      "unit": "Móvil 2",
+      "priority": "critical",
+      "equipment": "Cámara 3",
+      "description": "La Cámara 3 pierde imagen a ratos.",
+      "failure_type": "Pérdida de imagen intermitente",
+      "asset_category": "video_cameras",
+      "location_context": "Móvil 2",
+      "operational_impact": "No se puede usar la cámara en el programa."
+    },
+    "result": "Fallo conversacional/funcional"
+  },
+  {
+    "id": "12",
+    "title": "Contradicción",
+    "level": "B",
+    "expected": {
+      "area": "Producción",
+      "location_context": "Estudio 2",
+      "equipment": "Cámara 4",
+      "asset_category": "video_cameras",
+      "priority": "medium"
+    },
+    "transcript": [
+      {
+        "user": "En Producción, puede ser Cámara 3 o Cámara 4 del Estudio 2; no sé cuál es. La imagen se corta y obliga a usar respaldo. Prioridad media.",
+        "bot": "Antes de crear el incidente, revisa los datos:\n\n• Área: Producción\n• Ubicación/contexto: Estudio 2\n• Familia: Video / Cámaras\n• Equipo/servicio: Cámara 3 o Cámara 4\n• Síntoma: Corte de imagen\n• Descripción: La imagen se corta en la Cámara 3 o Cámara 4 del Estudio 2.\n• Impacto operacional: Obliga a utilizar equipo de respaldo.\n• Prioridad: Media\n\n¿Confirmas la creación del incidente? Responde Sí para crearlo o No para corregir algún dato.",
+        "action": "ask_clarification",
+        "data": {
+          "unit": "Estudio 2",
+          "area": "Producción",
+          "location_context": "Estudio 2",
+          "asset_category": "video_cameras",
+          "equipment": "Cámara 3 o Cámara 4",
+          "failure_type": "Corte de imagen",
+          "description": "La imagen se corta en la Cámara 3 o Cámara 4 del Estudio 2.",
+          "operational_impact": "Obliga a utilizar equipo de respaldo.",
+          "priority": "medium"
+        },
+        "missing": []
+      },
+      {
+        "user": "Revisé: es la Cámara 4. No está completamente caída la imagen, es intermitente.",
+        "bot": "Para finalizar el reporte necesito que selecciones una prioridad:\n\n• Baja: incidente menor, sin impacto operacional relevante y que puede esperar.\n• Media: existe afectación, pero la operación puede mantenerse mediante una alternativa, redundancia o una degradación aceptable.\n• Alta: una función importante está fuera de servicio o existe un impacto significativo en la operación o producción, sin una alternativa adecuada.\n• Crítica: existe una interrupción o riesgo inmediato para la emisión, señal, producción en vivo, un servicio esencial o una contingencia operacional severa.\n\nLa prioridad debe ser seleccionada explícitamente por ti. ¿Cuál corresponde: Baja, Media, Alta o Crítica?",
+        "action": "ask_clarification",
+        "data": {
+          "area": "Producción",
+          "unit": "Estudio 2",
+          "priority": "medium",
+          "equipment": "Cámara 3 o Cámara 4",
+          "description": "La imagen se corta en la Cámara 3 o Cámara 4 del Estudio 2.",
+          "failure_type": "Corte de imagen",
+          "asset_category": "video_cameras",
+          "location_context": "Estudio 2",
+          "operational_impact": "Obliga a utilizar equipo de respaldo."
+        },
+        "missing": []
+      }
+    ],
+    "issues": [
+      "Equipo ambiguo aceptado sin aclaración",
+      "No llegó a resumen válido; no se creó incidente manualmente"
+    ],
+    "extracted": {
+      "area": "Producción",
+      "unit": "Estudio 2",
+      "priority": "medium",
+      "equipment": "Cámara 3 o Cámara 4",
+      "description": "La imagen se corta en la Cámara 3 o Cámara 4 del Estudio 2.",
+      "failure_type": "Corte de imagen",
+      "asset_category": "video_cameras",
+      "location_context": "Estudio 2",
+      "operational_impact": "Obliga a utilizar equipo de respaldo."
+    },
+    "result": "Fallo conversacional/funcional"
+  },
+  {
+    "id": "13",
+    "title": "Coloquial",
+    "level": "B",
+    "expected": {
+      "area": "Producción",
+      "location_context": "Móvil 2",
+      "equipment": "Cámara 3",
+      "asset_category": "video_cameras",
+      "priority": "high"
+    },
+    "transcript": [
+      {
+        "user": "Oye en produccion la kamara 3 del movil 2 se va a negro a cada rato 😕; no la podemos ocupar pal programa en vivo. Prioridad alta, porfa.",
+        "bot": "Antes de crear el incidente, revisa los datos:\n\n• Área: Producción\n• Ubicación/contexto: Móvil 2\n• Familia: Video / Cámaras\n• Equipo/servicio: Cámara 3\n• Síntoma: Se va a negro intermitentemente\n• Descripción: La Cámara 3 del Móvil 2 presenta interrupciones de señal (se va a negro) de forma frecuente.\n• Impacto operacional: No se puede utilizar la cámara para el programa en vivo.\n• Prioridad: Alta\n\n¿Confirmas la creación del incidente? Responde Sí para crearlo o No para corregir algún dato.",
+        "action": "ask_clarification",
+        "data": {
+          "unit": "Móvil 2",
+          "area": "Producción",
+          "location_context": "Móvil 2",
+          "asset_category": "video_cameras",
+          "equipment": "Cámara 3",
+          "failure_type": "Se va a negro intermitentemente",
+          "description": "La Cámara 3 del Móvil 2 presenta interrupciones de señal (se va a negro) de forma frecuente.",
+          "operational_impact": "No se puede utilizar la cámara para el programa en vivo.",
+          "priority": "high"
+        },
+        "missing": []
+      },
+      {
+        "user": "confirmo",
+        "bot": "Reporte SC-000010 creado correctamente.",
+        "action": "incident_created",
+        "data": {
+          "area": "Producción",
+          "unit": "Móvil 2",
+          "priority": "high",
+          "equipment": "Cámara 3",
+          "description": "La Cámara 3 del Móvil 2 presenta interrupciones de señal (se va a negro) de forma frecuente.",
+          "failure_type": "Se va a negro intermitentemente",
+          "asset_category": "video_cameras",
+          "location_context": "Móvil 2",
+          "operational_impact": "No se puede utilizar la cámara para el programa en vivo."
+        },
+        "missing": null
+      }
+    ],
+    "issues": [],
+    "extracted": {
+      "area": "Producción",
+      "unit": "Móvil 2",
+      "priority": "high",
+      "equipment": "Cámara 3",
+      "description": "La Cámara 3 del Móvil 2 presenta interrupciones de señal (se va a negro) de forma frecuente.",
+      "failure_type": "Se va a negro intermitentemente",
+      "asset_category": "video_cameras",
+      "location_context": "Móvil 2",
+      "operational_impact": "No se puede utilizar la cámara para el programa en vivo."
+    },
+    "code": "SC-000010",
+    "incident_id": 10,
+    "persisted": {
+      "area": "Producción",
+      "location_context": "Móvil 2",
+      "equipment": "Cámara 3",
+      "asset_category": "video_cameras",
+      "priority": "high"
+    },
+    "status": "reported",
+    "created_at": "2026-10-19T11:17:34.048726+00:00",
+    "dashboard_api_status": 200,
+    "trace_messages": 2,
+    "result": "Aprobado",
+    "persistence_audit": true
+  },
+  {
+    "id": "14",
+    "title": "Confirmaciones",
+    "level": "B",
+    "expected": {
+      "area": "Sistemas",
+      "location_context": "Sala técnica",
+      "equipment": "playout",
+      "asset_category": "systems",
+      "priority": "high"
+    },
+    "transcript": [
+      {
+        "user": "sí",
+        "bot": "Entendido. Quedo atento a la información del incidente cuando esté listo para proceder con el registro.",
+        "action": "conversation",
+        "data": null,
+        "missing": null
+      },
+      {
+        "user": "En Sistemas, servidor de playout 1 de Sala técnica no arranca. No podemos cargar material para el programa y no hay respaldo. Prioridad alta.",
+        "bot": "Antes de crear el incidente, revisa los datos:\n\n• Área: Sistemas\n• Ubicación/contexto: Sala técnica\n• Familia: Sistemas\n• Equipo/servicio: Servidor de playout 1\n• Síntoma: El servidor no arranca\n• Descripción: El servidor de playout 1 de la Sala técnica no arranca.\n• Impacto operacional: No podemos cargar material para el programa y no hay respaldo.\n• Prioridad: Alta\n\n¿Confirmas la creación del incidente? Responde Sí para crearlo o No para corregir algún dato.",
+        "action": "ask_clarification",
+        "data": {
+          "unit": "Sala técnica",
+          "area": "Sistemas",
+          "location_context": "Sala técnica",
+          "asset_category": "systems",
+          "equipment": "Servidor de playout 1",
+          "failure_type": "El servidor no arranca",
+          "description": "El servidor de playout 1 de la Sala técnica no arranca.",
+          "operational_impact": "No podemos cargar material para el programa y no hay respaldo.",
+          "priority": "high"
+        },
+        "missing": []
+      },
+      {
+        "user": "confirmo",
+        "bot": "Reporte SC-000011 creado correctamente.",
+        "action": "incident_created",
+        "data": {
+          "area": "Sistemas",
+          "unit": "Sala técnica",
+          "priority": "high",
+          "equipment": "Servidor de playout 1",
+          "description": "El servidor de playout 1 de la Sala técnica no arranca.",
+          "failure_type": "El servidor no arranca",
+          "asset_category": "systems",
+          "location_context": "Sala técnica",
+          "operational_impact": "No podemos cargar material para el programa y no hay respaldo."
+        },
+        "missing": null
+      },
+      {
+        "user": "confirmo",
+        "bot": "Entiendo. Por favor, indícame los detalles del incidente que deseas registrar (área, ubicación, equipo afectado, síntoma, descripción e impacto operacional) para poder asistirte.",
+        "action": "conversation",
+        "data": null,
+        "missing": null
+      }
+    ],
+    "issues": [],
+    "extracted": {
+      "area": "Sistemas",
+      "unit": "Sala técnica",
+      "priority": "high",
+      "equipment": "Servidor de playout 1",
+      "description": "El servidor de playout 1 de la Sala técnica no arranca.",
+      "failure_type": "El servidor no arranca",
+      "asset_category": "systems",
+      "location_context": "Sala técnica",
+      "operational_impact": "No podemos cargar material para el programa y no hay respaldo."
+    },
+    "code": "SC-000011",
+    "incident_id": 11,
+    "persisted": {
+      "area": "Sistemas",
+      "location_context": "Sala técnica",
+      "equipment": "Servidor de playout 1",
+      "asset_category": "systems",
+      "priority": "high"
+    },
+    "status": "reported",
+    "created_at": "2026-10-19T11:17:38.801391+00:00",
+    "dashboard_api_status": 200,
+    "trace_messages": 2,
+    "result": "Aprobado",
+    "persistence_audit": true
+  },
+  {
+    "id": "15",
+    "title": "Recuperación",
+    "level": "B (Gemini real; timeout simulado)",
+    "expected": {
+      "area": "Redes",
+      "location_context": "Sala técnica",
+      "equipment": "router",
+      "asset_category": "networks",
+      "priority": "medium"
+    },
+    "transcript": [
+      {
+        "user": "En Redes, router principal de Sala técnica sin conexión",
+        "bot": "¿Podría indicarme qué impacto tiene esta falla sobre la operación?",
+        "action": "ask_clarification",
+        "data": {
+          "unit": "Sala técnica",
+          "area": "Redes",
+          "location_context": "Sala técnica",
+          "asset_category": "networks",
+          "equipment": "Router principal",
+          "failure_type": "Sin conexión",
+          "description": "El router principal de la Sala técnica no tiene conexión.",
+          "operational_impact": null,
+          "priority": null
+        },
+        "missing": [
+          "operational_impact",
+          "priority"
+        ]
+      },
+      {
+        "user": "Además impide enviar material de producción; usamos un respaldo. Prioridad media.",
+        "bot": "Para completar el reporte, ¿qué prioridad le asignas: Baja, Media, Alta o Crítica?",
+        "action": "ask_clarification",
+        "data": {
+          "area": "Redes",
+          "unit": "Sala técnica",
+          "priority": null,
+          "equipment": "Router principal",
+          "description": "El router principal de la Sala técnica no tiene conexión.",
+          "failure_type": "Sin conexión",
+          "asset_category": "networks",
+          "location_context": "Sala técnica",
+          "operational_impact": "Además impide enviar material de producción; usamos un respaldo. Prioridad media"
+        },
+        "missing": [
+          "priority"
+        ]
+      },
+      {
+        "user": "continuar",
+        "bot": "Para finalizar el reporte necesito que selecciones una prioridad:\n\n• Baja: incidente menor, sin impacto operacional relevante y que puede esperar.\n• Media: existe afectación, pero la operación puede mantenerse mediante una alternativa, redundancia o una degradación aceptable.\n• Alta: una función importante está fuera de servicio o existe un impacto significativo en la operación o producción, sin una alternativa adecuada.\n• Crítica: existe una interrupción o riesgo inmediato para la emisión, señal, producción en vivo, un servicio esencial o una contingencia operacional severa.\n\nLa prioridad debe ser seleccionada explícitamente por ti. ¿Cuál corresponde: Baja, Media, Alta o Crítica?",
+        "action": "ask_clarification",
+        "data": {
+          "area": "Redes",
+          "unit": "Sala técnica",
+          "priority": null,
+          "equipment": "Router principal",
+          "description": "El router principal de la Sala técnica no tiene conexión.",
+          "failure_type": "Sin conexión",
+          "asset_category": "networks",
+          "location_context": "Sala técnica",
+          "operational_impact": "Además impide enviar material de producción; usamos un respaldo. Prioridad media"
+        },
+        "missing": [
+          "priority"
+        ]
+      },
+      {
+        "user": "Media",
+        "bot": "Antes de crear el incidente, revisa los datos:\n\n• Área: Redes\n• Ubicación/contexto: Sala técnica\n• Familia: Redes\n• Equipo/servicio: Router principal\n• Síntoma: Sin conexión\n• Descripción: El router principal de la Sala técnica no tiene conexión.\n• Impacto operacional: Además impide enviar material de producción; usamos un respaldo. Prioridad media\n• Prioridad: Media\n\n¿Confirmas la creación del incidente? Responde Sí para crearlo o No para corregir algún dato.",
+        "action": "ask_clarification",
+        "data": {
+          "area": "Redes",
+          "unit": "Sala técnica",
+          "priority": "medium",
+          "equipment": "Router principal",
+          "description": "El router principal de la Sala técnica no tiene conexión.",
+          "failure_type": "Sin conexión",
+          "asset_category": "networks",
+          "location_context": "Sala técnica",
+          "operational_impact": "Además impide enviar material de producción; usamos un respaldo. Prioridad media"
+        },
+        "missing": []
+      },
+      {
+        "user": "confirmo",
+        "bot": "Reporte SC-000012 creado correctamente.",
+        "action": "incident_created",
+        "data": {
+          "area": "Redes",
+          "unit": "Sala técnica",
+          "priority": "medium",
+          "equipment": "Router principal",
+          "description": "El router principal de la Sala técnica no tiene conexión.",
+          "failure_type": "Sin conexión",
+          "asset_category": "networks",
+          "location_context": "Sala técnica",
+          "operational_impact": "Además impide enviar material de producción; usamos un respaldo. Prioridad media"
+        },
+        "missing": null
+      }
+    ],
+    "issues": [],
+    "extracted": {
+      "area": "Redes",
+      "unit": "Sala técnica",
+      "priority": "medium",
+      "equipment": "Router principal",
+      "description": "El router principal de la Sala técnica no tiene conexión.",
+      "failure_type": "Sin conexión",
+      "asset_category": "networks",
+      "location_context": "Sala técnica",
+      "operational_impact": "Además impide enviar material de producción; usamos un respaldo. Prioridad media"
+    },
+    "code": "SC-000012",
+    "incident_id": 12,
+    "persisted": {
+      "area": "Redes",
+      "location_context": "Sala técnica",
+      "equipment": "Router principal",
+      "asset_category": "networks",
+      "priority": "medium"
+    },
+    "status": "reported",
+    "created_at": "2026-10-19T11:17:58.108696+00:00",
+    "dashboard_api_status": 200,
+    "trace_messages": 5,
+    "result": "Aprobado",
+    "persistence_audit": true
+  }
+]

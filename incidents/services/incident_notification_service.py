@@ -2,6 +2,7 @@ import logging
 
 from django.conf import settings
 from django.core.mail import send_mail
+from django.template.loader import render_to_string
 from django.utils import timezone
 
 from incidents.models import Incident
@@ -93,6 +94,17 @@ def send_incident_created_email(
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[recipient],
             fail_silently=False,
+            html_message=render_to_string(
+                "incidents/email/incident_created.html",
+                {
+                    "incident": incident,
+                    "priority": priority,
+                    "status": incident.get_status_display(),
+                    "asset_category": asset_category,
+                    "reporter": reporter,
+                    "created_at": created_at,
+                },
+            ),
         )
     except Exception:
         logger.exception(

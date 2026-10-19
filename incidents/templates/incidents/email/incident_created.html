@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="dark"><title>Nueva incidencia · Secuoya Chile</title></head>
+<body style="margin:0;padding:0;background-color:#07151e;color:#f3f8fb;font-family:Arial,Helvetica,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#07151e;">
+<tr><td align="center" style="padding:24px 12px;">
+<!--[if mso]><table role="presentation" width="600" align="center"><tr><td><![endif]-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background-color:#102631;border:1px solid #26404e;border-radius:16px;overflow:hidden;">
+<tr><td style="padding:28px 24px;background-color:#075c7c;border-radius:16px 16px 0 0;">
+<p style="margin:0;color:#ffffff;font-size:24px;font-weight:bold;letter-spacing:2px;">SECUOYA CHILE</p>
+<p style="margin:10px 0 0;color:#d1edf5;font-size:11px;letter-spacing:2px;">NOTIFICACIÓN OPERATIVA</p>
+</td></tr>
+<tr><td style="padding:28px 24px 20px;">
+<h1 style="margin:0 0 14px;color:#f3f8fb;font-size:26px;line-height:1.3;">Nueva incidencia registrada</h1>
+<p style="margin:0;color:#acc0cc;font-size:15px;line-height:1.7;">Se ha recibido un nuevo reporte de incidencia operativa que requiere seguimiento.</p>
+</td></tr>
+<tr><td style="padding:0 24px 24px;">
+<table aria-label="Información del reporte" width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed;border-collapse:collapse;">
+<tr><th scope="row" width="40%" align="left" valign="top" style="padding:12px 10px 12px 0;border-bottom:1px solid #26404e;color:#acc0cc;font-size:13px;font-weight:normal;line-height:1.5;">Código</th><td valign="top" style="padding:12px 0;border-bottom:1px solid #26404e;color:#f3f8fb;font-size:14px;font-weight:bold;line-height:1.5;overflow-wrap:anywhere;word-wrap:break-word;">{{ incident.code|default:"Sin código" }}</td></tr>
+<tr><th scope="row" width="40%" align="left" valign="top" style="padding:12px 10px 12px 0;border-bottom:1px solid #26404e;color:#acc0cc;font-size:13px;font-weight:normal;line-height:1.5;">Área</th><td valign="top" style="padding:12px 0;border-bottom:1px solid #26404e;color:#f3f8fb;font-size:14px;font-weight:bold;line-height:1.5;overflow-wrap:anywhere;word-wrap:break-word;">{{ incident.area|default:"No informada" }}</td></tr>
+<tr><th scope="row" width="40%" align="left" valign="top" style="padding:12px 10px 12px 0;border-bottom:1px solid #26404e;color:#acc0cc;font-size:13px;font-weight:normal;line-height:1.5;">Ubicación / contexto</th><td valign="top" style="padding:12px 0;border-bottom:1px solid #26404e;color:#f3f8fb;font-size:14px;font-weight:bold;line-height:1.5;overflow-wrap:anywhere;word-wrap:break-word;">{{ incident.location_context|default:"No informada" }}</td></tr>
+<tr><th scope="row" width="40%" align="left" valign="top" style="padding:12px 10px 12px 0;border-bottom:1px solid #26404e;color:#acc0cc;font-size:13px;font-weight:normal;line-height:1.5;">Equipo / servicio</th><td valign="top" style="padding:12px 0;border-bottom:1px solid #26404e;color:#f3f8fb;font-size:14px;font-weight:bold;line-height:1.5;overflow-wrap:anywhere;word-wrap:break-word;">{{ incident.equipment|default:"No informado" }}</td></tr>
+<tr><th scope="row" width="40%" align="left" valign="top" style="padding:12px 10px 12px 0;border-bottom:1px solid #26404e;color:#acc0cc;font-size:13px;font-weight:normal;line-height:1.5;">Prioridad</th><td valign="top" style="padding:12px 0;border-bottom:1px solid #26404e;color:#f3f8fb;font-size:14px;font-weight:bold;line-height:1.5;overflow-wrap:anywhere;word-wrap:break-word;">{{ priority|default:"No informada" }}</td></tr>
+<tr><th scope="row" width="40%" align="left" valign="top" style="padding:12px 10px 12px 0;border-bottom:1px solid #26404e;color:#acc0cc;font-size:13px;font-weight:normal;line-height:1.5;">Estado</th><td valign="top" style="padding:12px 0;border-bottom:1px solid #26404e;color:#f3f8fb;font-size:14px;font-weight:bold;line-height:1.5;overflow-wrap:anywhere;word-wrap:break-word;">{{ status|default:"No informado" }}</td></tr>
+<tr><th scope="row" width="40%" align="left" valign="top" style="padding:12px 10px 12px 0;border-bottom:1px solid #26404e;color:#acc0cc;font-size:13px;font-weight:normal;line-height:1.5;">Familia</th><td valign="top" style="padding:12px 0;border-bottom:1px solid #26404e;color:#f3f8fb;font-size:14px;font-weight:bold;line-height:1.5;overflow-wrap:anywhere;word-wrap:break-word;">{{ asset_category|default:"No informada" }}</td></tr>
+<tr><th scope="row" width="40%" align="left" valign="top" style="padding:12px 10px 12px 0;border-bottom:1px solid #26404e;color:#acc0cc;font-size:13px;font-weight:normal;line-height:1.5;">Síntoma / falla</th><td valign="top" style="padding:12px 0;border-bottom:1px solid #26404e;color:#f3f8fb;font-size:14px;font-weight:bold;line-height:1.5;overflow-wrap:anywhere;word-wrap:break-word;">{{ incident.failure_type|default:"No informado" }}</td></tr>
+</table>
+</td></tr>
+<tr><td style="padding:0 24px 24px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#142e3a;border:1px solid #3b6578;border-radius:10px;">
+<tr><td style="padding:20px;">
+<h2 style="margin:0 0 10px;color:#53cbe6;font-size:14px;">Descripción</h2>
+<p style="margin:0 0 22px;color:#f3f8fb;font-size:15px;line-height:1.7;overflow-wrap:anywhere;word-wrap:break-word;">{{ incident.description|default:"No informada"|linebreaksbr }}</p>
+<h2 style="margin:0 0 10px;color:#53cbe6;font-size:14px;">Impacto operacional</h2>
+<p style="margin:0;color:#f3f8fb;font-size:15px;line-height:1.7;overflow-wrap:anywhere;word-wrap:break-word;">{{ incident.operational_impact|default:"No informado"|linebreaksbr }}</p>
+</td></tr></table>
+</td></tr>
+{% comment %}incident_url debe ser una URL absoluta pública del detalle, validada por quien renderiza. El envío actual no la proporciona: el botón permanece oculto hasta disponer de dominio y enlace de detalle configurados.{% endcomment %}
+{% if incident_url %}
+<tr><td align="center" style="padding:0 24px 28px;">
+<table role="presentation" cellpadding="0" cellspacing="0"><tr><td align="center" bgcolor="#53cbe6" style="border-radius:8px;mso-padding-alt:16px 28px;">
+<a href="{{ incident_url }}" style="display:inline-block;padding:16px 28px;color:#07151e;font-size:15px;font-weight:bold;text-decoration:none;">Ver reporte →</a>
+</td></tr></table>
+</td></tr>
+{% endif %}
+<tr><td style="padding:20px 24px;border-top:1px solid #26404e;color:#acc0cc;font-size:12px;line-height:1.8;">
+Reportado por: {{ reporter|default:"No informado" }}<br>
+Fecha y hora: {{ created_at|default:"No informada" }}<br>
+<span style="color:#acc0cc;">Secuoya Chile · Gestión de Incidencias Operativas</span>
+</td></tr>
+</table>
+<!--[if mso]></td></tr></table><![endif]-->
+</td></tr></table>
+</body></html>
+

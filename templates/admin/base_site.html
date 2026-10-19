@@ -1,0 +1,6 @@
+{% extends "admin/base.html" %}
+{% load static %}
+{% block title %}{{ title }} | Secuoya Chile{% endblock %}
+{% block extrastyle %}{{ block.super }}{% include "incidents/brand_head.html" %}<link rel="stylesheet" href="{% static 'incidents/admin-brand.css' %}?v=20261019">{% endblock %}
+{% block branding %}<div id="site-name"><a href="{% url 'admin:index' %}">Secuoya Chile | Gestión de Incidencias Operativas</a></div>{% endblock %}
+{% block nav-global %}<a href="{% url 'dashboard' %}">Centro de control</a>{% endblock %}

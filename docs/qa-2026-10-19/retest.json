@@ -1,0 +1,481 @@
+[
+  {
+    "id": "05",
+    "title": "Móvil en terreno",
+    "level": "B",
+    "expected": {
+      "area": "Operaciones",
+      "location_context": "Móvil 4",
+      "equipment": "intercom",
+      "asset_category": "audio",
+      "priority": "medium"
+    },
+    "transcript": [
+      {
+        "user": "En Operaciones, el intercom del Móvil 4 en cobertura exterior no transmite retorno. No podemos coordinar a los camarógrafos, estamos usando teléfonos. Prioridad media.",
+        "bot": "Para identificar intercom, ¿puedes indicar su número, nombre o identificador? Por ejemplo: Intercom 3.",
+        "action": "ask_clarification",
+        "data": {
+          "unit": "Móvil 4",
+          "area": "Operaciones",
+          "location_context": "Móvil 4",
+          "asset_category": "audio",
+          "equipment": null,
+          "failure_type": "No transmite retorno",
+          "description": "El intercom del Móvil 4 en cobertura exterior presenta falla de transmisión de retorno.",
+          "operational_impact": "No se puede coordinar a los camarógrafos y se están utilizando teléfonos como alternativa.",
+          "priority": "medium"
+        },
+        "missing": [
+          "equipment"
+        ]
+      },
+      {
+        "user": "Intercom Riedel 1",
+        "bot": "Antes de crear el incidente, revisa los datos:\n\n• Área: Operaciones\n• Ubicación/contexto: Móvil 4\n• Familia: Audio\n• Equipo/servicio: Intercom Riedel 1\n• Síntoma: No transmite retorno\n• Descripción: El Intercom Riedel 1 del Móvil 4 presenta falla de transmisión de retorno.\n• Impacto operacional: No se puede coordinar a los camarógrafos y se están utilizando teléfonos como alternativa.\n• Prioridad: Media\n\n¿Confirmas la creación del incidente? Responde Sí para crearlo o No para corregir algún dato.",
+        "action": "ask_clarification",
+        "data": {
+          "unit": "Móvil 4",
+          "area": "Operaciones",
+          "location_context": "Móvil 4",
+          "asset_category": "audio",
+          "equipment": "Intercom Riedel 1",
+          "failure_type": "No transmite retorno",
+          "description": "El Intercom Riedel 1 del Móvil 4 presenta falla de transmisión de retorno.",
+          "operational_impact": "No se puede coordinar a los camarógrafos y se están utilizando teléfonos como alternativa.",
+          "priority": "medium"
+        },
+        "missing": []
+      },
+      {
+        "user": "confirmo",
+        "bot": "Reporte SC-000026 creado correctamente.",
+        "action": "incident_created",
+        "data": {
+          "area": "Operaciones",
+          "unit": "Móvil 4",
+          "priority": "medium",
+          "equipment": "Intercom Riedel 1",
+          "description": "El Intercom Riedel 1 del Móvil 4 presenta falla de transmisión de retorno.",
+          "failure_type": "No transmite retorno",
+          "asset_category": "audio",
+          "location_context": "Móvil 4",
+          "operational_impact": "No se puede coordinar a los camarógrafos y se están utilizando teléfonos como alternativa."
+        },
+        "missing": null
+      }
+    ],
+    "issues": [],
+    "extracted": {
+      "area": "Operaciones",
+      "unit": "Móvil 4",
+      "priority": "medium",
+      "equipment": "Intercom Riedel 1",
+      "description": "El Intercom Riedel 1 del Móvil 4 presenta falla de transmisión de retorno.",
+      "failure_type": "No transmite retorno",
+      "asset_category": "audio",
+      "location_context": "Móvil 4",
+      "operational_impact": "No se puede coordinar a los camarógrafos y se están utilizando teléfonos como alternativa."
+    },
+    "code": "SC-000026",
+    "incident_id": 26,
+    "persisted": {
+      "area": "Operaciones",
+      "location_context": "Móvil 4",
+      "equipment": "Intercom Riedel 1",
+      "asset_category": "audio",
+      "priority": "medium"
+    },
+    "status": "reported",
+    "created_at": "2026-10-19T11:35:56.017562+00:00",
+    "dashboard_api_status": 200,
+    "trace_messages": 3,
+    "result": "Aprobado"
+  },
+  {
+    "id": "11",
+    "title": "Corrección múltiple",
+    "level": "B",
+    "expected": {
+      "area": "Producción",
+      "location_context": "Estudio 8",
+      "equipment": "Cámara 4",
+      "asset_category": "video_cameras",
+      "priority": "high"
+    },
+    "transcript": [
+      {
+        "user": "En Producción, Cámara 3 del Móvil 2 pierde imagen a ratos. No podemos usarla en el programa. Prioridad crítica.",
+        "bot": "Antes de crear el incidente, revisa los datos:\n\n• Área: Producción\n• Ubicación/contexto: Móvil 2\n• Familia: Video / Cámaras\n• Equipo/servicio: Cámara 3\n• Síntoma: Pérdida de imagen intermitente\n• Descripción: Cámara 3 del Móvil 2 pierde imagen a ratos.\n• Impacto operacional: No podemos usarla en el programa.\n• Prioridad: Crítica\n\n¿Confirmas la creación del incidente? Responde Sí para crearlo o No para corregir algún dato.",
+        "action": "ask_clarification",
+        "data": {
+          "unit": "Móvil 2",
+          "area": "Producción",
+          "location_context": "Móvil 2",
+          "asset_category": "video_cameras",
+          "equipment": "Cámara 3",
+          "failure_type": "Pérdida de imagen intermitente",
+          "description": "Cámara 3 del Móvil 2 pierde imagen a ratos.",
+          "operational_impact": "No podemos usarla en el programa.",
+          "priority": "critical"
+        },
+        "missing": []
+      },
+      {
+        "user": "Me equivoqué: es Cámara 4, ocurre en Estudio 8 y la prioridad es alta, no crítica.",
+        "bot": "Antes de crear el incidente, revisa los datos:\n\n• Área: Producción\n• Ubicación/contexto: Estudio 8\n• Familia: Video / Cámaras\n• Equipo/servicio: Cámara 4\n• Síntoma: Pérdida de imagen intermitente\n• Descripción: Cámara 4 del Estudio 8 pierde imagen a ratos.\n• Impacto operacional: No podemos usarla en el programa.\n• Prioridad: Alta\n\n¿Confirmas la creación del incidente? Responde Sí para crearlo o No para corregir algún dato.",
+        "action": "ask_clarification",
+        "data": {
+          "area": "Producción",
+          "unit": "Estudio 8",
+          "priority": "high",
+          "equipment": "Cámara 4",
+          "description": "Cámara 4 del Estudio 8 pierde imagen a ratos.",
+          "failure_type": "Pérdida de imagen intermitente",
+          "asset_category": "video_cameras",
+          "location_context": "Estudio 8",
+          "operational_impact": "No podemos usarla en el programa."
+        },
+        "missing": []
+      },
+      {
+        "user": "confirmo",
+        "bot": "Reporte SC-000027 creado correctamente.",
+        "action": "incident_created",
+        "data": {
+          "area": "Producción",
+          "unit": "Estudio 8",
+          "priority": "high",
+          "equipment": "Cámara 4",
+          "description": "Cámara 4 del Estudio 8 pierde imagen a ratos.",
+          "failure_type": "Pérdida de imagen intermitente",
+          "asset_category": "video_cameras",
+          "location_context": "Estudio 8",
+          "operational_impact": "No podemos usarla en el programa."
+        },
+        "missing": null
+      }
+    ],
+    "issues": [],
+    "extracted": {
+      "area": "Producción",
+      "unit": "Estudio 8",
+      "priority": "high",
+      "equipment": "Cámara 4",
+      "description": "Cámara 4 del Estudio 8 pierde imagen a ratos.",
+      "failure_type": "Pérdida de imagen intermitente",
+      "asset_category": "video_cameras",
+      "location_context": "Estudio 8",
+      "operational_impact": "No podemos usarla en el programa."
+    },
+    "code": "SC-000027",
+    "incident_id": 27,
+    "persisted": {
+      "area": "Producción",
+      "location_context": "Estudio 8",
+      "equipment": "Cámara 4",
+      "asset_category": "video_cameras",
+      "priority": "high"
+    },
+    "status": "reported",
+    "created_at": "2026-10-19T11:36:01.217224+00:00",
+    "dashboard_api_status": 200,
+    "trace_messages": 3,
+    "result": "Aprobado"
+  },
+  {
+    "id": "12",
+    "title": "Contradicción",
+    "level": "B",
+    "expected": {
+      "area": "Producción",
+      "location_context": "Estudio 2",
+      "equipment": "Cámara 4",
+      "asset_category": "video_cameras",
+      "priority": "medium"
+    },
+    "transcript": [
+      {
+        "user": "En Producción, puede ser Cámara 3 o Cámara 4 del Estudio 2; no sé cuál es. La imagen se corta y obliga a usar respaldo. Prioridad media.",
+        "bot": "Para continuar, ¿podrías confirmar cuál de las dos cámaras, la 3 o la 4, es la que presenta el problema?",
+        "action": "ask_clarification",
+        "data": {
+          "unit": "Estudio 2",
+          "area": "Producción",
+          "location_context": "Estudio 2",
+          "asset_category": "video_cameras",
+          "equipment": null,
+          "failure_type": "Imagen se corta",
+          "description": "Se informa corte de imagen en Cámara 3 o Cámara 4 del Estudio 2.",
+          "operational_impact": "Obliga a usar respaldo.",
+          "priority": "medium"
+        },
+        "missing": [
+          "equipment"
+        ]
+      },
+      {
+        "user": "Revisé: es la Cámara 4. No está completamente caída la imagen, es intermitente.",
+        "bot": "Antes de crear el incidente, revisa los datos:\n\n• Área: Producción\n• Ubicación/contexto: Estudio 2\n• Familia: Video / Cámaras\n• Equipo/servicio: Cámara 4\n• Síntoma: Imagen se corta\n• Descripción: Se reporta imagen intermitente en la Cámara 4 del Estudio 2.\n• Impacto operacional: Obliga a usar respaldo.\n• Prioridad: Media\n\n¿Confirmas la creación del incidente? Responde Sí para crearlo o No para corregir algún dato.",
+        "action": "ask_clarification",
+        "data": {
+          "unit": "Estudio 2",
+          "area": "Producción",
+          "location_context": "Estudio 2",
+          "asset_category": "video_cameras",
+          "equipment": "Cámara 4",
+          "failure_type": "Imagen se corta",
+          "description": "Se reporta imagen intermitente en la Cámara 4 del Estudio 2.",
+          "operational_impact": "Obliga a usar respaldo.",
+          "priority": "medium"
+        },
+        "missing": []
+      },
+      {
+        "user": "confirmo",
+        "bot": "Reporte SC-000028 creado correctamente.",
+        "action": "incident_created",
+        "data": {
+          "area": "Producción",
+          "unit": "Estudio 2",
+          "priority": "medium",
+          "equipment": "Cámara 4",
+          "description": "Se reporta imagen intermitente en la Cámara 4 del Estudio 2.",
+          "failure_type": "Imagen se corta",
+          "asset_category": "video_cameras",
+          "location_context": "Estudio 2",
+          "operational_impact": "Obliga a usar respaldo."
+        },
+        "missing": null
+      }
+    ],
+    "issues": [],
+    "extracted": {
+      "area": "Producción",
+      "unit": "Estudio 2",
+      "priority": "medium",
+      "equipment": "Cámara 4",
+      "description": "Se reporta imagen intermitente en la Cámara 4 del Estudio 2.",
+      "failure_type": "Imagen se corta",
+      "asset_category": "video_cameras",
+      "location_context": "Estudio 2",
+      "operational_impact": "Obliga a usar respaldo."
+    },
+    "code": "SC-000028",
+    "incident_id": 28,
+    "persisted": {
+      "area": "Producción",
+      "location_context": "Estudio 2",
+      "equipment": "Cámara 4",
+      "asset_category": "video_cameras",
+      "priority": "medium"
+    },
+    "status": "reported",
+    "created_at": "2026-10-19T11:36:21.204687+00:00",
+    "dashboard_api_status": 200,
+    "trace_messages": 3,
+    "result": "Aprobado"
+  },
+  {
+    "id": "14",
+    "title": "Confirmaciones",
+    "level": "B",
+    "expected": {
+      "area": "Sistemas",
+      "location_context": "Sala técnica",
+      "equipment": "playout",
+      "asset_category": "systems",
+      "priority": "high"
+    },
+    "transcript": [
+      {
+        "user": "sí",
+        "bot": "Primero cuéntame qué falla necesitas reportar. Revisaremos el resumen antes de crear el incidente.",
+        "action": "conversation",
+        "data": null,
+        "missing": null
+      },
+      {
+        "user": "En Sistemas, servidor de playout 1 de Sala técnica no arranca. No podemos cargar material para el programa y no hay respaldo. Prioridad alta.",
+        "bot": "Antes de crear el incidente, revisa los datos:\n\n• Área: Sistemas\n• Ubicación/contexto: Sala técnica\n• Familia: Sistemas\n• Equipo/servicio: Servidor de playout 1\n• Síntoma: No arranca\n• Descripción: El servidor de playout 1 no arranca en la sala técnica.\n• Impacto operacional: No se puede cargar material para el programa y no hay respaldo disponible.\n• Prioridad: Alta\n\n¿Confirmas la creación del incidente? Responde Sí para crearlo o No para corregir algún dato.",
+        "action": "ask_clarification",
+        "data": {
+          "unit": "Sala técnica",
+          "area": "Sistemas",
+          "location_context": "Sala técnica",
+          "asset_category": "systems",
+          "equipment": "Servidor de playout 1",
+          "failure_type": "No arranca",
+          "description": "El servidor de playout 1 no arranca en la sala técnica.",
+          "operational_impact": "No se puede cargar material para el programa y no hay respaldo disponible.",
+          "priority": "high"
+        },
+        "missing": []
+      },
+      {
+        "user": "confirmo",
+        "bot": "Reporte SC-000029 creado correctamente.",
+        "action": "incident_created",
+        "data": {
+          "area": "Sistemas",
+          "unit": "Sala técnica",
+          "priority": "high",
+          "equipment": "Servidor de playout 1",
+          "description": "El servidor de playout 1 no arranca en la sala técnica.",
+          "failure_type": "No arranca",
+          "asset_category": "systems",
+          "location_context": "Sala técnica",
+          "operational_impact": "No se puede cargar material para el programa y no hay respaldo disponible."
+        },
+        "missing": null
+      },
+      {
+        "user": "confirmo",
+        "bot": "El reporte SC-000029 ya fue creado. Puedes contarme otra falla si necesitas un nuevo reporte.",
+        "action": "incident_already_created",
+        "data": null,
+        "missing": null
+      }
+    ],
+    "issues": [],
+    "extracted": {
+      "area": "Sistemas",
+      "unit": "Sala técnica",
+      "priority": "high",
+      "equipment": "Servidor de playout 1",
+      "description": "El servidor de playout 1 no arranca en la sala técnica.",
+      "failure_type": "No arranca",
+      "asset_category": "systems",
+      "location_context": "Sala técnica",
+      "operational_impact": "No se puede cargar material para el programa y no hay respaldo disponible."
+    },
+    "code": "SC-000029",
+    "incident_id": 29,
+    "persisted": {
+      "area": "Sistemas",
+      "location_context": "Sala técnica",
+      "equipment": "Servidor de playout 1",
+      "asset_category": "systems",
+      "priority": "high"
+    },
+    "status": "reported",
+    "created_at": "2026-10-19T11:36:28.095065+00:00",
+    "dashboard_api_status": 200,
+    "trace_messages": 3,
+    "result": "Aprobado"
+  },
+  {
+    "id": "15",
+    "title": "Recuperación",
+    "level": "B (Gemini real; timeout simulado)",
+    "expected": {
+      "area": "Redes",
+      "location_context": "Sala técnica",
+      "equipment": "router",
+      "asset_category": "networks",
+      "priority": "medium"
+    },
+    "transcript": [
+      {
+        "user": "En Redes, router principal de Sala técnica sin conexión",
+        "bot": "¿Qué impacto está generando esta falla sobre la operación?",
+        "action": "ask_clarification",
+        "data": {
+          "unit": "Sala técnica",
+          "area": "Redes",
+          "location_context": "Sala técnica",
+          "asset_category": "networks",
+          "equipment": "Router principal",
+          "failure_type": "Sin conexión",
+          "description": "El router principal ubicado en la sala técnica se encuentra sin conexión.",
+          "operational_impact": null,
+          "priority": null
+        },
+        "missing": [
+          "operational_impact",
+          "priority"
+        ]
+      },
+      {
+        "user": "Además impide enviar material de producción; usamos un respaldo. Prioridad media.",
+        "bot": "El procesamiento está tardando más de lo esperado. Guardé la información enviada y el reporte sigue pendiente. En unos segundos puedes escribir “continuar” o enviar el siguiente dato; no es necesario repetir lo anterior.",
+        "action": "ai_timeout",
+        "data": {
+          "area": "Redes",
+          "unit": "Sala técnica",
+          "priority": null,
+          "equipment": "Router principal",
+          "description": "El router principal ubicado en la sala técnica se encuentra sin conexión.",
+          "failure_type": "Sin conexión",
+          "asset_category": "networks",
+          "location_context": "Sala técnica",
+          "operational_impact": null
+        },
+        "missing": [
+          "operational_impact",
+          "priority"
+        ]
+      },
+      {
+        "user": "continuar",
+        "bot": "Antes de crear el incidente, revisa los datos:\n\n• Área: Redes\n• Ubicación/contexto: Sala técnica\n• Familia: Redes\n• Equipo/servicio: Router principal\n• Síntoma: Sin conexión\n• Descripción: El router principal ubicado en la sala técnica se encuentra sin conexión. Además impide enviar material de producción; usamos un respaldo.\n• Impacto operacional: Impide enviar material de producción; uso de equipo de respaldo.\n• Prioridad: Media\n\n¿Confirmas la creación del incidente? Responde Sí para crearlo o No para corregir algún dato.",
+        "action": "ask_clarification",
+        "data": {
+          "unit": "Sala técnica",
+          "area": "Redes",
+          "location_context": "Sala técnica",
+          "asset_category": "networks",
+          "equipment": "Router principal",
+          "failure_type": "Sin conexión",
+          "description": "El router principal ubicado en la sala técnica se encuentra sin conexión. Además impide enviar material de producción; usamos un respaldo.",
+          "operational_impact": "Impide enviar material de producción; uso de equipo de respaldo.",
+          "priority": "medium"
+        },
+        "missing": []
+      },
+      {
+        "user": "confirmo",
+        "bot": "Reporte SC-000030 creado correctamente.",
+        "action": "incident_created",
+        "data": {
+          "area": "Redes",
+          "unit": "Sala técnica",
+          "priority": "medium",
+          "equipment": "Router principal",
+          "description": "El router principal ubicado en la sala técnica se encuentra sin conexión. Además impide enviar material de producción; usamos un respaldo.",
+          "failure_type": "Sin conexión",
+          "asset_category": "networks",
+          "location_context": "Sala técnica",
+          "operational_impact": "Impide enviar material de producción; uso de equipo de respaldo."
+        },
+        "missing": null
+      }
+    ],
+    "issues": [],
+    "extracted": {
+      "area": "Redes",
+      "unit": "Sala técnica",
+      "priority": "medium",
+      "equipment": "Router principal",
+      "description": "El router principal ubicado en la sala técnica se encuentra sin conexión. Además impide enviar material de producción; usamos un respaldo.",
+      "failure_type": "Sin conexión",
+      "asset_category": "networks",
+      "location_context": "Sala técnica",
+      "operational_impact": "Impide enviar material de producción; uso de equipo de respaldo."
+    },
+    "code": "SC-000030",
+    "incident_id": 30,
+    "persisted": {
+      "area": "Redes",
+      "location_context": "Sala técnica",
+      "equipment": "Router principal",
+      "asset_category": "networks",
+      "priority": "medium"
+    },
+    "status": "reported",
+    "created_at": "2026-10-19T11:36:40.005462+00:00",
+    "dashboard_api_status": 200,
+    "trace_messages": 4,
+    "result": "Aprobado"
+  }
+]

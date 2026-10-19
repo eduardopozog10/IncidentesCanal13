@@ -9,6 +9,7 @@ from incidents.models import (
     ChannelMessage,
     Incident,
     IncidentDraft,
+    Technician,
 )
 from incidents.services.incident_notification_service import (
     send_incident_created_email,
@@ -255,8 +256,9 @@ class IncidentProcessor:
         "esta mal",
     }
 
-    def __init__(self, ai_provider=None):
+    def __init__(self, ai_provider=None, *, require_delivered_summary=False):
         self.ai_provider = ai_provider or get_ai_provider()
+        self.require_delivered_summary = require_delivered_summary
 
     @transaction.atomic
     def process(self, message: ChannelMessage):
@@ -264,6 +266,10 @@ class IncidentProcessor:
             raise ValueError(
                 "El mensaje debe estar asociado a un reportante."
             )
+
+        # Bloquear al reportante, incluso antes de que exista un borrador.
+        # Así se serializan webhooks, polling y confirmaciones concurrentes.
+        Technician.objects.select_for_update().get(pk=message.technician_id)
 
         message.status = ChannelMessage.Status.PROCESSING
         message.save(update_fields=["status"])
@@ -279,6 +285,32 @@ class IncidentProcessor:
             .order_by("-updated_at")
             .first()
         )
+
+        normalized_message = self._normalize_quick_text(message.content)
+        if draft is None and normalized_message in self.CONFIRMATION_POSITIVE:
+            last_draft = IncidentDraft.objects.filter(
+                technician=message.technician,
+            ).order_by("-updated_at").first()
+            incident = (
+                last_draft.incident
+                if last_draft and last_draft.status == IncidentDraft.Status.COMPLETED
+                else None
+            )
+            message.draft = last_draft if incident else None
+            message.incident = incident
+            message.status = ChannelMessage.Status.PROCESSED
+            message.processed_at = timezone.now()
+            message.save(update_fields=["draft", "incident", "status", "processed_at"])
+            return {
+                "action": "incident_already_created" if incident else "conversation",
+                "incident_created": False,
+                "incident_code": incident.code if incident else None,
+                "reply": (
+                    f"El reporte {incident.code} ya fue creado. Puedes contarme otra falla si necesitas un nuevo reporte."
+                    if incident else
+                    "Primero cuéntame qué falla necesitas reportar. Revisaremos el resumen antes de crear el incidente."
+                ),
+            }
 
         if (
             draft is not None
@@ -370,6 +402,8 @@ class IncidentProcessor:
         correction_mode = self._is_draft_correction_mode(
             draft
         )
+        if draft is not None and self._looks_like_natural_correction_statement(message.content):
+            correction_mode = True
 
         direct_draft_result = self._try_process_direct_draft_reply(
             draft=draft,
@@ -456,13 +490,23 @@ class IncidentProcessor:
                     message=ai_message,
                     previous_data=previous_data,
                 )
-            except TimeoutError:
+            except (TimeoutError, ValueError, ConnectionError):
                 return self._handle_ai_timeout(
                     message=message,
                     draft=draft,
                     previous_data=previous_data,
                     pending_messages=pending_messages,
                 )
+
+            if not previous_data.get("priority") and extraction.priority:
+                declared = {
+                    self._extract_explicit_priority(text)
+                    for text in [message.content, *pending_messages]
+                }
+                if extraction.priority not in declared:
+                    # El proveedor no puede decidir una prioridad sin una
+                    # declaración explícita del reportante.
+                    extraction.priority = None
 
             if (
                 extraction.intent == "conversation"
@@ -497,6 +541,8 @@ class IncidentProcessor:
                         previous_data=previous_data,
                     )
                 )
+                if self._contains_multiple_fields(message.content):
+                    correction_target_field = None
 
                 (
                     extracted_data,
@@ -616,6 +662,12 @@ class IncidentProcessor:
         if equipment_was_generic:
             extracted_data["equipment"] = None
 
+        ambiguous_equipment = self._has_equipment_alternatives(
+            extracted_data.get("equipment")
+        )
+        if ambiguous_equipment:
+            extracted_data["equipment"] = None
+
         location_context = (
             extracted_data.get("location_context")
             or extracted_data.get("unit")
@@ -646,17 +698,30 @@ class IncidentProcessor:
         ):
             extracted_data["priority"] = None
 
-        missing_fields = [
-            field_name
-            for field_name in self.REQUIRED_FIELDS
-            if not extracted_data.get(field_name)
-        ]
+        # Los límites de modelos y sus opciones se validan en Django,
+        # independientemente del esquema que declare el proveedor.
+        for field_name in self.REQUIRED_FIELDS:
+            value = extracted_data.get(field_name)
+            model_field = Incident._meta.get_field(field_name)
+            if value is not None and (
+                not isinstance(value, str)
+                or not value.strip()
+                or (model_field.max_length and len(value) > model_field.max_length)
+            ):
+                extracted_data[field_name] = None
+        if extracted_data.get("asset_category") not in Incident.AssetCategory.values:
+            extracted_data["asset_category"] = None
+        unit_value = extracted_data.get("unit")
+        if not isinstance(unit_value, str) or len(unit_value) > Incident._meta.get_field("unit").max_length:
+            extracted_data["unit"] = extracted_data.get("location_context")
+        missing_fields = [name for name in self.REQUIRED_FIELDS if not extracted_data.get(name)]
 
-        if equipment_was_generic:
+        if ambiguous_equipment:
+            clarification_question = "¿Cuál de los equipos presenta la falla? Confirma su número o identificador."
+        elif equipment_was_generic:
             clarification_question = (
-                "Necesito identificar con mayor precisión "
-                f"qué {str(generic_equipment).lower()} está afectada. "
-                "Indica su número, nombre o identificador. "
+                f"Para identificar {str(generic_equipment).lower()}, "
+                "¿puedes indicar su número, nombre o identificador? "
                 f"Por ejemplo: {generic_equipment} 3."
             )
 
@@ -669,6 +734,11 @@ class IncidentProcessor:
             clarification_question = self.FALLBACK_QUESTIONS[
                 missing_fields[0]
             ]
+
+        if missing_fields and clarification_question:
+            questioned_field = self._infer_expected_field_from_last_question(clarification_question)
+            if questioned_field and questioned_field not in missing_fields:
+                clarification_question = self.FALLBACK_QUESTIONS[missing_fields[0]]
 
         # Mostrar ejemplos solamente cuando no exista una
         # aclaración más específica para la respuesta recibida.
@@ -826,6 +896,45 @@ class IncidentProcessor:
         )
 
         if normalized_message in self.CONFIRMATION_POSITIVE:
+            invalid = [name for name in self.REQUIRED_FIELDS if not draft.extracted_data.get(name)]
+            for name in self.REQUIRED_FIELDS:
+                value = draft.extracted_data.get(name)
+                field = Incident._meta.get_field(name)
+                if value and (not isinstance(value, str) or (field.max_length and len(value) > field.max_length)):
+                    invalid.append(name)
+            if draft.extracted_data.get("priority") not in Incident.Priority.values:
+                invalid.append("priority")
+            if self._has_equipment_alternatives(draft.extracted_data.get("equipment")):
+                invalid.append("equipment")
+            if invalid:
+                draft.status = IncidentDraft.Status.COLLECTING
+                draft.missing_fields = list(dict.fromkeys(invalid))
+                draft.last_question = self.FALLBACK_QUESTIONS[draft.missing_fields[0]]
+                draft.save(update_fields=["status", "missing_fields", "last_question", "updated_at"])
+                message.draft = draft
+                message.status = ChannelMessage.Status.PROCESSED
+                message.processed_at = timezone.now()
+                message.save(update_fields=["draft", "status", "processed_at"])
+                return {"action": "ask_clarification", "incident_created": False, "draft_id": draft.pk,
+                        "missing_fields": draft.missing_fields, "reply": draft.last_question}
+            if self.require_delivered_summary and not ChannelMessage.objects.filter(
+                provider=message.provider,
+                draft=draft,
+                direction=ChannelMessage.Direction.OUTBOUND,
+                status=ChannelMessage.Status.SENT,
+                content=draft.last_question,
+            ).exists():
+                # READY significa datos válidos. En Telegram, la confirmación
+                # también exige haber entregado ese mismo resumen completo.
+                reply = self._build_confirmation_reply(draft.extracted_data)
+                draft.last_question = reply
+                draft.save(update_fields=["last_question", "updated_at"])
+                message.draft = draft
+                message.status = ChannelMessage.Status.PROCESSED
+                message.processed_at = timezone.now()
+                message.save(update_fields=["draft", "status", "processed_at"])
+                return {"action": "ask_clarification", "incident_created": False,
+                        "draft_id": draft.pk, "missing_fields": [], "reply": reply}
             return self._create_incident_from_draft(
                 message=message,
                 draft=draft,
@@ -1091,6 +1200,9 @@ class IncidentProcessor:
         correction_markers = (
             "no era ",
             "no es ",
+            "no esta ",
+            "revise ",
+            "ademas afecta ",
             "en realidad",
             "me equivoque",
             "quise decir",
@@ -1251,6 +1363,9 @@ class IncidentProcessor:
             "operational_impact": extraction.operational_impact,
             "priority": extraction.priority,
         }
+        declared_priority = self._extract_explicit_priority(message_text)
+        if declared_priority:
+            candidate_values["priority"] = declared_priority
 
         structural_fields = (
             "area",
@@ -1900,6 +2015,11 @@ class IncidentProcessor:
         if draft is None:
             return None
 
+        # Una respuesta con varios datos debe extraerse completa. Los atajos
+        # de un campo no deben consumir también ubicación, impacto o prioridad.
+        if self._contains_multiple_fields(text):
+            return None
+
         normalized_text = (
             self._normalize_quick_text(text)
         )
@@ -2473,6 +2593,12 @@ class IncidentProcessor:
 
         return normalized_value in generic_equipment_values
 
+    def _has_equipment_alternatives(self, value):
+        if not isinstance(value, str):
+            return False
+        text = self._normalize_quick_text(value)
+        return bool(re.search(r"\b(?:o|u)\b", text))
+
     def _is_ambiguous_equipment_reply(
         self,
         value: str,
@@ -2636,6 +2762,14 @@ class IncidentProcessor:
             )
         )
 
+        # «Impacto ... Prioridad media» o una corrección con dos categorías
+        # contiene más información que una respuesta corta de prioridad.
+        priority_clause = re.search(r"\bprioridad\s+(?:(?:es|correcta)\s+)*(?:baja|media|alta|critica)\b", normalized_text)
+        if priority_clause and len(normalized_text.split()) > 9:
+            return True
+        if re.search(r"\b(?:camara|microfono|router|consola)\b", normalized_text) and re.search(r"\b(?:estudio|movil|sala)\b", normalized_text):
+            return True
+
         if (
             self._is_valid_direct_field_value(
                 field_name="equipment",
@@ -2668,6 +2802,23 @@ class IncidentProcessor:
         )
 
         return detected_markers >= 2
+
+    def _contains_multiple_fields(self, text):
+        """Detectar datos independientes, conservando nombres como Cámara de sala prensa."""
+        normalized = self._normalize_quick_text(text)
+        has_priority = bool(re.search(r"\bprioridad\b", normalized))
+        has_asset = bool(re.search(r"\b(?:camara|microfono|router|consola|switcher|encoder)\s+\w+", normalized))
+        has_location = bool(re.search(r"\b(?:estudio|movil|sala)\s+\d+\b|\bsala tecnica\b", normalized))
+        has_impact = bool(re.search(r"\b(?:impide|afecta|obliga|detiene|usamos|podemos|impacto)\b", normalized))
+        has_area = bool(re.search(r"\barea\b", normalized))
+        has_failure = bool(re.search(r"\b(?:intermitente|corta|enciende)\b|\bsin (?:audio|imagen|conexion)\b", normalized))
+        if has_area and not (has_priority or has_asset or has_impact):
+            correction = self._extract_explicit_field_correction(text)
+            if correction and correction[0] == "area":
+                # «El área correcta es Estudio 12» requiere la guía existente
+                # que diferencia área de ubicación, no una consulta a Gemini.
+                return False
+        return sum([has_priority, has_asset, has_location, has_impact, has_area, has_failure]) >= 2
 
     def _infer_expected_field_from_last_question(
         self,
@@ -3628,10 +3779,19 @@ class IncidentProcessor:
         self,
         text: str,
     ) -> str | None:
+        # Ignorar preguntas, conservando una declaración independiente:
+        # «¿Puedes ayudarme? La prioridad es alta» sí declara Alta.
+        text = re.sub(r"¿[^?]*(?:\?|$)|[^.!?¿]*\?", " ", text)
+        if not text.strip():
+            return None
         normalized_text = (
             self._normalize_quick_text(
                 text
             )
+        )
+        normalized_text = re.sub(
+            r"\bno\s+(?:(?:es|era|sea|la|de|prioridad)\s+)*(?:baja|media|alta|critica|low|medium|high|critical)\b",
+            "", normalized_text,
         )
 
         priority_words = {
