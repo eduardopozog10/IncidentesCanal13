@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     IncidentAnalyticsView,
     IncidentDetailView,
+    IncidentHistoryView,
     IncidentListView,
     IncidentSummaryView,
     IncomingTextMessageTestView,
@@ -13,6 +14,7 @@ from .views import (
 app_name = "incidents"
 
 urlpatterns = [
+    path("incidents/<int:pk>/history/", IncidentHistoryView.as_view(), name="incident-history"),
     path(
         "incidents/",
         IncidentListView.as_view(),

@@ -1,8 +1,10 @@
 from django.contrib import admin
+from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin, GroupAdmin
 from django.contrib.auth.models import Group
 from django.core.exceptions import PermissionDenied
+from django.db import transaction
 
 from .access import ROLE_GROUPS, can
 
@@ -10,6 +12,7 @@ from .models import (
     ChannelMessage,
     Incident,
     IncidentDraft,
+    MANAGEMENT_NOTE_MAX_LENGTH,
     Technician,
     TechnicianChannel,
 )
@@ -84,8 +87,35 @@ class TechnicianChannelAdmin(admin.ModelAdmin):
     list_per_page = 25
 
 
+class IncidentManagementForm(forms.ModelForm):
+    observation = forms.CharField(label="Observación de gestión", required=False,
+        max_length=MANAGEMENT_NOTE_MAX_LENGTH, widget=forms.Textarea(attrs={"rows": 3}),
+        help_text="Opcional. Se guardará con los cambios operativos realizados (máximo 1000 caracteres).")
+
+    class Meta:
+        model = Incident
+        fields = "__all__"
+
+
 @admin.register(Incident)
 class IncidentAdmin(admin.ModelAdmin):
+    form = IncidentManagementForm
+
+    def save_model(self, request, obj, form, change):
+        if not change:
+            return super().save_model(request, obj, form, change)
+        with transaction.atomic():
+            current = Incident.objects.select_for_update().get(pk=obj.pk)
+            fields = [field.name for field in obj._meta.fields if field.name in form.changed_data]
+            for name in fields:
+                setattr(current, name, getattr(obj, name))
+            if fields:
+                current.save(update_fields=[*fields, "updated_at"], history_actor=request.user,
+                             history_note=form.cleaned_data.get("observation", ""), history_source="admin")
+            # Mantener el objeto que Django utiliza para log y respuesta al día.
+            for field in obj._meta.concrete_fields:
+                setattr(obj, field.attname, getattr(current, field.attname))
+
     def has_view_permission(self, request, obj=None):
         return can(request.user, "view_incident")
 
@@ -158,6 +188,7 @@ class IncidentAdmin(admin.ModelAdmin):
                     "technician",
                     "status",
                     "priority",
+                    "observation",
                 )
             },
         ),

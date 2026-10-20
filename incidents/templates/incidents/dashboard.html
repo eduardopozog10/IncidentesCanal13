@@ -42,7 +42,7 @@
     rel="stylesheet"
     href="{% static 'incidents/dashboard.css' %}?v=20261019"
   >
-  <link rel="stylesheet" href="{% static 'incidents/operations.css' %}?v=20261019">
+  <link rel="stylesheet" href="{% static 'incidents/operations.css' %}?v=20261020-history">
 </head>
 <body>
   <a class="skip-link" href="#main-content">Ir al contenido</a>
@@ -4035,12 +4035,24 @@
               role="status"
               aria-live="polite"
             ></span>
+            <label class="incident-observation" for="incident-observation">
+              <span>Observación de gestión <small>(opcional)</small></span>
+              <textarea id="incident-observation" rows="3" maxlength="1000"
+                placeholder="Describe la revisión o el motivo del cambio."></textarea>
+              <small>Máximo 1000 caracteres. Se guardará al cambiar el estado.</small>
+            </label>
           </div>
           {% endif %}
           {% if management_permissions.change_incident_priority %}
           <p><a class="detail-priority-link" href="/admin/incidents/incident/${Number(incident.id)}/change/">Ajustar prioridad en el formulario de gestión</a></p>
           {% endif %}
+          <section class="incident-history" aria-labelledby="incident-history-title">
+            <h3 id="incident-history-title">Historial de cambios</h3>
+            <div id="incident-history-content" aria-live="polite">Cargando historial…</div>
+          </section>
         `;
+
+        loadIncidentHistory(incident.id);
 
         const managementDetailPanel = (
           incidentDetail.closest(
@@ -4197,6 +4209,7 @@
             body: JSON.stringify(
               {
                 status: newStatus,
+                observation: document.getElementById("incident-observation").value,
               }
             ),
           }
@@ -4233,6 +4246,60 @@
         );
 
         updateButton.disabled = false;
+      }
+    }
+
+    async function loadIncidentHistory(incidentId, page = 1) {
+      const container = document.getElementById("incident-history-content");
+      if (!container) return;
+      try {
+        const response = await fetch(`/api/v1/incidents/${Number(incidentId)}/history/?page=${page}`, {cache: "no-store"});
+        if (!response.ok) throw new Error("No fue posible cargar el historial.");
+        const data = await response.json();
+        if (Number(selectedIncidentId) !== Number(incidentId) || !container.isConnected) return;
+        container.replaceChildren();
+        if (!data.count) {
+          container.textContent = "No se han registrado cambios de gestión para esta incidencia";
+          return;
+        }
+        const list = document.createElement("ol");
+        list.className = "incident-history-list";
+        for (const event of data.results) {
+          const item = document.createElement("li");
+          const addText = (tag, className, text) => {
+            const node = document.createElement(tag);
+            node.className = className;
+            node.textContent = text;
+            item.append(node);
+            return node;
+          };
+          const time = addText("time", "history-date", new Intl.DateTimeFormat("es-CL", {
+            timeZone: "America/Santiago", dateStyle: "medium", timeStyle: "short",
+          }).format(new Date(event.created_at)));
+          time.dateTime = event.created_at;
+          addText("strong", "history-action", event.action_display);
+          addText("span", "history-actor", `${event.actor_label} · ${event.source_display}`);
+          addText("p", "history-values", `${event.field_display}: ${event.old_display || "Sin valor"} → ${event.new_display || "Sin valor"}`);
+          if (event.observation) addText("p", "history-note", event.observation);
+          list.append(item);
+        }
+        container.append(list);
+        if (data.previous || data.next) {
+          const nav = document.createElement("nav");
+          nav.className = "history-pagination";
+          nav.setAttribute("aria-label", "Páginas del historial");
+          for (const [label, enabled, destination] of [["Anterior", data.previous, page - 1], ["Siguiente", data.next, page + 1]]) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.textContent = label;
+            button.disabled = !enabled;
+            button.addEventListener("click", () => loadIncidentHistory(incidentId, destination));
+            nav.append(button);
+          }
+          container.append(nav);
+        }
+      } catch (error) {
+        if (container.isConnected) container.textContent = "No fue posible cargar el historial. Vuelve a abrir la incidencia para reintentar.";
       }
     }
 

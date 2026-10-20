@@ -1,6 +1,16 @@
 import uuid
 
-from django.db import models
+from django.conf import settings
+from django.core.exceptions import ValidationError
+from django.db import models, router, transaction
+
+
+MANAGEMENT_NOTE_MAX_LENGTH = 1000
+# Datos operativos, nunca payloads del canal, contraseñas ni mensajes originales.
+INCIDENT_HISTORY_FIELDS = (
+    "status", "priority", "technician", "unit", "area", "location_context",
+    "asset_category", "equipment", "failure_type", "description", "operational_impact",
+)
 
 
 class Technician(models.Model):
@@ -237,6 +247,83 @@ class Incident(models.Model):
 
     def __str__(self):
         return f"{self.code} - {self.equipment}"
+
+    def save(self, *args, history_actor=None, history_note="", history_source="internal", **kwargs):
+        # La creación (incluido Telegram) no es un cambio de gestión.
+        if self.pk is None:
+            return super().save(*args, **kwargs)
+        if len(history_note) > MANAGEMENT_NOTE_MAX_LENGTH:
+            raise ValidationError("La observación no puede superar 1000 caracteres.")
+        if history_source not in IncidentChange.Source.values:
+            raise ValidationError("Origen del cambio no válido.")
+        using = kwargs.get("using") or router.db_for_write(type(self), instance=self)
+        with transaction.atomic(using=using):
+            previous = type(self).objects.using(using).select_for_update().filter(pk=self.pk).first()
+            if previous is None:
+                return super().save(*args, **kwargs)
+            update_fields = kwargs.get("update_fields")
+            changes = []
+            for name in INCIDENT_HISTORY_FIELDS:
+                field = self._meta.get_field(name)
+                if update_fields is not None and not {name, field.attname}.intersection(update_fields):
+                    continue
+                old, new = getattr(previous, field.attname), getattr(self, field.attname)
+                if old != new:
+                    # Conservar también el nombre histórico del reportante.
+                    if name == "technician":
+                        old, new = f"{previous.technician} [{old}]", f"{self.technician} [{new}]"
+                    changes.append((name, str(old), str(new)))
+            result = super().save(*args, **kwargs)
+            actor = history_actor if history_actor and history_actor.is_authenticated else None
+            label = "Sistema / proceso interno"
+            if actor:
+                full_name = actor.get_full_name().strip()
+                label = f"{full_name} (@{actor.get_username()})" if full_name else actor.get_username()
+            IncidentChange.objects.using(using).bulk_create([
+                IncidentChange(
+                    incident=self, actor=actor, actor_label=label, field=name,
+                    action={"status": "status_changed", "priority": "priority_changed"}.get(name, "field_changed"),
+                    old_value=old, new_value=new, observation=history_note.strip(), source=history_source,
+                ) for name, old, new in changes
+            ])
+            return result
+
+
+class IncidentChange(models.Model):
+    class Source(models.TextChoices):
+        DASHBOARD = "dashboard", "Dashboard"
+        ADMIN = "admin", "Administración Django"
+        INTERNAL = "internal", "Proceso interno"
+
+    class Action(models.TextChoices):
+        STATUS = "status_changed", "Cambio de estado"
+        PRIORITY = "priority_changed", "Cambio de prioridad"
+        FIELD = "field_changed", "Cambio de información operativa"
+
+    incident = models.ForeignKey(Incident, on_delete=models.PROTECT, related_name="changes", editable=False)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, editable=False)
+    actor_label = models.CharField(max_length=512, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    action = models.CharField(max_length=24, choices=Action.choices, editable=False)
+    field = models.CharField(max_length=30, editable=False)
+    old_value = models.TextField(editable=False)
+    new_value = models.TextField(editable=False)
+    observation = models.CharField(max_length=MANAGEMENT_NOTE_MAX_LENGTH, blank=True, editable=False)
+    source = models.CharField(max_length=16, choices=Source.choices, editable=False)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        indexes = [models.Index(fields=["incident", "-created_at", "-id"], name="incident_history_recent")]
+        default_permissions = ()
+        verbose_name = "cambio de incidencia"
+        verbose_name_plural = "cambios de incidencias"
+
+    @property
+    def field_display(self):
+        return str(Incident._meta.get_field(self.field).verbose_name).capitalize()
+
+    def display_value(self, value):
+        return str(dict(Incident._meta.get_field(self.field).flatchoices).get(value, value))
 
 
 class IncidentNotification(models.Model):

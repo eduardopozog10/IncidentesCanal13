@@ -3,6 +3,10 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.http import Http404
+from django.db import transaction
+from django.shortcuts import get_object_or_404
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import never_cache
 
 from django.db.models import (
     Avg,
@@ -17,6 +21,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAdminUser
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -24,6 +29,7 @@ from incidents.models import Incident
 from incidents.access import CanViewIncidents, CanViewAnalytics, CanUseIncidentDetail, CanUseMessageTest
 from incidents.serializers import (
     IncidentSerializer,
+    IncidentChangeSerializer,
     IncidentStatusUpdateSerializer,
     IncomingTextMessageSerializer,
 )
@@ -634,10 +640,10 @@ class IncidentDetailView(generics.RetrieveAPIView):
     serializer_class = IncidentSerializer
 
     def get_queryset(self):
-        return Incident.objects.select_related(
-            "technician"
-        )
+        queryset = Incident.objects.select_related("technician")
+        return queryset.select_for_update(of=("self",)) if self.request.method == "PATCH" else queryset
 
+    @transaction.atomic
     def patch(self, request, *args, **kwargs):
         incident = self.get_object()
 
@@ -657,6 +663,9 @@ class IncidentDetailView(generics.RetrieveAPIView):
             incident.resolved_at = None
 
         incident.save(
+            history_actor=request.user,
+            history_note=serializer.validated_data.get("observation", ""),
+            history_source="dashboard",
             update_fields=[
                 "status",
                 "resolved_at",
@@ -672,6 +681,21 @@ class IncidentDetailView(generics.RetrieveAPIView):
             response_serializer.data,
             status=status.HTTP_200_OK,
         )
+
+
+class IncidentHistoryPagination(PageNumberPagination):
+    page_size = 20
+
+
+@method_decorator(never_cache, name="dispatch")
+class IncidentHistoryView(generics.ListAPIView):
+    permission_classes = [CanViewIncidents]
+    serializer_class = IncidentChangeSerializer
+    pagination_class = IncidentHistoryPagination
+
+    def get_queryset(self):
+        incident = get_object_or_404(Incident, pk=self.kwargs["pk"])
+        return incident.changes.all()
 
 
 class IncomingTextMessageTestView(APIView):

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from incidents.models import Incident, TechnicianChannel
+from incidents.models import Incident, IncidentChange, MANAGEMENT_NOTE_MAX_LENGTH, TechnicianChannel
 
 
 class IncomingTextMessageSerializer(serializers.Serializer):
@@ -117,11 +117,33 @@ class IncidentSerializer(serializers.ModelSerializer):
 
 
 class IncidentStatusUpdateSerializer(serializers.Serializer):
+    observation = serializers.CharField(max_length=MANAGEMENT_NOTE_MAX_LENGTH, required=False, allow_blank=True)
     status = serializers.ChoiceField(
         choices=Incident.Status.choices,
     )
 
     def validate(self, attrs):
-        if set(self.initial_data) - {"status"}:
+        if set(self.initial_data) - {"status", "observation"}:
             raise serializers.ValidationError("Esta operación solo permite actualizar el estado.")
         return attrs
+
+
+class IncidentChangeSerializer(serializers.ModelSerializer):
+    action_display = serializers.CharField(source="get_action_display", read_only=True)
+    source_display = serializers.CharField(source="get_source_display", read_only=True)
+    field_display = serializers.CharField(read_only=True)
+    old_display = serializers.SerializerMethodField()
+    new_display = serializers.SerializerMethodField()
+
+    class Meta:
+        model = IncidentChange
+        fields = ("id", "incident_id", "created_at", "actor_label", "action", "action_display", "field",
+                  "field_display", "old_value", "new_value", "old_display", "new_display",
+                  "observation", "source", "source_display")
+        read_only_fields = fields
+
+    def get_old_display(self, obj):
+        return obj.display_value(obj.old_value)
+
+    def get_new_display(self, obj):
+        return obj.display_value(obj.new_value)

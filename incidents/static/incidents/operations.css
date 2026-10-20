@@ -1,5 +1,23 @@
 /* Secuoya Chile · sistema visual operacional.
    Paleta de producto basada en el repositorio; no es un manual corporativo. */
+.incident-observation { display: grid; grid-column: 1 / -1; gap: 8px; min-width: 0; font-size: 13px; color: var(--text-secondary); }
+.incident-observation small { color: var(--text-muted); font-weight: 400; }
+.incident-observation textarea { box-sizing: border-box; width: 100%; min-width: 0; resize: vertical; padding: 11px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-muted); color: var(--text); font: inherit; }
+.incident-observation textarea:focus-visible, .history-pagination button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.incident-history { margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--border); }
+.incident-history h3 { margin: 0 0 20px; font-size: 17px; }
+.incident-history-list { margin: 0 0 0 6px; padding: 0 0 0 23px; list-style: none; border-left: 1px solid var(--border-strong); }
+.incident-history-list li { position: relative; display: grid; gap: 7px; min-width: 0; padding: 0 0 24px; }
+.incident-history-list li::before { content: ""; position: absolute; left: -28px; top: 5px; width: 8px; height: 8px; border: 2px solid var(--surface); border-radius: 50%; background: var(--accent); }
+.history-date, .history-actor { font-size: 12px; color: var(--text-muted); }
+.history-action { color: var(--text); font-size: 14px; }
+.history-values, .history-note { margin: 0; font-size: 13px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.history-values { color: var(--text-secondary); }
+.history-note { padding: 10px 12px; border-left: 2px solid var(--accent); border-radius: 0 8px 8px 0; background: var(--surface-muted); color: var(--text); }
+.history-pagination { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+.history-pagination button { padding: 9px 14px; border: 1px solid var(--border-strong); border-radius: 9px; background: var(--surface-muted); color: var(--text); cursor: pointer; }
+.history-pagination button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.history-pagination button:disabled { opacity: .45; cursor: default; }
 :root {
   --bg: #07151e;
   --bg-soft: #0a1c27;
