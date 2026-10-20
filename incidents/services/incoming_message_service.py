@@ -9,6 +9,7 @@ from incidents.models import (
     Technician,
     TechnicianChannel,
 )
+from incidents.ai.base import AIConfigurationError
 from incidents.services.incident_processor import IncidentProcessor
 from incidents.services.conversation_lock import conversation_lock
 
@@ -19,6 +20,18 @@ class ChannelNotAuthorizedError(Exception):
 
 class IncomingMessageService:
     MAX_PROCESSING_ATTEMPTS = 3
+    RETRY_DELAY_SECONDS = 30
+
+    @classmethod
+    def retry_delay(cls):
+        return getattr(settings, "PILOT_MESSAGE_RETRY_SECONDS", cls.RETRY_DELAY_SECONDS)
+
+    @staticmethod
+    def retry_is_due(message):
+        # El resultado temporal se guarda en el JSON existente. No es una
+        # respuesta confirmada y sobrevive al reinicio del receptor.
+        retry_at = message.processing_result.get("_retry_not_before", 0)
+        return not isinstance(retry_at, (int, float)) or retry_at <= timezone.now().timestamp()
 
     @staticmethod
     def _failure_reply():
@@ -36,7 +49,7 @@ class IncomingMessageService:
             channel_account__technician_id=F("technician_id"),
         ).annotate(final_reply=Exists(final_reply)).filter(
             Q(status="processing")
-            | Q(status__in=["received", "failed"], processing_attempts__lt=3)
+            | (Q(status__in=["received", "failed"]) & ~Q(processing_result__has_key="reply"))
             | Q(processing_result__has_key="reply", final_reply=False)
         )
     @staticmethod
@@ -216,12 +229,15 @@ class IncomingMessageService:
                 "status": ChannelMessage.Status.RECEIVED,
             },
         )
-        with conversation_lock(f"reporter:{channel_account.technician_id}"):
+        self._validate_message_owner(message, channel_account, external_chat_id)
+        with conversation_lock(f"reporter:{channel_account.technician_id}", wait=not trusted_telegram) as acquired:
+            if not acquired:
+                return {"duplicate": not created, "message": message, "processing": None, "pending": True}
             message.refresh_from_db()
             self._validate_message_owner(message, channel_account, external_chat_id)
             # Reutilizar siempre el contenido persistido, no el cuerpo de un replay.
             incomplete_timeout = trusted_telegram and message.processing_result.get("action") == "ai_timeout"
-            if message.status == ChannelMessage.Status.PROCESSED and not incomplete_timeout:
+            if (message.status == ChannelMessage.Status.PROCESSED or "reply" in message.processing_result) and not incomplete_timeout:
                 return {"duplicate": True, "message": message, "processing": None,
                         "cached_processing": message.processing_result or None}
             if message.incident_id:
@@ -232,18 +248,22 @@ class IncomingMessageService:
                 ChannelMessage.objects.filter(pk=message.pk).update(status="processed", processing_result=result)
                 return {"duplicate": True, "message": message, "processing": result}
             if message.processing_attempts >= self.MAX_PROCESSING_ATTEMPTS:
-                if message.status == "processing" or incomplete_timeout:
+                if "reply" not in message.processing_result or incomplete_timeout:
                     result = self._failure_reply()
-                    ChannelMessage.objects.filter(pk=message.pk).update(status="failed", processing_result=result, error_message="InterruptedProcessing")
+                    ChannelMessage.objects.filter(pk=message.pk).update(status="failed", processing_result=result, error_message=message.error_message or "InterruptedProcessing")
                     return {"duplicate": False, "message": message, "processing": result}
                 return {"duplicate": True, "message": message, "processing": message.processing_result or None}
+            if trusted_telegram and not self.retry_is_due(message):
+                return {"duplicate": not created, "message": message, "processing": None, "pending": True}
             if trusted_telegram and self.recoverable_messages().filter(
                 technician=message.technician, pk__lt=message.pk,
             ).exists():
                 return {"duplicate": not created, "message": message, "processing": None, "pending": True}
             message.processing_attempts += 1
             message.status = ChannelMessage.Status.PROCESSING
-            message.save(update_fields=["processing_attempts", "status"])
+            if trusted_telegram:
+                message.processing_result = {"_retry_not_before": timezone.now().timestamp() + self.retry_delay()}
+            message.save(update_fields=["processing_attempts", "status", "processing_result"])
             try:
                 if command_handler is not None:
                     with transaction.atomic():
@@ -263,9 +283,12 @@ class IncomingMessageService:
                 message.status = ChannelMessage.Status.FAILED
                 message.error_message = type(error).__name__
                 result = None
-                if trusted_telegram and message.processing_attempts >= self.MAX_PROCESSING_ATTEMPTS:
+                if trusted_telegram and (message.processing_attempts >= self.MAX_PROCESSING_ATTEMPTS or isinstance(error, AIConfigurationError)):
                     result = self._failure_reply()
-                message.processing_result = result or {}
+                    if isinstance(error, AIConfigurationError):
+                        result["reply"] = "No pude procesar el mensaje por un problema de configuración del proveedor. Quedó conservado para revisión; no se registró una nueva incidencia."
+                delay = max(self.retry_delay(), getattr(error, "retry_after", 0))
+                message.processing_result = result or {"_retry_not_before": timezone.now().timestamp() + delay}
                 message.save(update_fields=["status", "error_message", "processing_result"])
                 if not trusted_telegram:
                     raise

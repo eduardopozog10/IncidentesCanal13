@@ -1,5 +1,6 @@
 import json
 import logging
+import threading
 import time
 
 import httpx
@@ -7,7 +8,7 @@ from django.conf import settings
 from google import genai
 from google.genai import types
 
-from .base import AIProvider
+from .base import AIConfigurationError, AIProvider, AITemporaryError, AIUnavailableError
 from .schemas import IncidentExtractionResult
 
 
@@ -27,6 +28,7 @@ class GeminiAIProvider(AIProvider):
 
     TOTAL_TIMEOUT_SECONDS = 45.0
     FIRST_ATTEMPT_TIMEOUT_SECONDS = 30.0
+    COOLDOWN_SECONDS = 60
 
     RESPONSE_SCHEMA = {
         "type": "object",
@@ -119,6 +121,18 @@ class GeminiAIProvider(AIProvider):
                     "dato faltante del incidente."
                 ),
             },
+            "update_kind": {
+                "type": "string",
+                "enum": ["none", "correction", "evolution", "additional", "ambiguous", "new_incident"],
+            },
+            "field_evidence": {
+                "type": "object",
+                "properties": {name: {"type": ["string", "null"]} for name in (
+                    "area", "location_context", "equipment", "failure_type",
+                    "description", "operational_impact", "priority",
+                )},
+                "description": "Cita literal del mensaje actual que respalda cada dato nuevo o corregido; null si solo se conserva del contexto.",
+            },
         },
         "required": [
             "intent",
@@ -133,16 +147,22 @@ class GeminiAIProvider(AIProvider):
             "operational_impact",
             "priority",
             "clarification_question",
+            "update_kind",
+            "field_evidence",
         ],
     }
 
     def __init__(self):
         if not settings.GEMINI_API_KEY:
-            raise ValueError(
+            raise AIConfigurationError(
                 "GEMINI_API_KEY no está configurada."
             )
 
         self.model = settings.GEMINI_MODEL
+        self._request_lock = threading.Lock()
+        self._request_thread = None
+        self._request_completed = None
+        self._cooldown_until = 0
 
         self.client = genai.Client(
             api_key=settings.GEMINI_API_KEY,
@@ -152,6 +172,10 @@ class GeminiAIProvider(AIProvider):
                 ),
             ),
         )
+        # El cliente padre convierte 0 a 1; el puente Interactions interpreta
+        # ese 1 como UN reintento. Desactivar esa capa explícitamente en la
+        # configuración del recurso generado (ver test de transporte real).
+        self.client.interactions.sdk_configuration.retry_config.max_retries = 0
 
     def extract_incident(
         self,
@@ -186,11 +210,23 @@ class GeminiAIProvider(AIProvider):
         if not isinstance(response_data, dict):
             raise ValueError("Gemini debe devolver un objeto JSON.")
         for field_name in self.RESPONSE_SCHEMA["properties"]:
+            if field_name == "field_evidence":
+                continue
             value = response_data.get(field_name)
             if value is not None and not isinstance(value, str):
                 raise ValueError(f"Tipo inválido en el campo {field_name} de Gemini.")
         if response_data.get("intent") not in {"incident_report", "incident_followup", "conversation"}:
             raise ValueError("Intención inválida de Gemini.")
+        update_kind = response_data.get("update_kind")
+        if update_kind is not None and update_kind not in self.RESPONSE_SCHEMA["properties"]["update_kind"]["enum"]:
+            raise ValueError("Tipo de actualización inválido de Gemini.")
+        evidence = response_data.get("field_evidence", {})
+        if not isinstance(evidence, dict) or any(value is not None and not isinstance(value, str) for value in evidence.values()):
+            raise ValueError("Evidencia inválida de Gemini.")
+        # Una cita inventada o tomada del contexto no autoriza sobrescritura.
+        evidence = {name: quote.strip() for name, quote in evidence.items()
+                    if name in self.RESPONSE_SCHEMA["properties"]["field_evidence"]["properties"]
+                    and quote and quote.strip() in message}
 
         intent = self._normalize_intent(
             response_data.get("intent")
@@ -304,6 +340,8 @@ class GeminiAIProvider(AIProvider):
 
         return IncidentExtractionResult(
             intent=intent,
+            update_kind=update_kind,
+            field_evidence=evidence,
             conversation_reply=None,
             unit=unit,
             area=area,
@@ -327,6 +365,9 @@ class GeminiAIProvider(AIProvider):
         self,
         prompt: str,
     ):
+        cooldown = self._cooldown_until - time.monotonic()
+        if cooldown > 0:
+            raise AIUnavailableError("Gemini está en pausa temporal.", retry_after=cooldown)
         started_at = time.perf_counter()
         last_error = None
 
@@ -355,7 +396,7 @@ class GeminiAIProvider(AIProvider):
                     attempt_timeout,
                 )
 
-                interaction = self.client.interactions.create(
+                interaction = self._request_with_deadline(
                     model=self.model,
                     input=prompt,
                     response_format={
@@ -370,6 +411,8 @@ class GeminiAIProvider(AIProvider):
                     time.perf_counter()
                     - attempt_started_at
                 )
+                if attempt_started_at + attempt_elapsed - started_at >= self.TOTAL_TIMEOUT_SECONDS:
+                    raise AITemporaryError("Gemini excedió el presupuesto total.")
 
                 logger.info(
                     "Gemini respondió en intento %s/2 "
@@ -381,6 +424,9 @@ class GeminiAIProvider(AIProvider):
                 return interaction
 
             except Exception as error:
+                status_code = getattr(error, "status_code", None) or getattr(error, "code", None)
+                if status_code in {400, 401, 403, 404, 422}:
+                    raise AIConfigurationError("Gemini rechazó la configuración o solicitud.") from error
                 if not self._is_retryable_error(error):
                     raise
 
@@ -407,9 +453,45 @@ class GeminiAIProvider(AIProvider):
             total_elapsed,
         )
 
-        raise TimeoutError(
-            "Gemini no respondió dentro del tiempo máximo configurado."
+        self._cooldown_until = time.monotonic() + self.COOLDOWN_SECONDS
+        error_class = AIUnavailableError if (
+            getattr(last_error, "status_code", None) or getattr(last_error, "code", None)
+        ) in {429, 500, 502, 503, 504} else AITemporaryError
+        raise error_class(
+            "Gemini no respondió dentro del tiempo máximo configurado.",
+            retry_after=self.COOLDOWN_SECONDS,
         ) from last_error
+
+    def _request_with_deadline(self, *, timeout, **kwargs):
+        """Acotar la espera incluso si el transporte ignora su timeout.
+
+        El hilo solo consulta al proveedor: no accede a Django ni aplica datos.
+        Un resultado tardío se descarta. Como máximo queda una solicitud viva
+        por instancia; mientras siga viva no se abre otra.
+        """
+        with self._request_lock:
+            if self._request_completed is not None and not self._request_completed.is_set():
+                raise AITemporaryError("Todavía hay una consulta anterior sin terminar.")
+            completed = threading.Event()
+            self._request_completed = completed
+            outcome = []
+
+            def request():
+                try:
+                    outcome.append((True, self.client.interactions.create(timeout=timeout, **kwargs)))
+                except BaseException as error:
+                    outcome.append((False, error))
+                finally:
+                    completed.set()
+
+            self._request_thread = threading.Thread(target=request, daemon=True, name="gemini-request")
+            self._request_thread.start()
+        if not completed.wait(timeout=timeout):
+            raise AITemporaryError("Gemini excedió el tiempo de espera del intento.")
+        succeeded, result = outcome[0]
+        if not succeeded:
+            raise result
+        return result
 
     def _is_retryable_error(
         self,
@@ -420,6 +502,7 @@ class GeminiAIProvider(AIProvider):
             (
                 httpx.TimeoutException,
                 httpx.ConnectError,
+                TimeoutError,
             ),
         ):
             return True
@@ -498,6 +581,20 @@ Seguridad y continuidad:
 - «Alta, no crítica» declara alta. Una pregunta «¿es alta?» no la confirma.
 - Las correcciones pueden cambiar varios campos a la vez. Cambia solo los
   campos expresamente corregidos y conserva el resto, también la prioridad.
+- Clasifica update_kind por el significado y el contexto, sin depender de
+  palabras como «corrijo»: correction, evolution, additional, ambiguous,
+  new_incident o none. Una nueva incidencia no debe modificar el borrador activo.
+- Aunque el mensaje comience corrigiendo prioridad, procesa todos los datos
+  explícitos: «crítica porque ahora perdimos completamente el audio de la
+  transmisión y no tenemos respaldo» cambia prioridad, síntoma, descripción e
+  impacto. «Crítica porque es importante» no aporta otro síntoma ni impacto.
+- Usa field_evidence para citar literalmente el fragmento del mensaje actual
+  que respalda cada campo nuevo/corregido. No cites datos anteriores ni supongas
+  que todos los campos se modifican. No reutilices síntomas superados dentro de
+  la nueva descripción. Las citas pueden respaldar varias formulaciones fieles.
+- additional agrega información compatible; no reemplaza hechos válidos.
+  Si no se sabe cuál de dos valores es correcto, usa ambiguous, conserva los
+  datos anteriores y pide aclaración específica, sin elegir silenciosamente.
 - Si cambia el equipo a otra familia, no arrastres síntomas, descripción ni
   impacto del equipo anterior. Devuelve null para datos incompatibles sin nueva
   evidencia y pide aclaración. No inventes una falla propia del nuevo equipo.

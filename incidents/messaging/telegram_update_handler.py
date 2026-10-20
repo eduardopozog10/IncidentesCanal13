@@ -19,7 +19,7 @@ class TelegramUpdateHandler:
 
     PROCESSING_NOTICE = (
         "El procesamiento está tomando un poco más de lo habitual. "
-        "Sigo procesando tu mensaje; no es necesario que lo envíes "
+        "Tu mensaje quedó guardado y se retomará automáticamente; no es necesario que lo envíes "
         "nuevamente."
     )
 
@@ -321,13 +321,31 @@ class TelegramUpdateHandler:
         # registros históricos sin contexto verificable no se reproducen.
         inbound = IncomingMessageService.recoverable_messages().filter(provider=self.PROVIDER).order_by("pk")
         results = []
-        for message in inbound[:limit]:
+        deferred_reporters = set()
+        for message in inbound.iterator(chunk_size=100):
+            if len(results) >= limit:
+                break
+            if message.technician_id in deferred_reporters:
+                continue
+            if (message.processing_attempts < self.incoming_service.MAX_PROCESSING_ATTEMPTS
+                    and not self.incoming_service.retry_is_due(message)):
+                deferred_reporters.add(message.technician_id)
+                continue
             payload = message.raw_payload.get("message", {})
             canonical_id = f"{message.external_chat_id}:{payload.get('message_id')}" if isinstance(payload, dict) else ""
             if (isinstance(payload, dict) and message.external_message_id == canonical_id and payload.get("text") == message.content
                     and self._is_admitted_private_update(message.raw_payload)):
-                self.send_processing_notice(message.raw_payload)
-                results.append(self.handle(message.raw_payload))
+                # La posesión del lock identifica una ejecución activa. No
+                # adivinar por antigüedad ni esperar a otro receptor.
+                with conversation_lock(f"reporter:{message.technician_id}", wait=False) as acquired:
+                    if not acquired:
+                        deferred_reporters.add(message.technician_id)
+                        continue
+                    self.send_processing_notice(message.raw_payload)
+                    result = self.handle(message.raw_payload)
+                    results.append(result)
+                    if result.get("action") == "processing_pending":
+                        deferred_reporters.add(message.technician_id)
         return results
 
     def _is_admitted_private_update(self, update):

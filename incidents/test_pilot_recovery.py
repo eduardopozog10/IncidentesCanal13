@@ -43,7 +43,7 @@ def service_call(service, payload):
                                 text=message["text"], raw_payload=payload, trusted_telegram=True)
 
 
-@override_settings(DEBUG=True, TELEGRAM_AUTO_REGISTER=True, EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend", INCIDENT_NOTIFICATION_EMAIL="qa@example.invalid")
+@override_settings(DEBUG=True, TELEGRAM_AUTO_REGISTER=True, PILOT_MESSAGE_RETRY_SECONDS=0, EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend", INCIDENT_NOTIFICATION_EMAIL="qa@example.invalid")
 class MessageRecoveryTests(TestCase):
     def setUp(self):
         self.ai = Mock()

@@ -5,6 +5,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from incidents.ai.factory import get_ai_provider
+from incidents.ai.base import AIConfigurationError, AITemporaryError
 from incidents.models import (
     ChannelMessage,
     Incident,
@@ -30,6 +31,11 @@ class IncidentProcessor:
         "operational_impact",
         "priority",
     )
+    CHANGE_LABELS = {
+        "area": "Área", "location_context": "Ubicación", "equipment": "Equipo",
+        "asset_category": "Familia", "failure_type": "Síntoma",
+        "description": "Descripción", "operational_impact": "Impacto operacional", "priority": "Prioridad",
+    }
 
     AREA_CANONICAL_LABELS = {
         "audio": "Audio",
@@ -270,7 +276,12 @@ class IncidentProcessor:
             for _ in range(3):
                 try:
                     with transaction.atomic():
+                        before = IncidentDraft.objects.filter(technician_id=message.technician_id,
+                            status__in=["collecting", "ready"]).order_by("-updated_at").first()
+                        previous = dict(before.extracted_data or {}) if before else None
+                        was_correcting = self._is_draft_correction_mode(before)
                         result = self._process_atomic(message, outcome)
+                        result = self._add_saved_changes(message, result, previous, was_correcting)
                         ChannelMessage.objects.filter(pk=message.pk).update(processing_result=result)
                         ChannelMessage.objects.filter(in_reply_to=message).update(draft_id=message.draft_id, incident_id=message.incident_id)
                     return result
@@ -280,10 +291,52 @@ class IncidentProcessor:
                     try:
                         extracted = self.ai_provider.extract_incident(message=needed.message, previous_data=needed.previous_data)
                         outcome = (needed.message, needed.previous_data, extracted, None)
+                    except (AITemporaryError, AIConfigurationError):
+                        # El servicio conserva tipo de fallo y pausa indicada.
+                        raise
                     except (TimeoutError, ValueError, ConnectionError) as error:
                         outcome = (needed.message, needed.previous_data, None, error)
                     message.refresh_from_db()
             raise RuntimeError("El contexto cambió repetidamente; mensaje pendiente de recuperación.")
+
+    def _add_saved_changes(self, message, result, previous, was_correcting):
+        """Comparar con PostgreSQL dentro del mismo commit que cachea la respuesta.
+
+        No se anuncia una interpretación de IA: se anuncia el borrador guardado.
+        El resultado cacheado conserva esta misma respuesta para los replays.
+        """
+        if previous is None or result.get("action") != "ask_clarification" or not result.get("draft_id"):
+            return result
+        draft = IncidentDraft.objects.get(pk=result["draft_id"])
+        current = draft.extracted_data
+        changes = [{"field": name, "previous": previous.get(name), "value": current.get(name)}
+                   for name in self.CHANGE_LABELS if previous.get(name) != current.get(name)]
+        is_correction = was_correcting or self._looks_like_natural_correction_statement(message.content)
+        is_correction = is_correction or any(previous.get(item["field"]) for item in changes)
+        if not is_correction:
+            return result
+        result["changes"] = changes
+        prefix = None
+        if changes:
+            lines = []
+            for change in changes:
+                name, value = change["field"], change["value"]
+                if name == "priority" and value:
+                    value = Incident.Priority(value).label
+                elif name == "asset_category" and value:
+                    value = Incident.AssetCategory(value).label
+                lines.append(f"• {self.CHANGE_LABELS[name]}: {value or 'Por confirmar'}")
+            prefix = "Entendido, actualicé:\n\n" + "\n".join(lines)
+        elif result.get("unchanged_fields"):
+            prefix = "Ese dato ya estaba registrado correctamente."
+        if prefix:
+            result["reply"] = prefix + "\n\n" + result["reply"]
+            # La autorización de creación exige haber entregado exactamente
+            # este resumen, incluida la confirmación de los cambios guardados.
+            if draft.status == IncidentDraft.Status.READY:
+                draft.last_question = result["reply"]
+                draft.save(update_fields=["last_question", "updated_at"])
+        return result
 
     @transaction.atomic
     def _process_atomic(self, message: ChannelMessage, outcome=None):
@@ -429,6 +482,9 @@ class IncidentProcessor:
         )
         if draft is not None and self._looks_like_natural_correction_statement(message.content):
             correction_mode = True
+        current_evidence = None
+        unchanged_fields = []
+        requires_update_clarification = False
 
         direct_draft_result = self._try_process_direct_draft_reply(
             draft=draft,
@@ -441,10 +497,14 @@ class IncidentProcessor:
             extracted_data, clarification_question = (
                 direct_draft_result
             )
+            if correction_mode and extracted_data == previous_data and clarification_question is None:
+                unchanged_fields = [self._infer_correction_target_field(draft=draft, text=message.content, previous_data=previous_data)]
 
         elif (
             self._is_waiting_only_for_priority(draft)
             and not correction_mode
+            and not self._looks_like_compound_reply(message.content)
+            and not self._has_operational_information(message.content, previous_data)
         ):
             priority = self._extract_explicit_priority(
                 message.content
@@ -562,7 +622,19 @@ class IncidentProcessor:
                     "reply": reply,
                 }
 
-            if correction_mode:
+            current_evidence = getattr(extraction, "field_evidence", None)
+            update_kind = getattr(extraction, "update_kind", None)
+            if draft and (update_kind in {"ambiguous", "new_incident"} or self._is_uncertain_update(message.content)):
+                correction_mode = True
+                requires_update_clarification = True
+                extracted_data = dict(previous_data)
+                clarification_question = (
+                    "¿Se trata de otra incidencia? Mantengo el borrador actual. Si deseas descartarlo para comenzar otro, utiliza /cancelar."
+                    if update_kind == "new_incident" else
+                    extraction.clarification_question or "¿Cuál es el dato correcto y su nuevo valor? Mantengo los datos anteriores hasta que lo aclares."
+                )
+            elif (correction_mode and update_kind != "additional") or (draft and update_kind in {"correction", "evolution"}):
+                correction_mode = True
                 correction_target_field = (
                     self._infer_correction_target_field(
                         draft=draft,
@@ -571,6 +643,8 @@ class IncidentProcessor:
                     )
                 )
                 if self._contains_multiple_fields(message.content):
+                    correction_target_field = None
+                if current_evidence and len(current_evidence) > 1:
                     correction_target_field = None
 
                 (
@@ -587,12 +661,17 @@ class IncidentProcessor:
                     clarification_question = None
 
                 else:
+                    unchanged_fields = [name for name in (current_evidence or {})
+                                        if getattr(extraction, name, None) and previous_data.get(name)
+                                        and extracted_data.get(name) == previous_data.get(name)]
                     clarification_question = (
                         self.CORRECTION_QUESTIONS.get(
                             correction_target_field,
                             self.CORRECTION_PROMPT,
                         )
                     )
+                    if unchanged_fields:
+                        clarification_question = None
 
             else:
                 previous_location = previous_data.get(
@@ -668,6 +747,14 @@ class IncidentProcessor:
                 clarification_question = (
                     extraction.clarification_question
                 )
+                if draft and update_kind == "additional":
+                    # Un dato complementario no reemplaza otro ya válido.
+                    for name, old_value in previous_data.items():
+                        if old_value:
+                            extracted_data[name] = old_value
+                    detail = (current_evidence or {}).get("description")
+                    if detail and detail.casefold() not in str(previous_data.get("description", "")).casefold():
+                        extracted_data["description"] = f"{previous_data.get('description') or ''} {detail}".strip()
 
         extracted_data["asset_category"] = (
             self._refine_asset_category_from_equipment(
@@ -678,7 +765,7 @@ class IncidentProcessor:
             )
         )
 
-        self._validate_equipment_change(previous_data, extracted_data, message.content)
+        self._validate_equipment_change(previous_data, extracted_data, message.content, current_evidence)
 
         generic_equipment = extracted_data.get(
             "equipment"
@@ -766,7 +853,7 @@ class IncidentProcessor:
                 missing_fields[0]
             ]
 
-        if missing_fields and clarification_question:
+        if missing_fields and clarification_question and not requires_update_clarification:
             questioned_field = self._infer_expected_field_from_last_question(clarification_question)
             if questioned_field and questioned_field not in missing_fields:
                 clarification_question = self.FALLBACK_QUESTIONS[missing_fields[0]]
@@ -775,6 +862,7 @@ class IncidentProcessor:
         # aclaración más específica para la respuesta recibida.
         if (
             help_field is not None
+            and not requires_update_clarification
             and help_field in missing_fields
             and not (
                 direct_draft_result is not None
@@ -843,6 +931,7 @@ class IncidentProcessor:
                 "missing_fields": missing_fields,
                 "reply": clarification_question,
                 "extracted_data": extracted_data,
+                "unchanged_fields": unchanged_fields,
             }
 
         # Si una corrección directa necesita una aclaración,
@@ -882,6 +971,7 @@ class IncidentProcessor:
                 "missing_fields": missing_fields,
                 "reply": clarification_question,
                 "extracted_data": extracted_data,
+                "unchanged_fields": unchanged_fields,
             }
 
         confirmation_reply = self._build_confirmation_reply(
@@ -915,6 +1005,7 @@ class IncidentProcessor:
             "missing_fields": [],
             "reply": confirmation_reply,
             "extracted_data": extracted_data,
+            "unchanged_fields": unchanged_fields,
         }
 
     def _handle_ready_draft_confirmation(
@@ -1467,7 +1558,7 @@ class IncidentProcessor:
 
         return None
 
-    def _validate_equipment_change(self, previous, current, message):
+    def _validate_equipment_change(self, previous, current, message, evidence=None):
         """No trasladar datos de otra familia de equipo sin evidencia nueva.
 
         Los cambios de identificador dentro de una familia conservan datos.
@@ -1499,7 +1590,7 @@ class IncidentProcessor:
             candidate = current.get(field)
             # La extracción puede repetir el dato previo o reformularlo sin
             # evidencia; solo aceptarlo si está expresado en este mensaje.
-            if not candidate or self._normalize_quick_text(candidate) not in normalized_message:
+            if not candidate or (not (evidence or {}).get(field) and self._normalize_quick_text(candidate) not in normalized_message):
                 current[field] = None
 
     def _merge_ai_correction(
@@ -1548,8 +1639,12 @@ class IncidentProcessor:
             fields_to_process = structural_fields
 
         changed_fields = []
+        evidence = getattr(extraction, "field_evidence", None)
 
         for field_name in fields_to_process:
+            if (evidence is not None and not evidence.get(field_name)
+                    and not (field_name == "priority" and declared_priority)):
+                continue
             candidate_value = candidate_values.get(
                 field_name
             )
@@ -1628,9 +1723,8 @@ class IncidentProcessor:
                 value=candidate_value,
             )
 
-            changed_fields.append(
-                field_name
-            )
+            if extracted_data.get(field_name) != previous_data.get(field_name):
+                changed_fields.append(field_name)
 
         should_process_description = (
             target_field == "description"
@@ -1644,7 +1738,11 @@ class IncidentProcessor:
                 target_field is None
                 and not changed_fields
             )
+            or "failure_type" in changed_fields
+            or "operational_impact" in changed_fields
         )
+        if evidence is not None and not evidence.get("description"):
+            should_process_description = False
 
         if should_process_description:
             candidate_description = (
@@ -2175,6 +2273,9 @@ class IncidentProcessor:
         if draft is None:
             return None
 
+        if self._is_uncertain_update(text):
+            return None
+
         # Una respuesta con varios datos debe extraerse completa. Los atajos
         # de un campo no deben consumir también ubicación, impacto o prioridad.
         if self._contains_multiple_fields(text):
@@ -2353,6 +2454,11 @@ class IncidentProcessor:
         if normalized_text in continuation_words:
             return None
 
+        # El resumen contiene todos los nombres de campo; no es una pregunta
+        # pendiente de prioridad. Un mensaje nuevo requiere interpretación.
+        if draft.status == IncidentDraft.Status.READY and not is_correction_mode:
+            return None
+
         expected_field = (
             self._infer_expected_field_from_last_question(
                 draft.last_question
@@ -2396,6 +2502,8 @@ class IncidentProcessor:
             )
 
             if priority is None:
+                if self._has_operational_information(text, previous_data):
+                    return None
                 return (
                     extracted_data,
                     self.PRIORITY_GUIDANCE,
@@ -3008,7 +3116,9 @@ class IncidentProcessor:
 
         has_impact = bool(
             re.search(
-                r"\b(?:impide|afecta|obliga|detiene|usamos|podemos|impacto)\b",
+                r"\b(?:impide|afecta|obliga|detiene|usamos|podemos|impacto)\b"
+                r"|\b(?:no (?:tenemos|hay)|sin) respaldo\b"
+                r"|\b(?:transmision|salida al aire) (?:sin|interrumpida)\b",
                 normalized,
             )
         )
@@ -3019,8 +3129,9 @@ class IncidentProcessor:
 
         has_failure = bool(
             re.search(
-                r"\b(?:intermitente|corta|enciende)\b"
-                r"|\bsin (?:audio|imagen|conexion)\b",
+                r"\b(?:intermitente|corta|cortes|enciende)\b"
+                r"|\bsin (?:audio|imagen|conexion)\b"
+                r"|\b(?:perdimos|perdio|perdida|dejo de entregar|ya no entrega)\b",
                 normalized,
             )
         )
@@ -3043,6 +3154,16 @@ class IncidentProcessor:
                 has_failure,
             ]
         ) >= 2
+
+    def _is_uncertain_update(self, text):
+        return bool(re.search(r"\b(?:quizas?|tal vez|no se si|no estoy segur[oa]|podria ser)\b",
+                              self._normalize_quick_text(text)))
+
+    def _has_operational_information(self, text, previous_data):
+        evolution = re.search(r"\b(?:dejo de|ya no|perdimos|empeoro|ahora falla)\b", self._normalize_quick_text(text))
+        return bool(evolution) or any(
+            self._is_valid_direct_field_value(field_name=name, value=text, previous_data=previous_data)
+            for name in ("failure_type", "operational_impact"))
 
     def _infer_expected_field_from_last_question(
         self,
@@ -3424,6 +3545,9 @@ class IncidentProcessor:
                 )
             )
 
+        if previous_value and self._normalize_quick_text(str(previous_value)) == self._normalize_quick_text(str(value)):
+            return
+
         extracted_data[field_name] = value
 
         if field_name == "location_context":
@@ -3708,8 +3832,7 @@ class IncidentProcessor:
         )
 
         if (
-            not description
-            or not previous_value
+            not previous_value
             or not new_value
         ):
             return
@@ -3737,16 +3860,10 @@ class IncidentProcessor:
             flags=re.IGNORECASE,
         )
 
-        if pattern.search(description) is None:
-            return
-
-        extracted_data["description"] = (
-            pattern.sub(
-                new_value,
-                description,
-                count=1,
-            )
-        )
+        for field_name in ("description", "failure_type", "operational_impact"):
+            value = extracted_data.get(field_name)
+            if isinstance(value, str):
+                extracted_data[field_name] = pattern.sub(new_value, value)
 
     def _clean_equipment_value(
         self,

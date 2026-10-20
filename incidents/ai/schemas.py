@@ -17,6 +17,11 @@ class IncidentExtractionResult:
     operational_impact: str | None = None
     priority: str | None = None
 
+    # Evidencia literal del mensaje actual, no del borrador anterior. None
+    # conserva compatibilidad con proveedores de prueba anteriores.
+    field_evidence: dict[str, str] | None = None
+    update_kind: str | None = None
+
     missing_fields: list[str] = field(default_factory=list)
     clarification_question: str | None = None
 
