@@ -21,6 +21,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from incidents.models import Incident
+from incidents.access import CanViewIncidents, CanViewAnalytics, CanUseIncidentDetail, CanUseMessageTest
 from incidents.serializers import (
     IncidentSerializer,
     IncidentStatusUpdateSerializer,
@@ -147,7 +148,7 @@ def build_normalized_area_data(queryset):
 
 
 class IncidentListView(generics.ListAPIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [CanViewIncidents]
     serializer_class = IncidentSerializer
 
     ALLOWED_ORDERING_FIELDS = {
@@ -264,7 +265,7 @@ class IncidentListView(generics.ListAPIView):
 
 
 class IncidentSummaryView(APIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [CanViewIncidents]
 
     def get(self, request):
         queryset = Incident.objects.all()
@@ -365,7 +366,7 @@ class IncidentSummaryView(APIView):
 
 
 class IncidentAnalyticsView(APIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [CanViewAnalytics]
 
     def get(self, request):
         queryset = Incident.objects.all()
@@ -629,7 +630,7 @@ class IncidentAnalyticsView(APIView):
 
 
 class IncidentDetailView(generics.RetrieveAPIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [CanUseIncidentDetail]
     serializer_class = IncidentSerializer
 
     def get_queryset(self):
@@ -674,7 +675,7 @@ class IncidentDetailView(generics.RetrieveAPIView):
 
 
 class IncomingTextMessageTestView(APIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminUser, CanUseMessageTest]
 
     def post(self, request):
         if not settings.DEBUG:

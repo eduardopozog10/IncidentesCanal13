@@ -120,3 +120,8 @@ class IncidentStatusUpdateSerializer(serializers.Serializer):
     status = serializers.ChoiceField(
         choices=Incident.Status.choices,
     )
+
+    def validate(self, attrs):
+        if set(self.initial_data) - {"status"}:
+            raise serializers.ValidationError("Esta operación solo permite actualizar el estado.")
+        return attrs

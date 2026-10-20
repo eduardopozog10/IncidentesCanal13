@@ -1,0 +1,16 @@
+{% load static %}<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title|default:"Acceso al panel" }} | Secuoya Chile</title>
+{% include "incidents/brand_head.html" %}
+<link rel="stylesheet" href="{% static 'incidents/dashboard.css' %}?v=20261020">
+<link rel="stylesheet" href="{% static 'incidents/operations.css' %}?v=20261020">
+<link rel="stylesheet" href="{% static 'incidents/users.css' %}?v=20261020">
+<script>window.addEventListener("pageshow", event => { if (event.persisted) window.location.reload(); });
+try { document.documentElement.dataset.theme = localStorage.getItem("secuoya-dashboard-theme") || "dark"; } catch (error) {}</script>
+</head><body>
+{% block body %}<main class="auth-card panel">
+<img class="auth-logo" src="{% static 'incidents/images/secuoya-chile-wordmark.png' %}" alt="Secuoya Chile">
+<p class="section-kicker">Gestión de incidencias operativas</p>
+{% block content %}{% endblock %}
+</main>{% endblock %}
+</body></html>

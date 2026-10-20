@@ -1,0 +1,55 @@
+/* Módulo de cuentas: reutiliza los tokens y componentes del dashboard. */
+.users-content { padding: 24px 32px; min-width: 0; }
+.user-panel { padding: 28px; }
+.users-content table { min-width: 680px; width: 100%; }
+.user-section-heading, .user-form-actions, .user-pagination { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.user-panel h2, .auth-card h1 { margin-top: 0; }
+.user-panel p, .auth-card p { color: var(--text-soft); line-height: 1.65; }
+.user-filters { display: flex; align-items: end; gap: 16px; flex-wrap: wrap; margin: 24px 0; }
+.user-filters .user-field:first-child { flex: 1; min-width: 230px; }
+.user-field { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.user-field label { font-size: .88rem; font-weight: 600; color: var(--text-secondary); }
+.user-field input, .user-field select, .password-link { width: 100%; min-height: 44px; padding: 11px 13px; border-radius: 10px; border: 1px solid var(--border-strong); color: var(--text); background: var(--surface-muted); }
+.user-button { display: inline-flex; justify-content: center; align-items: center; min-height: 44px; padding: 11px 18px; border: 1px solid transparent; border-radius: 12px; background: var(--primary); color: #fff; text-decoration: none; font-weight: 600; cursor: pointer; transition: background .18s, border-color .18s; }
+.user-button:hover { background: var(--primary-dark); }
+.user-button.secondary { color: var(--text-secondary); background: var(--accent-soft); border-color: var(--border-strong); }
+.user-button.secondary:hover { background: var(--surface-elevated); border-color: var(--accent); }
+.user-button.compact { min-height: 36px; padding: 7px 13px; }
+.user-button:focus-visible, .users-content a:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.user-form { display: grid; gap: 22px; }
+.user-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; }
+.user-form-panel { max-width: 880px; }
+.checkbox-field { flex-direction: row; align-items: center; }
+.checkbox-field input { width: 20px; min-height: 20px; accent-color: var(--accent); }
+.user-help { display: block; color: var(--text-soft); font-size: .82rem; line-height: 1.6; font-weight: 400; }
+.user-help ul { padding-left: 18px; }
+.user-badge { display: inline-flex; padding: 5px 10px; border-radius: 20px; background: var(--surface-muted); color: var(--text-soft); }
+.user-badge.active { color: var(--success); background: var(--success-soft); }
+.user-pagination { margin-top: 22px; color: var(--text-soft); font-size: .88rem; }
+.user-message { padding: 15px 18px; margin-bottom: 20px; border: 1px solid var(--border-strong); border-radius: 12px; background: var(--accent-soft); }
+.errorlist { padding-left: 18px; margin: 6px 0; color: var(--danger); line-height: 1.5; }
+.auth-card { width: min(92%, 500px); margin: 8vh auto; padding: 32px; }
+.auth-logo { display: block; width: 180px; max-width: 80%; margin-bottom: 28px; }
+.password-link { display: block; margin: 12px 0; }
+.user-panel hr { margin: 30px 0; border: 0; border-top: 1px solid var(--border-strong); }
+.sidebar-link { text-decoration: none; }
+@media (max-width: 1100px) {
+  .users-shell { display: block; }
+  .users-shell .sidebar { display: flex; position: static; width: 100%; height: auto; padding: 20px; background: #0a202d; }
+  .users-shell .sidebar .brand { display: flex; flex-direction: row; align-items: center; gap: 12px; }
+  .users-shell .brand-mark { width: 110px; padding: 8px; }
+  .users-shell .brand-logo { width: 94px; height: 38px; }
+  .users-shell .sidebar-nav { display: flex; flex-wrap: wrap; }
+  .users-shell .sidebar-link { width: auto; }
+  .users-shell .system-card { margin-top: 20px; }
+  .users-shell .workspace { margin: 0; }
+  .users-content { padding: 18px; }
+  .user-panel { padding: 20px; }
+}
+@media (max-width: 600px) {
+  .user-form-grid { grid-template-columns: minmax(0, 1fr); }
+  .user-filters { align-items: stretch; flex-direction: column; }
+  .user-form-actions .user-button { width: 100%; }
+  .users-shell .topbar { padding: 20px; }
+  .auth-card { padding: 24px; margin: 24px auto; }
+}

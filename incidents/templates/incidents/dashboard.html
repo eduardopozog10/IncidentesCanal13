@@ -50,102 +50,7 @@
     {% csrf_token %}
   </form>
   <div class="app-shell">
-    <aside class="sidebar">
-      <div class="brand">
-        <div class="brand-mark">
-          <img
-            src="{% static 'incidents/images/secuoya-chile-wordmark.png' %}"
-            alt="Secuoya Chile"
-            class="brand-logo"
-          >
-        </div>
-
-        <div class="brand-copy">
-          <div class="brand-name">
-            Secuoya Chile
-          </div>
-
-          <div class="brand-subtitle">
-            Gestión de incidencias operativas
-          </div>
-        </div>
-      </div>
-      <div class="sidebar-label">
-        Navegación
-      </div>
-      <nav
-        class="sidebar-nav"
-        aria-label="Navegación principal"
-      >
-        <button
-          class="sidebar-link is-active"
-          type="button"
-          data-view="control"
-        >
-          <span class="sidebar-icon">
-            ◉
-          </span>
-          <span>
-            Centro de control
-          </span>
-        </button>
-        <button
-          class="sidebar-link"
-          type="button"
-          data-view="incidents"
-        >
-          <span class="sidebar-icon">
-            △
-          </span>
-          <span>
-            Incidentes
-          </span>
-        </button>
-        <button
-          class="sidebar-link"
-          type="button"
-          data-view="analytics"
-        >
-          <span class="sidebar-icon">
-            ▥
-          </span>
-          <span>
-            Analítica
-          </span>
-        </button>
-        <button
-          class="sidebar-link"
-          type="button"
-          data-view="management"
-        >
-          <span class="sidebar-icon">
-            ✓
-          </span>
-          <span>
-            Gestión
-          </span>
-        </button>
-      </nav>
-      <div class="system-card">
-        <div class="system-card-header">
-          <span>
-            Acceso al panel
-          </span>
-          <span
-            class="panel-dot"
-            aria-hidden="true"
-          ></span>
-        </div>
-        <strong>
-          Panel de gestión disponible
-        </strong>
-        <p>
-          Consulta y gestión del registro
-          de incidentes.
-        </p>
-        {% include "incidents/account_controls.html" %}
-      </div>
-    </aside>
+    {% include "incidents/sidebar.html" %}
     <div class="workspace">
       <header class="topbar">
         <div class="topbar-copy">
@@ -1005,7 +910,7 @@
   </div>
 
   <nav
-    class="mobile-nav"
+    class="mobile-nav{% if management_permissions.manage_dashboard_users %} has-users{% endif %}"
     aria-label="Navegación móvil"
   >
     <button
@@ -1038,7 +943,7 @@
         Incidentes
       </span>
     </button>
-    <button
+    {% if management_permissions.view_incident_analytics %}<button
       class="mobile-nav-link"
       type="button"
       data-view="analytics"
@@ -1052,7 +957,7 @@
       <span>
         Analítica
       </span>
-    </button>
+    </button>{% endif %}
     <button
       class="mobile-nav-link"
       type="button"
@@ -1068,6 +973,7 @@
         Gestión
       </span>
     </button>
+    {% if management_permissions.manage_dashboard_users %}<a class="mobile-nav-link" href="{% url 'dashboard-users' %}"><span class="mobile-nav-icon" aria-hidden="true">♙</span><span>Usuarios</span></a>{% endif %}
   </nav>
 
   <script>
@@ -1206,6 +1112,7 @@
       "page-description"
     );
 
+    const canViewAnalytics = {{ management_permissions.view_incident_analytics|yesno:"true,false" }};
     const viewMetadata = {
       control: {
         title: "Centro de control de incidentes",
@@ -1236,6 +1143,7 @@
       viewName,
       updateHash = true
     ) {
+      if (viewName === "analytics" && !canViewAnalytics) viewName = "control";
       if (
         !viewMetadata[viewName]
       ) {
@@ -1304,7 +1212,8 @@
       (button) => {
         button.addEventListener(
           "click",
-          () => {
+          (event) => {
+            event.preventDefault();
             showView(
               button.dataset.view
             );
@@ -2943,6 +2852,19 @@
     =========================================== */
 
     async function loadAnalytics() {
+      if (!canViewAnalytics) {
+        const response = await fetch(buildSummaryUrl(), {cache: "no-store"});
+        if (!response.ok) return;
+        const data = await response.json();
+        lastKnownIncidentCount = data.total;
+        metricTotal.textContent = data.total;
+        metricOpen.textContent = ["reported", "under_review", "in_progress"].reduce((total, name) => total + data.by_status[name], 0);
+        metricResolved.textContent = data.by_status.resolved;
+        metricCritical.textContent = data.by_priority.critical;
+        metricAverageResolution.textContent = "—";
+        metricAverageResolutionHelp.textContent = "Analítica restringida para este perfil";
+        return;
+      }
       try {
         const response = await fetch(
           buildAnalyticsUrl(),
@@ -4052,6 +3974,7 @@
             </article>
           </div>
 
+          {% if management_permissions.change_incident_status %}
           <div class="detail-management">
             <div>
               <span class="section-kicker">
@@ -4113,6 +4036,10 @@
               aria-live="polite"
             ></span>
           </div>
+          {% endif %}
+          {% if management_permissions.change_incident_priority %}
+          <p><a class="detail-priority-link" href="/admin/incidents/incident/${Number(incident.id)}/change/">Ajustar prioridad en el formulario de gestión</a></p>
+          {% endif %}
         `;
 
         const managementDetailPanel = (
@@ -4137,6 +4064,7 @@
           "status-update-message"
         );
 
+        if (statusSelect) {
         statusSelect.value = incident.status;
 
         statusSelect.dataset.originalStatus = (
@@ -4165,6 +4093,7 @@
           "click",
           updateIncidentStatus
         );
+        }
 
         document
           .querySelectorAll(

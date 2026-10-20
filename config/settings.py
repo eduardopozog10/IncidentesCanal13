@@ -60,6 +60,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "incidents.access.dashboard_context",
             ],
         },
     },
@@ -115,6 +116,7 @@ LANGUAGE_CODE = "es-cl"
 TIME_ZONE = "America/Santiago"
 USE_I18N = True
 USE_TZ = True
+PASSWORD_RESET_TIMEOUT = 3600
 
 
 STATIC_URL = "static/"

@@ -1,0 +1,8 @@
+{% extends "incidents/users/auth_base.html" %}
+{% block content %}<h1>Acceso al panel</h1><p>Ingresa con tu cuenta de gestión.</p>
+<form method="post" class="user-form">{% csrf_token %}
+{{ form.non_field_errors }}
+{% for field in form %}<div class="user-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}
+<input type="hidden" name="next" value="{{ next }}">
+<button class="user-button" type="submit">Iniciar sesión</button>
+</form><p class="user-help">Si necesitas restablecer tu contraseña, contacta a un administrador del panel.</p>{% endblock %}

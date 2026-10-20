@@ -1,0 +1,6 @@
+{% extends "incidents/users/base.html" %}
+{% block user_content %}<section class="panel user-panel user-form-panel"><h2>Establecer contraseña de {{ handoff.username }}</h2>
+<p>Este enlace se muestra una sola vez y permite definir la contraseña. Expira en una hora y deja de ser válido al utilizarlo o generar otro.</p>
+<label for="password-link">Enlace privado</label><input id="password-link" class="password-link" readonly value="{{ handoff.url }}" autocomplete="off" spellcheck="false">
+<p class="user-help">Entrégalo personalmente a su titular o mediante un canal privado acordado. No lo publiques ni lo incluyas en registros. Con 127.0.0.1 solo funciona en este computador. No se ha enviado ningún correo.</p>
+<a class="user-button" href="{% url 'dashboard-users' %}">Volver al listado</a></section>{% endblock %}

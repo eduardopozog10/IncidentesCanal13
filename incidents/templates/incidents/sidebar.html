@@ -1,0 +1,54 @@
+{% load static %}
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">
+          <img
+            src="{% static 'incidents/images/secuoya-chile-wordmark.png' %}"
+            alt="Secuoya Chile"
+            class="brand-logo"
+          >
+        </div>
+
+        <div class="brand-copy">
+          <div class="brand-name">
+            Secuoya Chile
+          </div>
+
+          <div class="brand-subtitle">
+            Gestión de incidencias operativas
+          </div>
+        </div>
+      </div>
+      <div class="sidebar-label">
+        Navegación
+      </div>
+      <nav class="sidebar-nav" aria-label="Navegación principal">
+        {% for key, icon, label in dashboard_navigation %}
+        <a class="sidebar-link" href="{% url 'dashboard' %}?view={{ key }}#{{ key }}" {% if on_dashboard %}data-view="{{ key }}"{% endif %}>
+          <span class="sidebar-icon" aria-hidden="true">{{ icon }}</span><span>{{ label }}</span>
+        </a>
+        {% endfor %}
+        {% if management_permissions.manage_dashboard_users %}
+        <a class="sidebar-link{% if not on_dashboard %} is-active{% endif %}" href="{% url 'dashboard-users' %}"><span class="sidebar-icon" aria-hidden="true">♙</span><span>Usuarios y permisos</span></a>
+        {% endif %}
+      </nav>
+      <div class="system-card">
+        <div class="system-card-header">
+          <span>
+            Acceso al panel
+          </span>
+          <span
+            class="panel-dot"
+            aria-hidden="true"
+          ></span>
+        </div>
+        <strong>
+          Panel de gestión disponible
+        </strong>
+        <p>
+          Consulta y gestión del registro
+          de incidentes.
+        </p>
+        {% include "incidents/account_controls.html" %}
+      </div>
+    </aside>

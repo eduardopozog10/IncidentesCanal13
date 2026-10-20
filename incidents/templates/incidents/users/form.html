@@ -1,0 +1,9 @@
+{% extends "incidents/users/base.html" %}
+{% block user_content %}<section class="panel user-panel user-form-panel">
+<h2>Datos de la cuenta</h2><p>Asigna un único perfil. La activación y los permisos se aplican en el servidor.</p>
+<form method="post" class="user-form">{% csrf_token %}{{ form.non_field_errors }}
+<div class="user-form-grid">{% for field in form %}<div class="user-field{% if field.name == 'is_active' %} checkbox-field{% endif %}">{{ field.label_tag }}{{ field }}{{ field.errors }}{% if field.help_text %}<small class="user-help">{{ field.help_text }}</small>{% endif %}</div>{% endfor %}</div>
+{% if not account.pk %}<p class="user-help">No se genera una contraseña visible ni se envían correos. Al crear una cuenta activa, recibirás un enlace temporal para que la persona establezca su contraseña.</p>{% endif %}
+<div class="user-form-actions"><button class="user-button" type="submit">Guardar cuenta</button><a class="user-button secondary" href="{% url 'dashboard-users' %}">Volver al listado</a></div></form>
+{% if account.pk %}<hr><h3>Contraseña</h3>{% if account.pk == request.user.pk %}<a class="user-button secondary" href="{% url 'dashboard-password-change' %}">Cambiar mi contraseña</a>{% else %}<p class="user-help">Restablecer invalida la contraseña, las sesiones y los enlaces anteriores. No envía correos.</p><form method="post" action="{% url 'dashboard-user-password' account.pk %}">{% csrf_token %}<button class="user-button secondary" type="submit">Generar enlace de restablecimiento</button></form>{% endif %}{% endif %}
+</section>{% endblock %}

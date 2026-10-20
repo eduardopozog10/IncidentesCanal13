@@ -50,6 +50,17 @@
     --transition: 0.18s ease;
 }
 
+.sidebar-link { text-decoration: none; }
+.detail-priority-link, .account-password-link { color: var(--accent); }
+.account-password-link { display: block; font-size: .78rem; margin-bottom: 12px; text-decoration: none; }
+.system-card .account-password-link { color: #77c5dc; }
+.account-password-link:hover { text-decoration: underline; }
+.account-password-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+@media (max-width: 1100px) {
+    nav.mobile-nav.has-users { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    .mobile-nav a { text-decoration: none; color: var(--text-soft); }
+}
+
 
 :root[data-theme="light"] {
     color-scheme: light;

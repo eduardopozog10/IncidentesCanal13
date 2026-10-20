@@ -1,0 +1,12 @@
+{% extends "incidents/users/auth_base.html" %}
+{% block body %}
+<a class="skip-link" href="#main-content">Ir al contenido</a>
+<div class="app-shell users-shell">
+{% include "incidents/sidebar.html" %}
+<div class="workspace"><header class="topbar"><div class="topbar-copy"><p class="section-kicker">Secuoya Chile</p><h1>{{ title }}</h1><p>Administración de acceso al panel de gestión.</p></div>
+<div class="topbar-actions"><p class="account-welcome">Bienvenido, <strong>{{ request.user.get_full_name|default:request.user.username }}</strong></p></div></header>
+<main id="main-content" class="users-content">
+{% for message in messages %}<div class="user-message" role="status">{{ message }}</div>{% endfor %}
+{% block user_content %}{% endblock %}
+</main></div></div>
+{% endblock %}

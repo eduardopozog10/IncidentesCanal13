@@ -220,6 +220,13 @@ class Incident(models.Model):
         verbose_name = "incidente"
         verbose_name_plural = "incidentes"
         ordering = ["-created_at"]
+        permissions = [
+            ("access_dashboard", "Acceder al centro de control"),
+            ("view_incident_analytics", "Consultar analítica de incidencias"),
+            ("change_incident_status", "Cambiar estados de incidencias"),
+            ("change_incident_priority", "Cambiar prioridades de incidencias"),
+            ("manage_dashboard_users", "Administrar usuarios y perfiles del dashboard"),
+        ]
 
     @property
     def code(self):
