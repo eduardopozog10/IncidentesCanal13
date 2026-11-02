@@ -23,13 +23,14 @@ def render_operational_facts(facts):
     # simple del mismo respaldo genérico. No omitir IDs ni calificadores.
     bare_backup = r'(?:la |el )?(?:camara|equipo|monitor|consola) de respaldo'
     simple_connection = bool(re.fullmatch(bare_backup + r' conectad[oa]', backup)
+        or re.fullmatch(r'(?:' + bare_backup + r'|(?:el )?respaldo)(?: esta| está)? en uso', backup)
         or (connection and re.fullmatch(bare_backup, connection[1])))
     if simple_connection and not MODALITY.search(backup) and not time_fact(backup):
         for facet in ('consequence','continuity'):
             value = normalized(texts.get(facet) or '')
             if (facts.get('_states',{}).get(facet) in {'resumed','partial'}
                     and not MODALITY.search(value)
-                    and re.search(r'\bcon (?:el |la )?(?:respaldo|(?:camara|equipo|monitor|consola) de respaldo)\b',value)):
+                    and re.search(r'\b(?:con|usando|utilizando|mediante) (?:el |la )?(?:respaldo|(?:camara|equipo|monitor|consola) de respaldo)\b',value)):
                 texts['backup'] = None
                 break
     return join_description(*texts.values())
@@ -81,6 +82,7 @@ def merge_operational_facts(previous, extraction, text):
                     prior = facts.get('consequence')
                     if prior and prior != item['text']: history.append({'facet':'consequence','text':prior})
                     facts['consequence'] = facts['continuity']
+                    states['consequence'] = state
                 related = item.get('backup_state')
                 if related in {'in_use','unavailable','available'} and 'backup' not in explicit_facets:
                     prior = facts.get('backup')

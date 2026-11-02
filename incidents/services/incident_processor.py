@@ -1163,7 +1163,8 @@ class IncidentProcessor:
         explicit_time = time_fact(self._text(message))
         if explicit_time and draft and extracted_data.get("description") and not self._is_uncertain_update(self._text(message)):
             description = extracted_data["description"]
-            extracted_data["description"] = replace_time(description, explicit_time) if TIME.search(description) else join_description(description, f"Inicio reportado: {explicit_time}")
+            extracted_data["description"] = (replace_time(description, explicit_time) if time_fact(description)
+                else join_description(description, f"Duración reportada: {TIME.search(explicit_time)['duration']}"))
         interpretation = outcome[2] if outcome else None
         operational = merge_operational_facts(previous_data, interpretation, self._text(message)) if interpretation else None
         if operational and not requires_update_clarification:

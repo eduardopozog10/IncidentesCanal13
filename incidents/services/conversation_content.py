@@ -25,23 +25,54 @@ def join_description(*parts):
 MODALITY = re.compile(r"\b(?:sospech\w*|podria\w*|quizas?|tal vez|hipotesis|creemos|parece|"
                       r"posible|puede|podemos|podriamos|disponible|permitiria|permitira|sin confirmar|no (?:esta|hemos|sabemos)|"
                       r"falta revisar|todavia no|aun no)\b")
-TIME = re.compile(r"\b(?:desde hace|hace|lleva)\s+(?:(?:aproximadamente|como|alrededor de|cerca de|unos?)\s+)?"
+TIME = re.compile(r"\b(?P<lead>desde hace|hace|llev(?:a|amos|an)(?: ahora)?|han (?:pasado|transcurrido)|van|"
+                  r"(?:duraci[oó]n|antig[uü]edad)(?: (?:informada|reportada|actual))?\s*(?::|es de|es|a|de)?)\s+"
+                  r"(?P<duration>(?:(?:aproximadamente|como|alrededor de|cerca de|unos?)\s+)?"
                   r"(?:\d+(?:[.,]\d+)?|una?|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|media)"
-                  r"\s+(?:minutos?|horas?|dias?|semanas?|meses?)\b", re.IGNORECASE)
+                  r"\s+(?:minutos?|horas?|d[ií]as?|semanas?|meses?))\b", re.IGNORECASE)
+
+
+def _duration_matches(text):
+    """Duración afirmada de la falla; no edad de una conexión/reinicio/espera."""
+    for match in TIME.finditer(text):
+        before = re.split(r'[.!?;,\n]|\s+(?:y|pero)\s+', text[:match.start()], flags=re.IGNORECASE)[-1]
+        after = re.split(r'[.!?;,\n]|\s+(?:y|pero)\s+', text[match.end():], flags=re.IGNORECASE)[0]
+        prefix, clause = normalized(before), normalized(before + ' ' + after)
+        if (re.search(r'\b(?:no|ni)(?:\s+comenzo)?\s*$', prefix)
+                or re.search(r'\b(?:podriamos|quizas|tal vez)\b', prefix)
+                or re.search(r'\bsi\b', before, re.IGNORECASE)):
+            continue
+        if re.search(r'\b(?:conect\w*|reinici\w*|enchuf\w*|esperando|llego el tecnico)\b', clause) and not re.search(r'\b(?:falla|problema|fallando|perdiendo)\b', clause):
+            continue
+        yield match
 
 
 def time_fact(text):
-    matches = [m.group() for m in TIME.finditer(text)
-               if not re.search(r"\b(?:no|ni)(?:\s+comenzo)?\s*$", normalized(text[max(0, m.start()-20):m.start()]))]
+    matches = [m.group() for m in _duration_matches(text)]
     return matches[-1] if matches else None
 
 
 def replace_time(description, fact):
-    duration = re.sub(r"^(?:desde hace|hace|lleva)\s+", "", fact, flags=re.IGNORECASE)
-    def replace(match):
-        prefix = re.match(r"(?:desde hace|hace|lleva)", match.group(), flags=re.IGNORECASE).group()
-        return f"{prefix} {duration}"
-    return TIME.sub(replace, description)
+    update = TIME.search(fact)
+    if update is None:
+        return description
+    result = description
+    for match in reversed(list(_duration_matches(description))):
+        result = result[:match.start()] + match['lead'] + ' ' + update['duration'] + result[match.end():]
+    # Un apéndice que SOLO vuelve a decir la duración no añade un hecho.
+    # No borrar cláusulas con equipos, síntomas, fechas u otros antecedentes.
+    kept, seen, removed = [], False, False
+    temporal_words = set('ya ahora con el la los las este esta del de un una problema falla tiempo transcurrido es'.split())
+    for part in sentences(result):
+        matches = list(_duration_matches(part))
+        residue = part
+        for match in reversed(matches): residue = residue[:match.start()] + residue[match.end():]
+        if seen and matches and set(re.findall(r'\w+', normalized(residue))) <= temporal_words:
+            removed = True
+            continue
+        kept.append(part)
+        seen = seen or bool(matches)
+    return join_description(*kept) if removed else result
 
 
 def preserve_modality(candidate, evidence):
@@ -55,7 +86,10 @@ def preserve_modality(candidate, evidence):
         for condition in (r"\bparcial\w*\b", r"\bdisponible\b", r"\b(?:sin|no (?:hay|tenemos|existe|disponemos))\s+(?:un[oa]?\s+)?(?:respaldo|alternativa|otra camara|otro equipo)\b"):
             if re.search(condition, source) and not re.search(condition, result): return evidence
         in_use = r"\b(?:(?:estamos|seguimos|ya)\s+(?:usando|utilizando|trabajando)|en uso)\b"
-        if re.search(in_use, result) and not re.search(in_use, source): return evidence
+        resumed = (backup_transition(evidence)
+            and re.search(r'\b(?:retomamos|reanudamos|pudimos (?:retomar|continuar)|se (?:retoman|reanudan))\b', source)
+            and not re.search(r'\bno (?:pudimos |logramos )?(?:retomar|continuar|reanudar)\b', source))
+        if re.search(in_use, result) and not (re.search(in_use, source) or resumed): return evidence
     return candidate
 
 
