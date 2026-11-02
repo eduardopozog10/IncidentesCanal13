@@ -12,7 +12,7 @@ import django
 django.setup()
 
 from django.conf import settings
-from config.settings import TELEGRAM_BOT_TOKEN
+from config.settings import TELEGRAM_BOT_TOKEN, TELEGRAM_GROUP_WINDOW_SECONDS
 from incidents.models import Technician, TechnicianChannel
 from incidents.management.commands import run_telegram_bot
 
@@ -20,6 +20,7 @@ if settings.DATABASES["default"]["NAME"] != "qa_secuoya_20261019" or not setting
     raise SystemExit("QA requiere la base aislada y correo en memoria.")
 settings.TELEGRAM_BOT_TOKEN = TELEGRAM_BOT_TOKEN
 settings.AI_PROVIDER = "gemini"
+settings.TELEGRAM_GROUP_WINDOW_SECONDS = TELEGRAM_GROUP_WINDOW_SECONDS
 AUTHORIZED_ID = os.environ.get("SECUOYA_QA_REPORTER_ID", "").strip()
 if not AUTHORIZED_ID:
     raise SystemExit("Define SECUOYA_QA_REPORTER_ID con la cuenta autorizada antes de iniciar QA.")
@@ -66,12 +67,12 @@ class RestrictedQAHandler(run_telegram_bot.TelegramUpdateHandler):
         else:
             super().__init__()
 
-    def handle(self, update):
+    def handle(self, update, **kwargs):
         message = update.get("message", {})
         if str(message.get("from", {}).get("id")) != AUTHORIZED_ID or message.get("chat", {}).get("type") != "private":
             # No responder ni procesar reportes de otra persona en QA.
             raise SystemExit("Se recibió un mensaje de otra cuenta: detener QA y revisar manualmente.")
-        return super().handle(update)
+        return super().handle(update, **kwargs)
 
 
 run_telegram_bot.TelegramUpdateHandler = RestrictedQAHandler

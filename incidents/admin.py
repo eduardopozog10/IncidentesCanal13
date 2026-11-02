@@ -5,6 +5,7 @@ from django.contrib.auth.admin import UserAdmin, GroupAdmin
 from django.contrib.auth.models import Group
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
+from django.utils import timezone
 
 from .access import ROLE_GROUPS, can
 
@@ -109,6 +110,9 @@ class IncidentAdmin(admin.ModelAdmin):
             fields = [field.name for field in obj._meta.fields if field.name in form.changed_data]
             for name in fields:
                 setattr(current, name, getattr(obj, name))
+            if "status" in fields:
+                current.resolved_at = (current.resolved_at or timezone.now()) if current.status == Incident.Status.RESOLVED else None
+                fields.append("resolved_at")
             if fields:
                 current.save(update_fields=[*fields, "updated_at"], history_actor=request.user,
                              history_note=form.cleaned_data.get("observation", ""), history_source="admin")

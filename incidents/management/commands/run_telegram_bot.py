@@ -10,6 +10,7 @@ from incidents.messaging.telegram_update_handler import (
     TelegramUpdateHandler,
 )
 from incidents.services.notification_worker import start_notification_worker
+from incidents.services.telegram_message_groups import TelegramGroupRunner
 
 
 class TelegramPollingTemporaryError(RuntimeError):
@@ -74,6 +75,10 @@ class Command(BaseCommand):
                         api_url=api_url,
                     )
 
+                if getattr(settings, "TELEGRAM_GROUP_WINDOW_SECONDS", 2.5) > 0:
+                    self._poll_grouped(handler, client, api_url, offset)
+                    return
+
                 while True:
                     # Reanudar lo que quedó durable antes de pedir/confirmar
                     # nuevas actualizaciones. No vuelve a ejecutar mensajes
@@ -130,7 +135,7 @@ class Command(BaseCommand):
                                     "Error inesperado procesando "
                                     "una actualización "
                                     f"después de {elapsed:.2f} s: "
-                                    f"{error}"
+                                    f"{type(error).__name__}"
                                 )
                             )
                             # No confirmar un fallo anterior a la persistencia
@@ -170,6 +175,34 @@ class Command(BaseCommand):
             mail_stop.set()
             mail_thread.join(timeout=1)
 
+    def _poll_grouped(self, handler, client, api_url, offset):
+        runner = TelegramGroupRunner(handler, getattr(settings, "TELEGRAM_PROCESSING_WORKERS", 2))
+        try:
+            while True:
+                runner.tick()
+                try:
+                    updates = self._get_updates(client=client, api_url=api_url, offset=offset, timeout_seconds=1)
+                except (httpx.RequestError, TelegramPollingTemporaryError):
+                    self.stderr.write("Telegram temporalmente no disponible; recepción pendiente.")
+                    time.sleep(3)
+                    continue
+                except RuntimeError as error:
+                    raise CommandError(str(error)) from error
+                updates.sort(key=lambda item: item.get("update_id", 0) if isinstance(item, dict) else 0)
+                for update in updates:
+                    try:
+                        result = handler.queue_update(update)
+                    except Exception as error:
+                        self.stderr.write(f"No se confirmó recepción durable: {type(error).__name__}")
+                        break
+                    if result.get("action") == "processing_failed" and not result.get("durable"):
+                        break
+                    update_id = update.get("update_id") if isinstance(update, dict) else None
+                    if isinstance(update_id, int):
+                        offset = update_id + 1
+        finally:
+            runner.close()
+
     def _send_processing_notice(
         self,
         *,
@@ -200,7 +233,7 @@ class Command(BaseCommand):
             self.stderr.write(
                 self.style.WARNING(
                     "No fue posible enviar el aviso de "
-                    f"procesamiento: {error}"
+                    f"procesamiento: {type(error).__name__}"
                 )
             )
         finally:

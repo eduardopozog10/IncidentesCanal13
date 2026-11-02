@@ -37,3 +37,6 @@ Thumbs.db
 
 # Herramientas y capturas locales de QA
 .qa/
+
+# Evidencias locales de pruebas QA
+docs/qa/

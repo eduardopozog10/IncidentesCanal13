@@ -1,5 +1,6 @@
 """Perfiles de gestión. Los reportantes de Telegram no participan aquí."""
 from functools import wraps
+from collections.abc import Mapping
 
 from django.contrib.auth.views import redirect_to_login
 from django.core.exceptions import PermissionDenied
@@ -100,7 +101,7 @@ class CanUseIncidentDetail(CanViewIncidents):
         if request.method == "PATCH":
             # No se añade una operación de prioridad a esta API: la operación
             # existente permanece en IncidentAdmin, con permisos por campo.
-            if "priority" in request.data and not can(request.user, "change_incident_priority"):
+            if isinstance(request.data, Mapping) and "priority" in request.data and not can(request.user, "change_incident_priority"):
                 return False
             return can(request.user, "change_incident_status")
         return True

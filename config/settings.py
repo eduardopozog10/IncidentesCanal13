@@ -157,6 +157,29 @@ TELEGRAM_BOT_TOKEN = env(
     default="",
 )
 
+# Ventana de inactividad de la secuencia; cero conserva el procesamiento inmediato.
+TELEGRAM_GROUP_WINDOW_SECONDS = env.float("TELEGRAM_GROUP_WINDOW_SECONDS", default=2.5)
+TELEGRAM_PROCESSING_WORKERS = env.int("TELEGRAM_PROCESSING_WORKERS", default=2)
+
+# Solo los eventos propios del piloto. Los transportes HTTP no se ponen en
+# DEBUG: sus URLs pueden contener credenciales. Configurable por proceso.
+SECUOYA_LOG_LEVEL = env('SECUOYA_LOG_LEVEL', default='INFO').upper()
+if SECUOYA_LOG_LEVEL not in {'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'}:
+    SECUOYA_LOG_LEVEL = 'INFO'
+SECUOYA_LOG_MODE = env('SECUOYA_LOG_MODE', default='compact').lower()
+if SECUOYA_LOG_MODE not in {'compact','detailed'}:
+    SECUOYA_LOG_MODE = 'compact'
+LOGGING = {
+    'version': 1, 'disable_existing_loggers': False,
+    'formatters': {'pilot': {'format': '{asctime} {levelname} {name}: {message}', 'style': '{'},
+        'compact': {'format':'{asctime} | {message}', 'datefmt':'%H:%M:%S', 'style':'{'}},
+    'filters': {'pilot_detail': {'()':'incidents.pilot_logging.PilotDetailFilter', 'mode':SECUOYA_LOG_MODE}},
+    'handlers': {'pilot_console': {'class': 'logging.StreamHandler', 'formatter': 'pilot' if SECUOYA_LOG_MODE=='detailed' else 'compact', 'level': SECUOYA_LOG_LEVEL, 'filters':['pilot_detail']},
+        'pilot_summary': {'class':'logging.StreamHandler','formatter':'compact','level':'INFO'}},
+    'loggers': {'incidents': {'handlers': ['pilot_console'], 'level': SECUOYA_LOG_LEVEL, 'propagate': False},
+        'secuoya.pilot': {'handlers':['pilot_summary'],'level':'INFO','propagate':False}},
+}
+
 # Registro automático de reportantes de Telegram.
 # Disponible solamente en el entorno de desarrollo.
 TELEGRAM_AUTO_REGISTER = (

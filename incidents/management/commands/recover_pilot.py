@@ -43,18 +43,21 @@ class Command(BaseCommand):
                 return
             if options["message_id"]:
                 message = ChannelMessage.objects.get(pk=options["message_id"], direction="inbound")
+                if message.processing_result.get("_group_leader_id"):
+                    message = ChannelMessage.objects.get(pk=message.processing_result["_group_leader_id"], direction="inbound")
                 with conversation_lock(f"reporter:{message.technician_id}"):
                     message.refresh_from_db()
+                    group_metadata = {key:value for key,value in message.processing_result.items() if key.startswith("_group_")}
                     if not message.received_via_polling or not handler._is_admitted_private_update(message.raw_payload):
                         raise CommandError("Contexto no autorizado; no se reproduce.")
                     if message.status in ("failed", "processing") and message.processing_attempts >= 3:
-                        if message.incident_id or ChannelMessage.objects.filter(technician_id=message.technician_id, direction="inbound", pk__gt=message.pk).exists():
+                        if message.incident_id or ChannelMessage.objects.filter(technician_id=message.technician_id, direction="inbound", pk__gt=message.pk).exclude(pk__in=group_metadata.get("_group_member_ids", [])).exists():
                             raise CommandError("La conversación avanzó o existe una incidencia: requiere revisión manual, no reprocesamiento.")
                         with transaction.atomic():
                             for reply in message.replies.filter(reply_purpose="reply"):
                                 reply.reply_purpose = f"{reply.pk:x}"
                                 reply.save(update_fields=["reply_purpose"])
-                            message.status, message.processing_attempts, message.processing_result = "received", 0, {}
+                            message.status, message.processing_attempts, message.processing_result = "received", 0, group_metadata
                             message.save(update_fields=["status", "processing_attempts", "processing_result"])
                     self.stdout.write(handler.handle(message.raw_payload)["action"])
                 return
@@ -78,7 +81,7 @@ class Command(BaseCommand):
                 handler.incoming_service._validate_message_owner(incoming, account, incoming.external_chat_id)
                 if not incoming.incident_id and ChannelMessage.objects.filter(
                     technician_id=incoming.technician_id, direction="inbound", pk__gt=incoming.pk,
-                ).exists():
+                ).exclude(pk__in=incoming.processing_result.get("_group_member_ids", [])).exists():
                     raise CommandError("La conversación avanzó: revisar antes de reenviar un resumen antiguo.")
                 reply.status, reply.processing_attempts = "failed", 0
                 reply.save(update_fields=["status", "processing_attempts"])

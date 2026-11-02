@@ -52,10 +52,17 @@ class CorrectionFeedbackTests(TestCase):
                     if previous.get(name) != draft.extracted_data.get(name)}
         self.assertIn("changes", result, result)
         self.assertEqual({item["field"]: item["value"] for item in result["changes"]}, expected)
-        acknowledgement = result["reply"].split("\n\n", 2)[1]
-        self.assertEqual(len(acknowledgement.splitlines()), len(expected))
-        for name, value in expected.items():
-            self.assertIn(f"• {self.processor.CHANGE_LABELS[name]}:", acknowledgement)
+        if draft.status == "ready":
+            # El resumen contiene los valores guardados una sola vez, sin una
+            # segunda lista de cambios delante. El diff sigue verificándose arriba.
+            self.assertIn(self.processor._build_confirmation_reply(draft.extracted_data), result["reply"])
+            self.assertEqual(sum(line.startswith("• ") for line in result["reply"].splitlines()), 8)
+            self.assertIn("¿Confirmas la creación", result["reply"])
+        else:
+            acknowledgement = result["reply"].split("\n\n", 2)[1]
+            self.assertEqual(len(acknowledgement.splitlines()), len(expected))
+            for name in expected:
+                self.assertIn(f"• {self.processor.CHANGE_LABELS[name]}:", acknowledgement)
         self.assertEqual(Incident.objects.count(), 0)
 
     def test_single_direct_correction_confirms_symptom_and_saved_description(self):
@@ -153,7 +160,7 @@ class CorrectionFeedbackTests(TestCase):
     def test_correction_during_final_confirmation_requires_another_explicit_yes(self):
         draft = self.seed()
         result = self.send("La ubicación es Estudio 7")
-        self.assertIn("• Ubicación: Estudio 7", result["reply"])
+        self.assertIn("• Ubicación/contexto: Estudio 7", result["reply"])
         self.assertIn("¿Confirmas la creación", result["reply"])
         self.assertFalse(result["incident_created"])
         self.assertEqual(Incident.objects.count(), 0)
@@ -171,7 +178,7 @@ class CorrectionFeedbackTests(TestCase):
         self.assertIn("ya estaba registrado", result["reply"])
         self.assertNotIn("actualicé", result["reply"])
 
-    def test_ambiguous_correction_preserves_data_and_asks_specific_question(self):
+    def test_ambiguous_correction_preserves_data_and_asks_for_correct_value(self):
         draft = self.seed(area=None)
         previous = dict(draft.extracted_data)
         self.extracted({**previous, "location_context": "Estudio 7"}, {}, "ambiguous",
@@ -179,7 +186,8 @@ class CorrectionFeedbackTests(TestCase):
         result = self.send("Quizá estamos en el Estudio 7 o en el Estudio 8, no estoy seguro.")
         draft.refresh_from_db()
         self.assertEqual(draft.extracted_data, previous)
-        self.assertIn("Estudio 7 o Estudio 8", result["reply"])
+        self.assertIn("¿Cuál es el dato correcto y su nuevo valor?", result["reply"])
+        self.assertIn("Mantengo los datos anteriores", result["reply"])
         self.assertNotIn("actualicé", result["reply"])
         self.assertEqual(draft.status, "collecting")
 

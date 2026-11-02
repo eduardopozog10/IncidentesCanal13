@@ -1,4 +1,6 @@
 
+import logging
+
 from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.db.models import Exists, F, OuterRef, Q
@@ -12,6 +14,8 @@ from incidents.models import (
 from incidents.ai.base import AIConfigurationError
 from incidents.services.incident_processor import IncidentProcessor
 from incidents.services.conversation_lock import conversation_lock
+
+logger = logging.getLogger(__name__)
 
 
 class ChannelNotAuthorizedError(Exception):
@@ -47,7 +51,7 @@ class IncomingMessageService:
             direction="inbound", received_via_polling=True,
             channel_account__is_active=True, technician__is_active=True,
             channel_account__technician_id=F("technician_id"),
-        ).annotate(final_reply=Exists(final_reply)).filter(
+        ).exclude(processing_result__has_key="_group_leader_id").annotate(final_reply=Exists(final_reply)).filter(
             Q(status="processing")
             | (Q(status__in=["received", "failed"]) & ~Q(processing_result__has_key="reply"))
             | Q(processing_result__has_key="reply", final_reply=False)
@@ -163,6 +167,8 @@ class IncomingMessageService:
         raw_payload: dict,
         trusted_telegram: bool = False,
         command_handler=None,
+        receive_only=False,
+        processing_text=None,
     ) -> dict:
         # Esta capacidad se concede desde Python por el receptor de polling;
         # nunca se toma del cuerpo de una solicitud HTTP.
@@ -227,14 +233,20 @@ class IncomingMessageService:
                 "content": text,
                 "raw_payload": raw_payload,
                 "status": ChannelMessage.Status.RECEIVED,
+                "processing_result": {"_queued_for_group": True} if receive_only else {},
             },
         )
         self._validate_message_owner(message, channel_account, external_chat_id)
+        if trusted_telegram:
+            logger.info("telegram.message_persisted message=%s reporter=%s duplicate=%s", message.pk, message.technician_id, not created)
+        if receive_only:
+            return {"duplicate": not created, "message": message, "processing": None, "pending": True}
         with conversation_lock(f"reporter:{channel_account.technician_id}", wait=not trusted_telegram) as acquired:
             if not acquired:
                 return {"duplicate": not created, "message": message, "processing": None, "pending": True}
             message.refresh_from_db()
             self._validate_message_owner(message, channel_account, external_chat_id)
+            group_metadata = {key: value for key, value in message.processing_result.items() if key.startswith("_group_")}
             # Reutilizar siempre el contenido persistido, no el cuerpo de un replay.
             incomplete_timeout = trusted_telegram and message.processing_result.get("action") == "ai_timeout"
             if (message.status == ChannelMessage.Status.PROCESSED or "reply" in message.processing_result) and not incomplete_timeout:
@@ -245,11 +257,13 @@ class IncomingMessageService:
                 result = {"action": "incident_created", "incident_created": True,
                           "incident_id": message.incident_id, "incident_code": message.incident.code,
                           "reply": f"Reporte {message.incident.code} creado correctamente."}
+                result.update(group_metadata)
                 ChannelMessage.objects.filter(pk=message.pk).update(status="processed", processing_result=result)
                 return {"duplicate": True, "message": message, "processing": result}
             if message.processing_attempts >= self.MAX_PROCESSING_ATTEMPTS:
                 if "reply" not in message.processing_result or incomplete_timeout:
                     result = self._failure_reply()
+                    result.update(group_metadata)
                     ChannelMessage.objects.filter(pk=message.pk).update(status="failed", processing_result=result, error_message=message.error_message or "InterruptedProcessing")
                     return {"duplicate": False, "message": message, "processing": result}
                 return {"duplicate": True, "message": message, "processing": message.processing_result or None}
@@ -262,12 +276,16 @@ class IncomingMessageService:
             message.processing_attempts += 1
             message.status = ChannelMessage.Status.PROCESSING
             if trusted_telegram:
-                message.processing_result = {"_retry_not_before": timezone.now().timestamp() + self.retry_delay()}
+                message.processing_result = {**group_metadata, "_retry_not_before": timezone.now().timestamp() + self.retry_delay()}
             message.save(update_fields=["processing_attempts", "status", "processing_result"])
+            logger.info("telegram.processing_started message=%s attempt=%s", message.pk, message.processing_attempts)
+            if processing_text is not None:
+                message.processing_text = processing_text
             try:
                 if command_handler is not None:
                     with transaction.atomic():
                         result = command_handler(message)
+                        result.update(group_metadata)
                         message.processing_result = result
                         message.status = "processed"
                         message.processed_at = timezone.now()
@@ -288,8 +306,9 @@ class IncomingMessageService:
                     if isinstance(error, AIConfigurationError):
                         result["reply"] = "No pude procesar el mensaje por un problema de configuración del proveedor. Quedó conservado para revisión; no se registró una nueva incidencia."
                 delay = max(self.retry_delay(), getattr(error, "retry_after", 0))
-                message.processing_result = result or {"_retry_not_before": timezone.now().timestamp() + delay}
+                message.processing_result = {**(result or {"_retry_not_before": timezone.now().timestamp() + delay}), **group_metadata}
                 message.save(update_fields=["status", "error_message", "processing_result"])
+                logger.info("telegram.processing_deferred message=%s attempt=%s error=%s retry_after=%s", message.pk, message.processing_attempts, type(error).__name__, delay)
                 if not trusted_telegram:
                     raise
                 return {"duplicate": False, "message": message, "processing": result, "pending": result is None}

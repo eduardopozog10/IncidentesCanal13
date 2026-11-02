@@ -1,4 +1,5 @@
 import re
+import logging
 import unicodedata
 
 from django.db import transaction
@@ -14,6 +15,19 @@ from incidents.models import (
 )
 from incidents.services.conversation_lock import conversation_lock
 from incidents.models import IncidentNotification
+from incidents.services.conversation_content import (
+    join_description, preserve_modality, query_fields, time_fact, TIME,
+    is_diagnostic_uncertainty, preserve_description_context, is_query_only, replace_time, unknown_area_statement,
+    unknown_information, backup_reference, backup_transition, operational_description,
+    sentences, faithful_rewrite, rewrite_requested, natural_confirmation, natural_cancel,
+    observable_intermittence,
+    direct_action_text,
+    report_preparation_requested,
+)
+from incidents.services.incident_draft_service import IncidentDraftService
+
+logger = logging.getLogger(__name__)
+from incidents.services.conversation_plan import actions, fact_updates, authorized, merge_operational_facts
 
 
 class _ExtractionNeeded(Exception):
@@ -254,6 +268,20 @@ class IncidentProcessor:
         "esta bien",
         "bien",
         "ok",
+        "si confirmo la creacion del incidente",
+        "si confirmo la creacion de la incidencia",
+        "confirmo la creacion del incidente",
+        "confirmo la creacion de la incidencia",
+        "correcto crealo", "esta todo bien registralo", "dale crealo", "ya dale",
+        "todo bien puedes registrarlo", "procede con el reporte", "perfecto envialo",
+        "registra la incidencia", "registra el incidente", "si crealo", "si registralo",
+        "ya po dale", "dale nomas crealo",
+    }
+
+    CONFIRMATION_HOLD = {
+        "si no espera", "creo que si pero dejame revisar", "si aunque hay algo malo en el resumen",
+        "todavia no", "espera", "no lo registres todavia", "no lo registres",
+        "aun no", "no estoy seguro", "no estoy segura",
     }
 
     CONFIRMATION_NEGATIVE = {
@@ -270,7 +298,186 @@ class IncidentProcessor:
         self.ai_provider = ai_provider or get_ai_provider()
         self.require_delivered_summary = require_delivered_summary
 
+    def _confirmation_text(self, text):
+        normalized = re.sub(r"[^\w\s]", " ", self._normalize_quick_text(text))
+        normalized = " ".join(normalized.split())
+        # Erratas acotadas de la palabra completa; nunca coincidencias parciales.
+        return re.sub(r"\b(?:confimo|confrimo)\b", "confirmo", normalized)
+
+    def _is_confirmation(self, text, draft=None):
+        return (
+            direct_action_text(text) is not None
+            and (self._confirmation_text(text) in self.CONFIRMATION_POSITIVE
+                 or natural_confirmation(text, [draft.extracted_data.get(name) for name in ('equipment', 'location_context')] if draft else ()))
+        )
+
+    @staticmethod
+    def _conversation_reply(draft=None):
+        # La IA interpreta datos; solo la aplicación puede describir su estado.
+        if draft and draft.status == IncidentDraft.Status.READY:
+            return "El borrador sigue pendiente de confirmación. Revisa el resumen y envía una confirmación explícita para registrarlo, o indica qué dato quieres corregir."
+        if draft:
+            return "El reporte sigue en borrador. Podemos completar los datos pendientes o corregir los que ya me indicaste; todavía no he confirmado su registro."
+        return "Puedo ayudarte a registrar una incidencia operativa. Cuéntame qué falla y dónde ocurre; revisaremos un resumen antes de registrarla."
+
+    def _answer_draft_query(self, draft, fields):
+        if draft is None:
+            return "No tienes un borrador activo. Cuéntame qué falla necesitas reportar."
+        data = draft.extracted_data or {}
+        if "missing" in fields:
+            missing = [self.CHANGE_LABELS[name] for name in self.REQUIRED_FIELDS if not data.get(name)]
+            status = "Datos pendientes: " + ", ".join(missing) if missing else "El borrador está completo y pendiente de confirmación."
+            return (self._answer_draft_query(draft, fields-{'missing'}) + '\n\n' + status) if len(fields)>1 else status
+        if "summary" in fields:
+            reply = self._build_confirmation_reply(data).split("\n\n¿Confirmas", 1)[0]
+            return reply.replace("Antes de crear el incidente, revisa los datos:", "Información guardada en el borrador:", 1) + "\n\n" + self._answer_draft_query(draft, {"missing"})
+        lines = []
+        for name in (*self.CHANGE_LABELS, "time", "backup"):
+            if name not in fields: continue
+            value = time_fact(data.get("description") or "") if name == "time" else data.get(name)
+            if name == "backup":
+                clauses = [part for part in sentences(data.get("operational_impact")) if backup_reference(part)]
+                if not clauses:
+                    clauses = [part for part in sentences(data.get("description")) if backup_reference(part) and not part.startswith(('Antecedente:', 'Antes de'))]
+                value = join_description(*clauses) or 'No se ha informado el estado del respaldo.'
+            if name == "time" and not value and data.get("description"):
+                value = "No hay una antigüedad identificada por separado. Descripción guardada: " + data["description"]
+            if name == "priority" and value in Incident.Priority.values:
+                value = Incident.Priority(value).label
+            if name == "asset_category" and value in Incident.AssetCategory.values:
+                value = Incident.AssetCategory(value).label
+            label = {'time': 'Antigüedad/inicio', 'backup': 'Respaldo'}.get(name) or self.CHANGE_LABELS[name]
+            lines.append(f"• {label}: {value or 'No informado'}")
+        return "Según el borrador guardado:\n\n" + "\n".join(lines)
+
+    def _unknown_area_reply(self, draft, text):
+        if not draft or not unknown_information(text):
+            return None
+        normalized = self._normalize_quick_text(text)
+        field = next((name for name, pattern in {
+            'area':r'\barea\b', 'equipment':r'\b(?:equipo|identificarlo)\b',
+            'asset_category':r'\b(?:clasificacion|categoria|familia)\b',
+            'failure_type':r'\b(?:sintoma|contexto tecnico)\b',
+        }.items() if re.search(pattern, normalized)), None)
+        # «No sé si es Cámara 2 o 3» no implica desconocer otro campo
+        # pendiente. La ayuda genérica sigue usando el guiado existente.
+        if not field or draft.extracted_data.get(field):
+            return None
+        if self._extract_explicit_priority(text) or time_fact(text):
+            return None
+        draft.extracted_data["_unknown_fields"] = list(dict.fromkeys([*draft.extracted_data.get('_unknown_fields', []), field]))
+        other = [name for name in self.REQUIRED_FIELDS if name != field and not draft.extracted_data.get(name)]
+        question = self.FALLBACK_QUESTIONS[other[0]] if other else (
+            "Cuando puedas, consulta al responsable de la operación a qué área corresponde. "
+            "Mientras tanto puedes consultar el resumen o corregir otros datos; conservaré el borrador sin registrarlo."
+        )
+        guidance = self._field_guidance(field, draft.extracted_data)
+        reply = guidance + ' ' + question
+        draft.last_question = question
+        draft.save(update_fields=["extracted_data", "last_question", "updated_at"])
+        return reply
+
+    def _field_guidance(self, field, data=None):
+        if field == 'area':
+            data = data or {}
+            context = ('Para ' + data['equipment'] + (' en ' + data['location_context'] if data.get('location_context') else '') + ', ') if data.get('equipment') else ''
+            return (context + 'no hay problema si no conoces el área; no la voy a suponer. '
+                    'El área indica quién gestiona la operación o el equipo, no solo su tipo. '
+                    'Audio se relaciona con la operación de sonido; Producción con la coordinación de la producción. '
+                    'Eso no determina la asignación interna de Secuoya. ¿Qué función cumple el equipo y quién lo opera o gestiona?')
+        return self.GUIDED_QUESTIONS.get(field, 'Describe lo que observas sin adivinar una clasificación.')
+
+    @staticmethod
+    def _dialogue_result(message, draft, action, reply):
+        message.draft = draft
+        message.status = ChannelMessage.Status.PROCESSED
+        message.processed_at = timezone.now()
+        message.save(update_fields=['draft', 'status', 'processed_at'])
+        return {'action': action, 'incident_created': False, 'draft_id': draft.pk if draft else None, 'reply': reply}
+
+    def _cancel_draft(self, message):
+        draft = IncidentDraftService().cancel_active_draft(technician=message.technician)
+        return self._dialogue_result(message, draft, 'draft_cancelled' if draft else 'no_active_draft',
+            'El reporte pendiente fue cancelado.' if draft else 'No tienes ningún reporte pendiente.')
+
+    def _semantic_dialogue(self, message, draft, extraction):
+        action = getattr(extraction, 'dialogue_action', None)
+        acts = actions(extraction)
+        text = self._text(message)
+        previous = draft.extracted_data if draft else {}
+        has_facts = fact_updates(extraction, previous, text)
+        if draft is None and 'confirm' in acts:
+            last = IncidentDraft.objects.filter(technician=message.technician).order_by('-updated_at').first()
+            if last and last.status == IncidentDraft.Status.COMPLETED and authorized(extraction, text, last, 'confirm'):
+                message.incident = last.incident
+                message.save(update_fields=['incident'])
+                result = self._dialogue_result(message, last, 'incident_already_created', f'El reporte {last.incident.code} ya fue registrado. No creé otra incidencia.')
+                result['incident_code'] = last.incident.code
+                return result
+        if draft and authorized(extraction, text, draft, 'cancel'):
+            return self._cancel_draft(message)
+        if draft and authorized(extraction, text, draft, 'confirm'):
+            if draft.status == IncidentDraft.Status.READY:
+                return self._handle_ready_draft_confirmation(message, draft, semantic_authorized=True)
+            missing = [name for name in self.REQUIRED_FIELDS if not draft.extracted_data.get(name)]
+            reply = self.FALLBACK_QUESTIONS[missing[0]] if missing else self._build_confirmation_reply(draft.extracted_data)
+            draft.status = IncidentDraft.Status.COLLECTING if missing else IncidentDraft.Status.READY
+            draft.last_question = reply
+            draft.save(update_fields=['status', 'last_question', 'updated_at'])
+            return self._dialogue_result(message, draft, 'ask_clarification', reply)
+        if action in {'query', 'help'} and (has_facts or 'update' in acts):
+            return None
+        if action == 'rewrite' and any(name != 'description' and quote and quote in text for name,quote in (extraction.field_evidence or {}).items()):
+            return None
+        if action == 'rewrite' and not rewrite_requested(text):
+            return None
+        evidence = getattr(extraction, 'action_evidence', None)
+        if not evidence or evidence not in self._text(message):
+            return None
+        if action == 'query':
+            fields = set(getattr(extraction, 'requested_fields', []))
+            valid = {*self.CHANGE_LABELS, 'time', 'backup', 'summary', 'missing'}
+            if fields and fields <= valid and not self._looks_like_natural_correction_statement(self._text(message)) and not self._priority_for_message(message):
+                return self._dialogue_result(message, draft, 'draft_query', self._answer_draft_query(draft, fields))
+        if action == 'help':
+            field = getattr(extraction, 'help_field', None)
+            if field in self.GUIDED_QUESTIONS or field == 'asset_category':
+                return self._dialogue_result(message, draft, 'draft_help', self._field_guidance(field, previous))
+        if action == 'rewrite' and draft:
+            rewrite = faithful_rewrite(draft.extracted_data.get('description'), getattr(extraction, 'rewrite_clauses', []))
+            if rewrite is None:
+                return self._dialogue_result(message, draft, 'draft_rewrite_pending',
+                    'Conservo la descripción: no pude verificar una reescritura que mantenga todos los hechos. Indica qué parte quieres ordenar o corregir.')
+            previous = draft.extracted_data.get('description')
+            if rewrite == previous:
+                return self._dialogue_result(message, draft, 'draft_query', 'La descripción ya conserva esos hechos sin repeticiones.\n\n' + rewrite)
+            draft.extracted_data['description'] = rewrite
+            # Un cambio de redacción también invalida la autorización anterior.
+            reply = 'Ordené la descripción conservando sus hechos.\n\n' + self._build_confirmation_reply(draft.extracted_data) if draft.status == IncidentDraft.Status.READY else 'Descripción actualizada:\n\n' + rewrite
+            draft.last_question = reply
+            draft.save(update_fields=['extracted_data', 'last_question', 'updated_at'])
+            return self._dialogue_result(message, draft, 'draft_rewritten', reply)
+        return None
+
+    @staticmethod
+    def _text(message):
+        return getattr(message, "processing_text", message.content)
+
+    def _priority_for_message(self, message):
+        ids = message.processing_result.get("_group_member_ids", [])
+        if len(ids) > 1:
+            rows = list(ChannelMessage.objects.filter(pk__in=ids, technician_id=message.technician_id))
+            rows.sort(key=lambda row: row.raw_payload["message"]["message_id"], reverse=True)
+            for row in rows:
+                if is_query_only(row.content): continue
+                value = self._extract_explicit_priority(row.content)
+                if value or re.search(r"\bprioridad\b", self._normalize_quick_text(row.content)):
+                    return value
+            return None
+        return self._extract_explicit_priority(self._text(message))
+
     def process(self, message: ChannelMessage):
+        group_metadata = {key: value for key, value in message.processing_result.items() if key.startswith("_group_")}
         with conversation_lock(f"reporter:{message.technician_id}"):
             outcome = None
             for _ in range(3):
@@ -282,6 +489,21 @@ class IncidentProcessor:
                         was_correcting = self._is_draft_correction_mode(before)
                         result = self._process_atomic(message, outcome)
                         result = self._add_saved_changes(message, result, previous, was_correcting)
+                        interpretation = outcome[2] if outcome else None
+                        if interpretation and actions(interpretation):
+                            result = self._compose_semantic_reply(message, result, previous, interpretation)
+                        logger.info('conversation.completed message=%s draft=%s action=%s changes=%s', message.pk, result.get('draft_id'), result.get('action'), len(result.get('changes', [])))
+                        result.update(group_metadata)
+                        if result.get("action") == "ask_clarification" and not result.get('guidance') and not (interpretation and actions(interpretation)):
+                            fields = query_fields(self._text(message)) or set()
+                            for text in ChannelMessage.objects.filter(pk__in=group_metadata.get("_group_member_ids", []), technician_id=message.technician_id).values_list("content", flat=True):
+                                fields.update(query_fields(text) or set())
+                            if fields:
+                                draft = IncidentDraft.objects.filter(pk=result.get("draft_id")).first()
+                                result["reply"] = self._answer_draft_query(draft, fields) + "\n\n" + result["reply"]
+                                if draft and draft.status == "ready":
+                                    draft.last_question = result["reply"]
+                                    draft.save(update_fields=["last_question", "updated_at"])
                         ChannelMessage.objects.filter(pk=message.pk).update(processing_result=result)
                         ChannelMessage.objects.filter(in_reply_to=message).update(draft_id=message.draft_id, incident_id=message.incident_id)
                     return result
@@ -299,6 +521,57 @@ class IncidentProcessor:
                     message.refresh_from_db()
             raise RuntimeError("El contexto cambió repetidamente; mensaje pendiente de recuperación.")
 
+    def _compose_semantic_reply(self, message, result, previous, extraction):
+        """Comunicar solo el resultado guardado; nunca prosa libre de IA."""
+        if result.get('action') not in {'ask_clarification','draft_rewritten'} or not result.get('draft_id'):
+            return result
+        draft = IncidentDraft.objects.get(pk=result['draft_id'])
+        data, acts = draft.extracted_data, actions(extraction)
+        fields = set(extraction.requested_fields or [])
+        explicit_fields = query_fields(self._text(message)) or set()
+        fields.update(explicit_fields)
+        if explicit_fields:
+            acts.add('query')
+        changed = [name for name in self.CHANGE_LABELS if previous and previous.get(name) != data.get(name)]
+        result['semantic_actions'] = sorted(acts)
+        # Una pregunta para identificar un dato pide orientación, aunque el
+        # lector local también encuentre su nombre como campo consultado.
+        if 'help' in acts and extraction.help_field:
+            result['reply'] = self._field_guidance(extraction.help_field, data)
+            return result
+        # Los campos del reporte mencionados antes de «ayúdame a prepararlo»
+        # no son por sí solos una solicitud de lectura de esos campos.
+        if report_preparation_requested(self._text(message)) and not explicit_fields:
+            acts.discard('query')
+            result['semantic_actions'] = sorted(acts | {'help'})
+        if 'query' in acts and not fields:
+            fields = set(changed) or set((extraction.field_evidence or {})).intersection(self.CHANGE_LABELS)
+        if 'query' in acts and fields and 'summary' not in fields:
+            acknowledgement = ('Guardé los cambios de ' + ', '.join(self.CHANGE_LABELS[name].lower() for name in changed) + '.\n\n') if changed else ''
+            focus = set(changed) or set((extraction.field_evidence or {})).intersection(self.CHANGE_LABELS)
+            if fields == {'missing'} and 'update' in acts and 0 < len(focus) <= 2:
+                result['reply'] = acknowledgement + self._answer_draft_query(draft, focus) + '\n\n' + self._answer_draft_query(draft, fields)
+            else:
+                result['reply'] = acknowledgement + self._answer_draft_query(draft, fields)
+            if (extraction.authorization or {}).get('delayed'):
+                result['reply'] += '\n\nEl reporte sigue en borrador; todavía no se ha registrado.'
+            # READY solo valida datos. El resumen completo que quedó en
+            # last_question NO se entrega aquí: confirmar lo mostrará primero.
+            return result
+        if draft.status != IncidentDraft.Status.READY:
+            return result
+        summary = self._build_confirmation_reply(data).split('\n\n', 1)[1]
+        if not previous:
+            intro = f"Claro, preparé un borrador de {data.get('equipment')} en {data.get('location_context')}. Revisemos los antecedentes antes de registrarlo."
+        elif changed:
+            intro = 'Ya quedaron guardados los cambios de ' + ', '.join(self.CHANGE_LABELS[name].lower() for name in changed) + '. Revisa cómo quedó.'
+        else:
+            intro = 'El borrador conserva los datos indicados. Puedes revisarlos antes de autorizar su registro.'
+        result['reply'] = intro + '\n\n' + summary
+        draft.last_question = result['reply']
+        draft.save(update_fields=['last_question', 'updated_at'])
+        return result
+
     def _add_saved_changes(self, message, result, previous, was_correcting):
         """Comparar con PostgreSQL dentro del mismo commit que cachea la respuesta.
 
@@ -311,7 +584,7 @@ class IncidentProcessor:
         current = draft.extracted_data
         changes = [{"field": name, "previous": previous.get(name), "value": current.get(name)}
                    for name in self.CHANGE_LABELS if previous.get(name) != current.get(name)]
-        is_correction = was_correcting or self._looks_like_natural_correction_statement(message.content)
+        is_correction = was_correcting or self._looks_like_natural_correction_statement(self._text(message))
         is_correction = is_correction or any(previous.get(item["field"]) for item in changes)
         if not is_correction:
             return result
@@ -327,6 +600,10 @@ class IncidentProcessor:
                     value = Incident.AssetCategory(value).label
                 lines.append(f"• {self.CHANGE_LABELS[name]}: {value or 'Por confirmar'}")
             prefix = "Entendido, actualicé:\n\n" + "\n".join(lines)
+            if draft.status == IncidentDraft.Status.READY:
+                # El resumen completo ya incluye cada valor nuevo. No duplicarlo
+                # en una segunda lista de cambios delante del mismo resumen.
+                prefix = "Entendido, actualicé el borrador."
         elif result.get("unchanged_fields"):
             prefix = "Ese dato ya estaba registrado correctamente."
         if prefix:
@@ -364,8 +641,53 @@ class IncidentProcessor:
             .first()
         )
 
-        normalized_message = self._normalize_quick_text(message.content)
-        if draft is None and normalized_message in self.CONFIRMATION_POSITIVE:
+        if draft is None:
+            # Repetición exacta de una autorización ya ejecutada en ESTE
+            # canal/reportante. Solo reconocer el resultado persistido; no
+            # generar otro borrador por una reinterpretación variable de IA.
+            prior = ChannelMessage.objects.filter(
+                technician=message.technician, channel_account_id=message.channel_account_id,
+                provider=message.provider, direction=ChannelMessage.Direction.INBOUND,
+                status=ChannelMessage.Status.PROCESSED, content=self._text(message),
+                processing_result__action='incident_created', draft__status=IncidentDraft.Status.COMPLETED,
+                incident__isnull=False, created_at__lt=message.created_at,
+            ).select_related('incident','draft').order_by('-created_at').first()
+            if prior:
+                message.incident = prior.incident
+                message.save(update_fields=['incident'])
+                result = self._dialogue_result(message, prior.draft, 'incident_already_created',
+                    f'El reporte {prior.incident.code} ya fue registrado. No creé otra incidencia.')
+                result['incident_code'] = prior.incident.code
+                return result
+
+        if natural_cancel(self._text(message)):
+            return self._cancel_draft(message)
+        fields = query_fields(self._text(message)) if is_query_only(self._text(message)) else None
+        if draft is None and fields and not re.search(r"\b(?:borrador|resumen|guardad\w*|registrad\w*|indique|indicado|falta\w*)\b", self._normalize_quick_text(self._text(message))):
+            # Sin borrador, «¿Es prioridad alta?» puede pertenecer a un reporte
+            # incompleto. Conservar la clasificación existente del proveedor.
+            fields = None
+        unknown_reply = self._unknown_area_reply(draft, self._text(message))
+        if unknown_reply: fields = None
+        if fields or unknown_reply:
+            message.draft = draft
+            message.status = ChannelMessage.Status.PROCESSED
+            message.processed_at = timezone.now()
+            message.save(update_fields=["draft", "status", "processed_at"])
+            return {"action": "draft_query" if fields else "ask_clarification", "incident_created": False,
+                    "guidance": bool(unknown_reply),
+                    "draft_id": draft.pk if draft else None,
+                    "extracted_data": dict(draft.extracted_data) if draft else {},
+                    "missing_fields": list(draft.missing_fields) if draft else [],
+                    "reply": self._answer_draft_query(draft, fields) if fields else unknown_reply}
+
+        if outcome and outcome[2] is not None:
+            semantic_result = self._semantic_dialogue(message, draft, outcome[2])
+            if semantic_result is not None:
+                return semantic_result
+
+        last_context = IncidentDraft.objects.filter(technician=message.technician).order_by('-updated_at').first() if draft is None else draft
+        if draft is None and self._is_confirmation(self._text(message), last_context):
             last_draft = IncidentDraft.objects.filter(
                 technician=message.technician,
             ).order_by("-updated_at").first()
@@ -392,6 +714,30 @@ class IncidentProcessor:
 
         if (
             draft is not None
+            and draft.status != IncidentDraft.Status.READY
+            and self._is_confirmation(self._text(message), draft)
+        ):
+            # Confirmar un borrador parcial o en corrección no puede pedir a la
+            # IA que confirme por nosotros. Primero se entrega un resumen nuevo.
+            missing = [name for name in self.REQUIRED_FIELDS if not draft.extracted_data.get(name)]
+            draft.missing_fields = missing
+            draft.status = IncidentDraft.Status.COLLECTING if missing else IncidentDraft.Status.READY
+            reply = self.FALLBACK_QUESTIONS[missing[0]] if missing else self._build_confirmation_reply(draft.extracted_data)
+            if missing and missing[0] in draft.extracted_data.get("_unknown_fields", []):
+                reply = "Conservo el borrador sin registrarlo. El área sigue pendiente; consulta al responsable de la operación cuando puedas."
+            draft.last_question = reply
+            draft.save(update_fields=["missing_fields", "status", "last_question", "updated_at"])
+            message.draft = draft
+            message.status = ChannelMessage.Status.PROCESSED
+            message.processed_at = timezone.now()
+            message.save(update_fields=["draft", "status", "processed_at"])
+            return {
+                "action": "ask_clarification", "incident_created": False,
+                "draft_id": draft.pk, "missing_fields": missing, "reply": reply,
+            }
+
+        if (
+            draft is not None
             and draft.status == IncidentDraft.Status.READY
         ):
             confirmation_result = (
@@ -405,7 +751,7 @@ class IncidentProcessor:
                 return confirmation_result
 
         quick_reply = self._get_quick_conversation_reply(
-            message.content
+            self._text(message)
         )
 
         if quick_reply is not None:
@@ -445,7 +791,7 @@ class IncidentProcessor:
 
         if (
             help_field is not None
-            and self._is_clarification_request(message.content)
+            and self._is_clarification_request(self._text(message))
         ):
             reply = self.GUIDED_QUESTIONS[help_field]
 
@@ -480,7 +826,7 @@ class IncidentProcessor:
         correction_mode = self._is_draft_correction_mode(
             draft
         )
-        if draft is not None and self._looks_like_natural_correction_statement(message.content):
+        if draft is not None and self._looks_like_natural_correction_statement(self._text(message)):
             correction_mode = True
         current_evidence = None
         unchanged_fields = []
@@ -488,7 +834,7 @@ class IncidentProcessor:
 
         direct_draft_result = self._try_process_direct_draft_reply(
             draft=draft,
-            text=message.content,
+            text=self._text(message),
             previous_data=previous_data,
             pending_messages=pending_messages,
         )
@@ -498,16 +844,16 @@ class IncidentProcessor:
                 direct_draft_result
             )
             if correction_mode and extracted_data == previous_data and clarification_question is None:
-                unchanged_fields = [self._infer_correction_target_field(draft=draft, text=message.content, previous_data=previous_data)]
+                unchanged_fields = [self._infer_correction_target_field(draft=draft, text=self._text(message), previous_data=previous_data)]
 
         elif (
             self._is_waiting_only_for_priority(draft)
             and not correction_mode
-            and not self._looks_like_compound_reply(message.content)
-            and not self._has_operational_information(message.content, previous_data)
+            and not self._looks_like_compound_reply(self._text(message))
+            and not self._has_operational_information(self._text(message), previous_data)
         ):
             priority = self._extract_explicit_priority(
-                message.content
+                self._text(message)
             )
 
             if priority is None:
@@ -569,7 +915,7 @@ class IncidentProcessor:
 
         else:
             ai_message = self._build_ai_message(
-                current_message=message.content,
+                current_message=self._text(message),
                 pending_messages=pending_messages,
             )
 
@@ -588,10 +934,7 @@ class IncidentProcessor:
                 )
 
             if not previous_data.get("priority") and extraction.priority:
-                declared = {
-                    self._extract_explicit_priority(text)
-                    for text in [message.content, *pending_messages]
-                }
+                declared = {self._priority_for_message(message), *(self._extract_explicit_priority(text) for text in pending_messages)}
                 if extraction.priority not in declared:
                     # El proveedor no puede decidir una prioridad sin una
                     # declaración explícita del reportante.
@@ -600,11 +943,10 @@ class IncidentProcessor:
             if (
                 extraction.intent == "conversation"
                 and not correction_mode
+                and not fact_updates(extraction, previous_data, self._text(message))
+                and not (draft and (time_fact(self._text(message)) or backup_transition(self._text(message)) or rewrite_requested(self._text(message))))
             ):
-                reply = (
-                    extraction.conversation_reply
-                    or "De acuerdo. ¿En qué puedo ayudarte?"
-                )
+                reply = self._conversation_reply(draft)
 
                 message.status = ChannelMessage.Status.PROCESSED
                 message.processed_at = timezone.now()
@@ -624,27 +966,62 @@ class IncidentProcessor:
 
             current_evidence = getattr(extraction, "field_evidence", None)
             update_kind = getattr(extraction, "update_kind", None)
-            if draft and (update_kind in {"ambiguous", "new_incident"} or self._is_uncertain_update(message.content)):
+            if draft and rewrite_requested(self._text(message)) and not any(name != 'description' and quote and quote in self._text(message) for name,quote in (current_evidence or {}).items()):
+                # Un proveedor antiguo/sin acto no puede sobrescribir hechos al
+                # pedir redacción. La normalización extractiva es verificable.
+                extraction.dialogue_action = 'rewrite'
+                extraction.action_evidence = self._text(message)
+                extraction.rewrite_clauses = sentences(previous_data.get('description'))
+                return self._semantic_dialogue(message, draft, extraction)
+            if draft and backup_transition(self._text(message)) and not actions(extraction) and update_kind not in {'ambiguous', 'new_incident'}:
+                current_evidence = dict(current_evidence or {})
+                quote = current_evidence.get('operational_impact') or current_evidence.get('description') or self._text(message)
+                current_evidence['operational_impact'] = quote
+                extraction.field_evidence = current_evidence
+                extraction.operational_impact = quote
+                update_kind = 'evolution'
+            if draft and current_evidence and update_kind == 'additional' and any(
+                name != 'description' and getattr(extraction, name, None) and getattr(extraction, name) != previous_data.get(name)
+                for name in current_evidence if name in self.CHANGE_LABELS):
+                # El contenido respaldado prevalece sobre una etiqueta vaga.
+                update_kind = 'evolution'
+            for name in ("description", "operational_impact", "failure_type"):
+                setattr(extraction, name, preserve_modality(getattr(extraction, name), (current_evidence or {}).get(name)))
+            if draft and update_kind == "new_incident":
+                normalized = self._normalize_quick_text(self._text(message))
+                normalized = re.sub(r"\bno (?:es|se trata de) (?:una? )?otra (?:incidencia|incidente|problema|falla|reporte)\b", "", normalized)
+                explicit_new = re.search(r"\b(?:otr[oa]|nuev[oa])\s+(?:incidencia|incidente|problema|falla|reporte)\b", normalized)
+                explicit_new = explicit_new or re.search(r"\b(?:incidencia|incidente|problema|falla|reporte)\s+(?:distint[oa]|diferente|independiente)\b", normalized)
+                continuity = re.search(r"\b(?:mism[oa]|sobre est[ae]|ademas|tambien|sigue|continua)\b", normalized)
+                same_subject = all(not getattr(extraction, field) or self._normalize_quick_text(getattr(extraction, field)) == self._normalize_quick_text(previous_data.get(field) or "")
+                                   for field in ("equipment", "location_context"))
+                contextual_details = bool(current_evidence) and not set(current_evidence).intersection({"area", "equipment", "location_context"})
+                if not explicit_new and (continuity or (same_subject and contextual_details)):
+                    update_kind = "evolution" if set(current_evidence or {}).intersection({"priority", "failure_type", "operational_impact"}) else "additional"
+            if draft and (update_kind in {"ambiguous", "new_incident"} or self._is_uncertain_update(self._text(message))):
                 correction_mode = True
                 requires_update_clarification = True
                 extracted_data = dict(previous_data)
+                diagnostic_detail = (current_evidence or {}).get("description")
+                if update_kind != "new_incident" and diagnostic_detail and is_diagnostic_uncertainty(diagnostic_detail):
+                    extracted_data["description"] = join_description(previous_data.get("description"), diagnostic_detail)
                 clarification_question = (
                     "¿Se trata de otra incidencia? Mantengo el borrador actual. Si deseas descartarlo para comenzar otro, utiliza /cancelar."
                     if update_kind == "new_incident" else
-                    extraction.clarification_question or "¿Cuál es el dato correcto y su nuevo valor? Mantengo los datos anteriores hasta que lo aclares."
+                    "¿Cuál es el dato correcto y su nuevo valor? Mantengo los datos anteriores hasta que lo aclares."
                 )
             elif (correction_mode and update_kind != "additional") or (draft and update_kind in {"correction", "evolution"}):
                 correction_mode = True
                 correction_target_field = (
                     self._infer_correction_target_field(
                         draft=draft,
-                        text=message.content,
+                        text=self._text(message),
                         previous_data=previous_data,
                     )
                 )
-                if self._contains_multiple_fields(message.content):
+                if self._contains_multiple_fields(self._text(message)):
                     correction_target_field = None
-                if current_evidence and len(current_evidence) > 1:
+                if current_evidence and (len(current_evidence) > 1 or correction_target_field not in current_evidence):
                     correction_target_field = None
 
                 (
@@ -653,8 +1030,9 @@ class IncidentProcessor:
                 ) = self._merge_ai_correction(
                     previous_data=previous_data,
                     extraction=extraction,
-                    message_text=message.content,
+                    message_text=self._text(message),
                     target_field=correction_target_field,
+                    declared_priority=self._priority_for_message(message),
                 )
 
                 if correction_applied:
@@ -744,9 +1122,9 @@ class IncidentProcessor:
                     ),
                 }
 
-                clarification_question = (
-                    extraction.clarification_question
-                )
+                # Las preguntas visibles se construyen con el estado validado;
+                # no retransmitir prosa libre que pueda afirmar acciones falsas.
+                clarification_question = None
                 if draft and update_kind == "additional":
                     # Un dato complementario no reemplaza otro ya válido.
                     for name, old_value in previous_data.items():
@@ -754,7 +1132,11 @@ class IncidentProcessor:
                             extracted_data[name] = old_value
                     detail = (current_evidence or {}).get("description")
                     if detail and detail.casefold() not in str(previous_data.get("description", "")).casefold():
-                        extracted_data["description"] = f"{previous_data.get('description') or ''} {detail}".strip()
+                        extracted_data["description"] = join_description(previous_data.get("description"), detail)
+
+        intermittent = observable_intermittence(self._text(message))
+        if intermittent and not requires_update_clarification:
+            extracted_data['failure_type'] = intermittent
 
         extracted_data["asset_category"] = (
             self._refine_asset_category_from_equipment(
@@ -765,7 +1147,33 @@ class IncidentProcessor:
             )
         )
 
-        self._validate_equipment_change(previous_data, extracted_data, message.content, current_evidence)
+        self._validate_equipment_change(previous_data, extracted_data, self._text(message), current_evidence)
+
+        contextual = dict(previous_data)
+        for field in ("equipment", "location_context"):
+            if contextual.get(field) != extracted_data.get(field):
+                self._synchronize_description_after_direct_correction(contextual, contextual.get(field), extracted_data.get(field))
+        same_family = not previous_data.get("asset_category") or previous_data.get("asset_category") == extracted_data.get("asset_category")
+        if draft and same_family and backup_transition(self._text(message)) and not requires_update_clarification and not (outcome and outcome[2] and actions(outcome[2])):
+            evidence = (current_evidence or {}).get('operational_impact') or self._text(message)
+            extracted_data['operational_impact'] = evidence
+            extracted_data['description'] = operational_description(contextual.get('description'), evidence)
+        if draft and same_family and extracted_data.get("description") != previous_data.get("description"):
+            extracted_data["description"] = preserve_description_context(contextual.get("description"), extracted_data.get("description"), self._text(message))
+        explicit_time = time_fact(self._text(message))
+        if explicit_time and draft and extracted_data.get("description") and not self._is_uncertain_update(self._text(message)):
+            description = extracted_data["description"]
+            extracted_data["description"] = replace_time(description, explicit_time) if TIME.search(description) else join_description(description, f"Inicio reportado: {explicit_time}")
+        interpretation = outcome[2] if outcome else None
+        operational = merge_operational_facts(previous_data, interpretation, self._text(message)) if interpretation else None
+        if operational and not requires_update_clarification:
+            extracted_data['_operational_facts'], extracted_data['operational_impact'] = operational
+        elif previous_data.get('_operational_facts'):
+            extracted_data['_operational_facts'] = (previous_data['_operational_facts'] if extracted_data.get('operational_impact') == previous_data.get('operational_impact')
+                else {'consequence':extracted_data.get('operational_impact')})
+        if draft and not requires_update_clarification and clarification_question == self.CORRECTION_PROMPT and any(
+                previous_data.get(name) != extracted_data.get(name) for name in self.REQUIRED_FIELDS):
+            clarification_question = None
 
         generic_equipment = extracted_data.get(
             "equipment"
@@ -832,7 +1240,18 @@ class IncidentProcessor:
         unit_value = extracted_data.get("unit")
         if not isinstance(unit_value, str) or len(unit_value) > Incident._meta.get_field("unit").max_length:
             extracted_data["unit"] = extracted_data.get("location_context")
+        reported_unknown_area = unknown_area_statement(self._text(message))
+        if reported_unknown_area:
+            extracted_data["area"] = None
+        if "area" in previous_data.get("_unknown_fields", []) and not previous_data.get("area"):
+            candidate_area = extracted_data.get("area")
+            if candidate_area and self._normalize_quick_text(candidate_area) not in self._normalize_quick_text(self._text(message)):
+                extracted_data["area"] = None
         missing_fields = [name for name in self.REQUIRED_FIELDS if not extracted_data.get(name)]
+        deferred = [name for name in set(previous_data.get("_unknown_fields", []) + (["area"] if reported_unknown_area else [])) if name in missing_fields]
+        if deferred:
+            extracted_data["_unknown_fields"] = deferred
+            missing_fields.sort(key=lambda name: name in deferred)
 
         if ambiguous_equipment:
             clarification_question = "¿Cuál de los equipos presenta la falla? Confirma su número o identificador."
@@ -878,6 +1297,12 @@ class IncidentProcessor:
                 help_field
             ]
 
+        is_new_draft = draft is None
+        if missing_fields and missing_fields[0] in deferred and not requires_update_clarification:
+            clarification_question = (
+                "Conservo el borrador. El área sigue pendiente: puedes consultarla con el responsable "
+                "de la operación y volver cuando la conozcas, o consultar/corregir los datos guardados."
+            )
         if draft is None:
             draft = IncidentDraft.objects.create(
                 technician=message.technician,
@@ -914,6 +1339,10 @@ class IncidentProcessor:
         message.draft = draft
 
         if missing_fields:
+            if is_new_draft and extracted_data.get("equipment") and extracted_data.get("location_context"):
+                equipment, location = extracted_data["equipment"], extracted_data["location_context"]
+                if max(len(equipment), len(location)) <= 80:
+                    clarification_question = f"Entiendo. Para el borrador tengo «{equipment}» en «{location}». {clarification_question}"
             message.status = ChannelMessage.Status.PROCESSED
             message.processed_at = timezone.now()
             message.save(
@@ -1012,12 +1441,13 @@ class IncidentProcessor:
         self,
         message: ChannelMessage,
         draft: IncidentDraft,
+        *, semantic_authorized=False,
     ):
         normalized_message = self._normalize_quick_text(
-            message.content
+            self._text(message)
         )
 
-        if normalized_message in self.CONFIRMATION_POSITIVE:
+        if semantic_authorized or self._is_confirmation(self._text(message), draft):
             invalid = [name for name in self.REQUIRED_FIELDS if not draft.extracted_data.get(name)]
             for name in self.REQUIRED_FIELDS:
                 value = draft.extracted_data.get(name)
@@ -1044,10 +1474,16 @@ class IncidentProcessor:
                 draft=draft,
                 direction=ChannelMessage.Direction.OUTBOUND,
                 status=ChannelMessage.Status.SENT,
-                content=draft.last_question,
+                # La consulta explícita de TODO el resumen también puede
+                # entregar los datos vigentes sin mutar last_question.
+                # Comparar el texto completo actual, mismo borrador, SENT y
+                # anterior a la autorización; una consulta parcial no sirve.
+                content__in=[draft.last_question, self._answer_draft_query(draft, {'summary'})],
+                processed_at__lte=message.created_at,
             ).exists():
                 # READY significa datos válidos. En Telegram, la confirmación
-                # también exige haber entregado ese mismo resumen completo.
+                # exige haber entregado ese resumen antes de recibirla. Una
+                # confirmación en cola no autoriza un resumen enviado al recuperar.
                 reply = self._build_confirmation_reply(draft.extracted_data)
                 draft.last_question = reply
                 draft.save(update_fields=["last_question", "updated_at"])
@@ -1064,14 +1500,14 @@ class IncidentProcessor:
 
         requested_field = (
             self._extract_requested_correction_field(
-                message.content
+                self._text(message)
             )
         )
 
         if (
             requested_field is not None
             and self._is_correction_field_selection(
-                text=message.content,
+                text=self._text(message),
                 field_name=requested_field,
             )
         ):
@@ -1111,8 +1547,11 @@ class IncidentProcessor:
                 ),
             }
 
+        if rewrite_requested(self._text(message)):
+            return None
+
         if self._looks_like_natural_correction_statement(
-            message.content
+            self._text(message)
         ):
             draft.status = IncidentDraft.Status.COLLECTING
             draft.last_question = self.CORRECTION_PROMPT
@@ -1132,7 +1571,9 @@ class IncidentProcessor:
 
         is_negative_confirmation = (
             normalized_message in self.CONFIRMATION_NEGATIVE
-            or normalized_message.startswith("no ")
+            or (normalized_message.startswith("no ") and not self._is_uncertain_update(self._text(message)))
+            or self._confirmation_text(self._text(message)) in self.CONFIRMATION_HOLD
+            or (any(mark in self._text(message) for mark in ("?", "¿")) and self._confirmation_text(self._text(message)) in self.CONFIRMATION_POSITIVE)
         )
 
         if is_negative_confirmation:
@@ -1600,6 +2041,7 @@ class IncidentProcessor:
         extraction,
         message_text: str,
         target_field: str | None,
+        declared_priority=None,
     ) -> tuple[dict, bool]:
         extracted_data = dict(
             previous_data
@@ -1607,18 +2049,20 @@ class IncidentProcessor:
 
         candidate_values = {
             "area": extraction.area,
+            "asset_category": extraction.asset_category,
             "location_context": extraction.location_context,
             "equipment": extraction.equipment,
             "failure_type": extraction.failure_type,
             "operational_impact": extraction.operational_impact,
             "priority": extraction.priority,
         }
-        declared_priority = self._extract_explicit_priority(message_text)
+        declared_priority = declared_priority or self._extract_explicit_priority(message_text)
         if declared_priority:
             candidate_values["priority"] = declared_priority
 
         structural_fields = (
             "area",
+            "asset_category",
             "location_context",
             "equipment",
             "failure_type",
@@ -1668,16 +2112,16 @@ class IncidentProcessor:
                 continue
 
             if field_name == "priority":
-                explicit_priority = (
-                    self._extract_explicit_priority(
-                        message_text
-                    )
-                )
+                explicit_priority = declared_priority
 
                 if explicit_priority is None:
                     continue
 
                 candidate_value = explicit_priority
+
+            elif field_name == "asset_category":
+                if candidate_value not in Incident.AssetCategory.values:
+                    continue
 
             elif field_name == "area":
                 candidate_value = (
@@ -1728,6 +2172,7 @@ class IncidentProcessor:
 
         should_process_description = (
             target_field == "description"
+            or bool(evidence and evidence.get("description"))
             or (
                 "equipment" in changed_fields
                 and extraction.description
@@ -1976,7 +2421,7 @@ class IncidentProcessor:
             "incident_id": incident.pk,
             "incident_code": incident.code,
             "reply": (
-                f"Reporte {incident.code} creado correctamente."
+                f"¡Listo! La incidencia {incident.code} fue registrada correctamente."
             ),
             "extracted_data": extracted_data,
         }
@@ -2064,10 +2509,10 @@ class IncidentProcessor:
         )
 
         if self._should_store_pending_message(
-            message.content
+            self._text(message)
         ):
             saved_pending_messages.append(
-                message.content.strip()
+                self._text(message).strip()
             )
 
         timeout_data = dict(previous_data)
@@ -2278,7 +2723,7 @@ class IncidentProcessor:
 
         # Una respuesta con varios datos debe extraerse completa. Los atajos
         # de un campo no deben consumir también ubicación, impacto o prioridad.
-        if self._contains_multiple_fields(text):
+        if self._contains_multiple_fields(text) or time_fact(text) or query_fields(text) or rewrite_requested(text) or backup_transition(text) or text.startswith("[Secuencia ordenada"):
             return None
 
         normalized_text = (
@@ -3156,8 +3601,9 @@ class IncidentProcessor:
         ) >= 2
 
     def _is_uncertain_update(self, text):
+        parts = [part for part in re.split(r"[.;\n]+", text) if not is_diagnostic_uncertainty(part)]
         return bool(re.search(r"\b(?:quizas?|tal vez|no se si|no estoy segur[oa]|podria ser)\b",
-                              self._normalize_quick_text(text)))
+                              self._normalize_quick_text(" ".join(parts))))
 
     def _has_operational_information(self, text, previous_data):
         evolution = re.search(r"\b(?:dejo de|ya no|perdimos|empeoro|ahora falla)\b", self._normalize_quick_text(text))
@@ -4145,6 +4591,14 @@ class IncidentProcessor:
             "critica": Incident.Priority.CRITICAL,
             "critical": Incident.Priority.CRITICAL,
         }
+
+        # Una asignación propia explícita prevalece sobre una prioridad
+        # atribuida a terceros. Una negación nunca cuenta como confirmación.
+        declaration = r"(?:asigno|selecciono|confirmo|establezco)\s+(?:la\s+)?prioridad\s+(?:es\s+)?(baja|media|alta|critica|low|medium|high|critical)\b"
+        normalized_text = re.sub(r"\bno\s+" + declaration, "", normalized_text)
+        assigned = {priority_words[word] for word in re.findall(r"\b" + declaration, normalized_text)}
+        if assigned:
+            return assigned.pop() if len(assigned) == 1 else None
 
         words = normalized_text.split()
 

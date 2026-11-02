@@ -4,6 +4,10 @@ El nombre histórico del repositorio se conserva por compatibilidad.
 
 ## Ejecución normal
 
+Segunda intervención del 27/10: [diagnóstico, correcciones y observabilidad](docs/qa/segunda-correccion-2026-10-27.md) y [12 recorridos manuales preparados](docs/qa/segunda-correccion-2026-10-27-manual.md). Los eventos propios se muestran por defecto en consola a nivel INFO; `SECUOYA_LOG_LEVEL=WARNING` reduce detalle sin editar `.env`. La evaluación con Gemini/Telegram reales permanece pendiente; los resultados automatizados verifican contratos internos.
+
+Desde el 27/10/2026, Telegram agrupa ráfagas con una ventana de 2,5 s y dos trabajadores locales. `TELEGRAM_GROUP_WINDOW_SECONDS` y `TELEGRAM_PROCESSING_WORKERS` se pueden definir en el entorno del proceso; ventana cero mantiene el procesamiento inmediato. Los originales se guardan antes de procesar y una confirmación mezclada con correcciones no crea una incidencia. Ver [diseño, límites y validación](docs/qa/conversaciones-2026-10-27.md) y [pruebas reales pendientes](docs/qa/conversaciones-2026-10-27-manual.md). No requiere nuevas migraciones ni dependencias.
+
 ```powershell
 uv run python manage.py runserver
 uv run python manage.py run_telegram_bot
@@ -66,3 +70,22 @@ uv run python scripts/qa_export.py nombre-nuevo
 El receptor temporal verifica la identidad del bot Secuoya, restringe la cuenta y se detiene si recibe un mensaje de otra persona. `--timeout-next` simula una única llamada fallida de IA; las siguientes usan Gemini real. Detener con Ctrl+C al terminar; después se puede volver a ejecutar el comando normal del bot. No descartar actualizaciones pendientes de forma automática.
 
 [Informe y evidencias de la renovación del 19 de octubre de 2026](docs/qa-2026-10-19/informe.md).
+
+### Consola del piloto
+
+El receptor usa `SECUOYA_LOG_MODE=compact` por defecto: una línea por grupo con
+acción, duración y cantidad de mensajes; conserva errores, reintentos y
+recuperaciones sin imprimir conversaciones ni identificadores internos.
+`SECUOYA_LOG_LEVEL=WARNING` no oculta los resúmenes de operaciones exitosas.
+Para diagnosticar, antes de iniciar el receptor en PowerShell:
+
+```powershell
+$env:SECUOYA_LOG_MODE = 'detailed'
+uv run python manage.py run_telegram_bot
+# Volver al modo compacto en la misma terminal:
+$env:SECUOYA_LOG_MODE = 'compact'
+```
+
+Detener el receptor anterior con Ctrl+C antes de iniciar otro. No usar
+`--discard-pending` para recuperar mensajes. Para QA real aislado, utilizar el
+receptor temporal descrito arriba; nunca ejecutar dos pollers del mismo bot.

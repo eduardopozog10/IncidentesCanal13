@@ -191,6 +191,12 @@ class MessageRecoveryTests(TestCase):
         self.assertEqual(Incident.objects.count(), 0)
         self.ai.extract_incident.side_effect = None
         self.handler.recover_pending()
+        # La confirmación llegó antes del resumen recuperado: conservar el
+        # orden no permite autorizar datos que todavía no se habían entregado.
+        self.assertEqual(Incident.objects.count(), 0)
+        self.assertEqual(IncidentDraft.objects.get().status, "ready")
+        self.assertIn("¿Confirmas", self.messaging.send_text.call_args.args[1])
+        self.handler.handle(update(3, text="confirmo"))
         self.assertEqual(Incident.objects.count(), 1)
         self.assertEqual(IncidentDraft.objects.count(), 1)
 

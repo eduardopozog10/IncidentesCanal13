@@ -22,6 +22,7 @@ from django.utils.dateparse import parse_date
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -47,17 +48,21 @@ def filter_queryset_by_date_range(queryset, request):
         "date_to"
     )
 
-    date_from = (
-        parse_date(date_from_value)
-        if date_from_value
-        else None
-    )
+    def validated_date(name, value):
+        if not value:
+            return None
+        try:
+            parsed = parse_date(value)
+        except (ValueError, OverflowError):
+            parsed = None
+        if parsed is None:
+            raise ValidationError({name: "Indica una fecha válida en formato AAAA-MM-DD."})
+        return parsed
 
-    date_to = (
-        parse_date(date_to_value)
-        if date_to_value
-        else None
-    )
+    date_from = validated_date("date_from", date_from_value)
+    date_to = validated_date("date_to", date_to_value)
+    if date_from and date_to and date_from > date_to:
+        raise ValidationError({"date_to": "La fecha final no puede ser anterior a la inicial."})
 
     if date_from:
         queryset = queryset.filter(

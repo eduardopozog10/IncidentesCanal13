@@ -22,6 +22,17 @@ class IncidentExtractionResult:
     field_evidence: dict[str, str] | None = None
     update_kind: str | None = None
 
+    # Acto conversacional independiente de los hechos extraídos. Django
+    # valida evidencia, contexto y permisos antes de efectuar cualquier acción.
+    dialogue_action: str | None = None
+    action_evidence: str | None = None
+    requested_fields: list[str] = field(default_factory=list)
+    help_field: str | None = None
+    rewrite_clauses: list[str] = field(default_factory=list)
+    dialogue_actions: list[str] = field(default_factory=list)
+    authorization: dict | None = None
+    operational_updates: list[dict] = field(default_factory=list)
+
     missing_fields: list[str] = field(default_factory=list)
     clarification_question: str | None = None
 

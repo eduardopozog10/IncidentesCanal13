@@ -1,5 +1,7 @@
 # Recuperación y estabilidad del piloto · Codex 2
 
+**Actualización 27/10/2026:** la [agrupación durable](qa/conversaciones-2026-10-27.md) separa recepción y procesamiento con trabajadores locales acotados. Conserva los locks, intentos, cooldown y entregas inciertas documentados aquí; `recover_pilot` mantiene los miembros de un grupo. Las referencias siguientes a polling conversacional secuencial corresponden a la etapa anterior y a la modalidad con ventana cero. No se añadió una migración nueva. [Validación real pendiente](qa/conversaciones-2026-10-27-manual.md).
+
 ## Cambios y garantías
 
 - La deduplicación ahora distingue un resultado confirmado de un intento incompleto. El mensaje se conserva antes del procesamiento y el resultado se confirma en la misma transacción que los cambios del borrador o la incidencia. Un replay reutiliza el resultado; no vuelve a ejecutar la creación.

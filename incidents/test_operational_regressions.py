@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from django.test import TestCase, TransactionTestCase, override_settings
+from django.utils import timezone
 from django.db import close_old_connections, IntegrityError
 from concurrent.futures import ThreadPoolExecutor
 
@@ -97,7 +98,8 @@ class OperationalRegressionTests(TestCase):
         self.assertFalse(second["incident_created"])
         self.assertEqual(Incident.objects.count(), 0)
         outbound.status = "sent"
-        outbound.save(update_fields=["status"])
+        outbound.processed_at = timezone.now()
+        outbound.save(update_fields=["status", "processed_at"])
         third = self.send("confirmo")
         self.assertTrue(third["incident_created"])
         self.assertEqual(Incident.objects.count(), 1)
@@ -106,7 +108,7 @@ class OperationalRegressionTests(TestCase):
     def test_old_summary_does_not_authorize_corrected_data(self):
         draft = self.draft()
         self.processor.require_delivered_summary = True
-        ChannelMessage.objects.create(provider="telegram", direction="outbound", status="sent", content=draft.last_question, technician=self.reporter, draft=draft, external_sender_id="bot")
+        ChannelMessage.objects.create(provider="telegram", direction="outbound", status="sent", processed_at=timezone.now(), content=draft.last_question, technician=self.reporter, draft=draft, external_sender_id="bot")
         draft.extracted_data = {**DATA, "equipment": "Cámara 4"}
         draft.last_question = self.processor._build_confirmation_reply(draft.extracted_data)
         draft.save(update_fields=["extracted_data", "last_question"])

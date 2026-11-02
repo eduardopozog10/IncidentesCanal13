@@ -1,7 +1,10 @@
+import logging
+
 from django.utils import timezone
+from django.db import transaction
 
 from incidents.messaging.factory import get_messaging_provider
-from incidents.models import ChannelMessage, TechnicianChannel
+from incidents.models import ChannelMessage, IncidentDraft, TechnicianChannel
 from incidents.services.incident_draft_service import (
     IncidentDraftService,
 )
@@ -12,6 +15,8 @@ from incidents.services.incoming_message_service import (
     ChannelNotAuthorizedError,
     IncomingMessageService,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class TelegramUpdateHandler:
@@ -42,7 +47,10 @@ class TelegramUpdateHandler:
             or IncidentDraftService()
         )
 
-    def handle(self, update: dict) -> dict:
+    def queue_update(self, update):
+        return self.handle(update, receive_only=True)
+
+    def handle(self, update: dict, *, receive_only=False, processing_text=None, group_members=None) -> dict:
         # Este handler se utiliza solo desde el receptor de polling. El
         # webhook HTTP está deshabilitado; un JSON por sí solo no es confiable.
         if not self._is_admitted_private_update(update):
@@ -90,6 +98,14 @@ class TelegramUpdateHandler:
             f"{external_chat_id}:{telegram_message_id}"
         )
 
+        if not receive_only and processing_text is None:
+            stored = ChannelMessage.objects.filter(provider=self.PROVIDER, external_message_id=external_message_id,
+                direction="inbound").first()
+            if stored and (stored.processing_result.get("_group_member_ids") or stored.processing_result.get("_queued_for_group")):
+                from incidents.services.telegram_message_groups import TelegramMessageGroups
+                result = TelegramMessageGroups(self).process_reporter(stored.technician_id)
+                return {"action": "duplicate_message", "durable": True} if result["action"] == "group_empty" else result
+
         try:
             result = self.incoming_service.process_text(
                 provider=self.PROVIDER,
@@ -99,7 +115,9 @@ class TelegramUpdateHandler:
                 text=text,
                 raw_payload=update,
                 trusted_telegram=True,
-                command_handler=self._process_command if text in {"/start", "/cancelar"} else None,
+                receive_only=receive_only,
+                processing_text=processing_text,
+                command_handler=self._process_command if (processing_text or text) in {"/start", "/cancelar"} else None,
             )
         except ChannelNotAuthorizedError:
             self.messaging_provider.send_text(
@@ -128,6 +146,9 @@ class TelegramUpdateHandler:
 
         incoming_message = result["message"]
 
+        if receive_only:
+            return {"action": "queued", "message_id": incoming_message.pk, "durable": True}
+
         if result.get("pending"):
             self.send_processing_notice(update)
             return {"action": "processing_pending", "message_id": incoming_message.pk, "durable": True}
@@ -139,7 +160,40 @@ class TelegramUpdateHandler:
             }
 
         processing_result = result["processing"] or result.get("cached_processing")
+        if processing_result.get("action") == "grouped_message":
+            return {"action": "duplicate_message", "message_id": incoming_message.pk, "durable": True}
+        if group_members:
+            with transaction.atomic():
+                ChannelMessage.objects.filter(pk__in=group_members).exclude(pk=incoming_message.pk).update(
+                    status="processed", processed_at=timezone.now(), draft_id=incoming_message.draft_id,
+                    incident_id=incoming_message.incident_id,
+                    processing_result={"action": "grouped_message", "incident_created": False, "_group_leader_id": incoming_message.pk},
+                )
+            if not processing_result.get("incident_created") and self._has_new_group_input(incoming_message, group_members):
+                outgoing, _ = ChannelMessage.objects.get_or_create(in_reply_to=incoming_message, reply_purpose="reply",
+                    defaults=dict(provider=self.PROVIDER, direction="outbound", external_sender_id="bot",
+                        external_chat_id=incoming_message.external_chat_id, technician=incoming_message.technician,
+                        channel_account=incoming_message.channel_account, draft=incoming_message.draft,
+                        content=processing_result["reply"], status="failed", processing_attempts=3,
+                        error_message="SupersededByNewerMessage"))
+                if outgoing.status not in ("sent", "uncertain", "processing"):
+                    outgoing.status, outgoing.processing_attempts = "failed", 3
+                    outgoing.error_message = "SupersededByNewerMessage"
+                    outgoing.save(update_fields=["status", "processing_attempts", "error_message"])
+                return {"action": "group_superseded", "message_id": incoming_message.pk, "durable": True}
         reply_text = processing_result["reply"]
+        if processing_result["action"] == "conversation":
+            # También proteger replays de resultados de IA cacheados antes de
+            # esta corrección. No reinterpretarlos como una creación retroactiva.
+            processor = self.incoming_service.incident_processor
+            draft = IncidentDraft.objects.filter(
+                technician_id=incoming_message.technician_id,
+                status__in=["ready", "collecting"],
+            ).first()
+            reply_text = (
+                processor._get_quick_conversation_reply(incoming_message.content)
+                or processor._conversation_reply(draft)
+            )
 
         outgoing_message, delivered = self._deliver_reply(incoming_message, reply_text)
         if not delivered:
@@ -156,6 +210,12 @@ class TelegramUpdateHandler:
             ],
         }
 
+    @staticmethod
+    def _has_new_group_input(incoming, members):
+        return ChannelMessage.objects.filter(technician_id=incoming.technician_id,
+            channel_account_id=incoming.channel_account_id, direction="inbound", received_via_polling=True,
+            pk__gt=max(members), status__in=["received", "processing", "failed"]).exists()
+
     def _deliver_reply(self, incoming, text, purpose="reply"):
         with conversation_lock(f"reply:{incoming.pk}:{purpose}"):
             outgoing, _ = ChannelMessage.objects.get_or_create(
@@ -168,6 +228,10 @@ class TelegramUpdateHandler:
             if outgoing.status == "sent":
                 return outgoing, True
             done = outgoing.raw_payload.get("parts_done", [])
+            if (purpose == "reply" and incoming.processing_result.get("action") == "conversation"
+                    and outgoing.status in ("received", "failed") and not done and outgoing.content != text):
+                outgoing.content, outgoing.raw_payload = text, {}
+                outgoing.save(update_fields=["content", "raw_payload"])
             all_done = bool(done) and len(done) == outgoing.raw_payload.get("parts_total")
             if outgoing.status == "processing" and not all_done:
                 outgoing.status = "uncertain"
@@ -185,6 +249,7 @@ class TelegramUpdateHandler:
                 outgoing.status = "sent"
                 outgoing.processed_at = timezone.now()
                 outgoing.save(update_fields=["external_message_id", "status", "processed_at"])
+                logger.info("telegram.reply_sent message=%s reply=%s purpose=%s", incoming.pk, outgoing.pk, purpose)
                 return outgoing, True
             except TelegramRejectedError as error:
                 outgoing.status = "failed"
@@ -305,6 +370,14 @@ class TelegramUpdateHandler:
             }
 
         reply_text = self.PROCESSING_NOTICE
+        if (
+            incoming_message.error_message
+            and self.incoming_service.incident_processor._is_confirmation(incoming_message.content)
+        ):
+            reply_text = (
+                "El registro de la incidencia todavía no está confirmado. "
+                "Guardé tu mensaje para reintentar; no necesitas repetir la confirmación."
+            )
 
         outgoing_message, delivered = self._deliver_reply(incoming_message, reply_text, "notice")
         if not delivered:
@@ -326,6 +399,12 @@ class TelegramUpdateHandler:
             if len(results) >= limit:
                 break
             if message.technician_id in deferred_reporters:
+                continue
+            if message.processing_result.get("_group_member_ids") or message.processing_result.get("_queued_for_group"):
+                from incidents.services.telegram_message_groups import TelegramMessageGroups
+                result = TelegramMessageGroups(self).process_reporter(message.technician_id)
+                results.append(result)
+                deferred_reporters.add(message.technician_id)
                 continue
             if (message.processing_attempts < self.incoming_service.MAX_PROCESSING_ATTEMPTS
                     and not self.incoming_service.retry_is_due(message)):
@@ -362,7 +441,7 @@ class TelegramUpdateHandler:
         return account is None or not account.external_chat_id or account.external_chat_id == chat_id
 
     def _process_command(self, message):
-        if message.content == "/start":
+        if getattr(message, "processing_text", message.content) == "/start":
             return {
                 "action": "welcome_sent", "incident_created": False,
                 "reply": (

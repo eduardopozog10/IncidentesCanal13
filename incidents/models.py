@@ -249,6 +249,19 @@ class Incident(models.Model):
         return f"{self.code} - {self.equipment}"
 
     def save(self, *args, history_actor=None, history_note="", history_source="internal", **kwargs):
+        if args:
+            # Normalizar también la firma posicional heredada que Django 5.2
+            # aún admite; la auditoría debe usar los mismos campos que save().
+            names = ("force_insert", "force_update", "using", "update_fields")
+            values = self._parse_save_params(*args, method_name="save", **{
+                name: kwargs.get(name, False if name.startswith("force_") else None) for name in names
+            })
+            kwargs.update(zip(names, values))
+            args = ()
+        if kwargs.get("update_fields") is not None:
+            # Un generador no puede consumirse al comparar y quedar vacío
+            # cuando Django realiza la escritura efectiva.
+            kwargs["update_fields"] = frozenset(kwargs["update_fields"])
         # La creación (incluido Telegram) no es un cambio de gestión.
         if self.pk is None:
             return super().save(*args, **kwargs)
