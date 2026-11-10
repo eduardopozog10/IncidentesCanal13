@@ -1,0 +1,40 @@
+{
+  "version": 2,
+  "skills": {
+    "agent-regression-evals": {
+      "source": "alirezarezvani/claude-skills",
+      "sourceType": "github",
+      "skillPath": "engineering/skills/agent-regression-evals/SKILL.md",
+      "computedHash": "4ad7321dd240426d3da14ca9ab3a85d9b4f2545fffe0154b50ce120089eddcf1",
+      "installMode": "copy"
+    },
+    "memory-systems": {
+      "source": "muratcankoylan/Agent-Skills-for-Context-Engineering",
+      "sourceType": "github",
+      "skillPath": "skills/memory-systems/SKILL.md",
+      "computedHash": "d6a785831b4fa5103c43138988f91f06af9f7694c618f51f239ebdda74119cff",
+      "installMode": "copy"
+    },
+    "process-mapper": {
+      "source": "alirezarezvani/claude-skills",
+      "sourceType": "github",
+      "skillPath": "business-operations/skills/process-mapper/SKILL.md",
+      "computedHash": "6fd9892ef8c26757b237f8c0becd84132af0427a6fa5cf9353bd7e371f9462f9",
+      "installMode": "copy"
+    },
+    "prompt-engineering-patterns": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/llm-application-dev/skills/prompt-engineering-patterns/SKILL.md",
+      "computedHash": "19df76da97709cf86875b769626a5c178ce20f9cc9e5e3bf96821518a736b38c",
+      "installMode": "copy"
+    },
+    "tool-design": {
+      "source": "muratcankoylan/Agent-Skills-for-Context-Engineering",
+      "sourceType": "github",
+      "skillPath": "skills/tool-design/SKILL.md",
+      "computedHash": "348a3a4f566243db3addc0bb2f6518a25ff88a98ee7c3da395d8a250c739e226",
+      "installMode": "copy"
+    }
+  }
+}

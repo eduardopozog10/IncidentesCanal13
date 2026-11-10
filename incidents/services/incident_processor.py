@@ -150,25 +150,25 @@ class IncidentProcessor:
 
     CORRECTION_QUESTIONS = {
         "area": (
-            "Entendido. ¿Cuál es el área correcta?"
+            "¿Cuál es el área correcta?"
         ),
         "location_context": (
-            "Entendido. ¿Cuál es la ubicación o contexto correcto?"
+            "¿Cuál es la ubicación o contexto correcto?"
         ),
         "equipment": (
-            "Entendido. ¿Qué equipo o servicio es el correcto?"
+            "¿Qué equipo o servicio es el correcto?"
         ),
         "failure_type": (
-            "Entendido. ¿Cuál es el síntoma correcto?"
+            "¿Cuál es el síntoma correcto?"
         ),
         "description": (
-            "Entendido. ¿Cuál es la descripción correcta?"
+            "¿Cuál es la descripción correcta?"
         ),
         "operational_impact": (
-            "Entendido. ¿Cuál es el impacto operacional correcto?"
+            "¿Cuál es el impacto operacional correcto?"
         ),
         "priority": (
-            "Entendido. ¿Cuál es la prioridad correcta: "
+            "¿Cuál es la prioridad correcta: "
             "Baja, Media, Alta o Crítica?"
         ),
     }
@@ -599,11 +599,11 @@ class IncidentProcessor:
                 elif name == "asset_category" and value:
                     value = Incident.AssetCategory(value).label
                 lines.append(f"• {self.CHANGE_LABELS[name]}: {value or 'Por confirmar'}")
-            prefix = "Entendido, actualicé:\n\n" + "\n".join(lines)
+            prefix = "Actualicé:\n\n" + "\n".join(lines)
             if draft.status == IncidentDraft.Status.READY:
                 # El resumen completo ya incluye cada valor nuevo. No duplicarlo
                 # en una segunda lista de cambios delante del mismo resumen.
-                prefix = "Entendido, actualicé el borrador."
+                prefix = "Actualicé el borrador."
         elif result.get("unchanged_fields"):
             prefix = "Ese dato ya estaba registrado correctamente."
         if prefix:
@@ -2422,7 +2422,7 @@ class IncidentProcessor:
             "incident_id": incident.pk,
             "incident_code": incident.code,
             "reply": (
-                f"¡Listo! La incidencia {incident.code} fue registrada correctamente."
+                f"La incidencia {incident.code} fue registrada correctamente."
             ),
             "extracted_data": extracted_data,
         }
@@ -3011,7 +3011,7 @@ class IncidentProcessor:
             return (
                 extracted_data,
                 (
-                    "Entendido. Agregué ese síntoma al reporte. "
+                    "Agregué ese síntoma al reporte. "
                     "Ahora necesito el impacto operacional: "
                     "¿qué efecto tiene esta falla sobre la operación? "
                     "Por ejemplo, ¿interrumpe la grabación, afecta "
@@ -4731,8 +4731,7 @@ class IncidentProcessor:
 
         if normalized_text in waiting_messages:
             return (
-                "De acuerdo. Quedo atento mientras realizas "
-                "la revisión."
+                "Tómate el tiempo para revisar. Sigo aquí cuando quieras continuar."
             )
 
         farewells = {

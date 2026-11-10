@@ -237,3 +237,6 @@ INCIDENT_NOTIFICATION_EMAIL = env(
 
 # Origen HTTPS público del dashboard; sin valor no se generan enlaces externos.
 INCIDENT_PUBLIC_BASE_URL = env("INCIDENT_PUBLIC_BASE_URL", default="")
+
+# Contenidos se habilita explícitamente en config.content_demo.
+CONTENT_COORDINATION_ENABLED = False

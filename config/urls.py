@@ -4,6 +4,7 @@ from django.contrib.auth.views import LogoutView
 
 from incidents.dashboard_views import DashboardView
 from incidents import user_views
+from django.conf import settings
 
 
 urlpatterns = [
@@ -24,3 +25,6 @@ urlpatterns = [
     path("dashboard/incidents/<int:pk>/", DashboardView.as_view(), name="dashboard-incident-detail"),
     path("api/v1/", include("incidents.urls")),
 ]
+
+if getattr(settings, 'CONTENT_COORDINATION_ENABLED', False):
+    urlpatterns += [path('contents/', include('content_coordination.urls'))]

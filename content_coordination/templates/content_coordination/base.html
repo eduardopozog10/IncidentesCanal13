@@ -1,0 +1,5 @@
+{% load static %}<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Contenidos · Secuoya Chile</title>
+<script>(()=>{try{const saved=localStorage.getItem('secuoya-dashboard-theme');document.documentElement.dataset.theme=['light','dark'].includes(saved)?saved:matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}catch{document.documentElement.dataset.theme='light';}})();</script>
+<link rel="stylesheet" href="{% static 'content_coordination/app.css' %}"></head>
+<body>{% block body %}{% endblock %}</body></html>
