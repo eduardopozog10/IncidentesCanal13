@@ -11,6 +11,7 @@ from incidents.messaging.telegram_update_handler import (
 )
 from incidents.services.notification_worker import start_notification_worker
 from incidents.services.telegram_message_groups import TelegramGroupRunner
+from telegram_routing.receiver_lock import incident_receiver_exclusive
 
 
 class TelegramPollingTemporaryError(RuntimeError):
@@ -35,6 +36,7 @@ class Command(BaseCommand):
             ),
         )
 
+    @incident_receiver_exclusive
     def handle(self, *args, **options):
         token = settings.TELEGRAM_BOT_TOKEN.strip()
 

@@ -115,7 +115,7 @@ class PendingInspectionTests(Fixture, TestCase):
 
     def invoke(self, **options):
         http = Mock()
-        http.post.side_effect = [response({'ok': True, 'result': {'username': 'secuoyachile_incidentes_bot'}}),
+        http.post.side_effect = [response({'ok': True, 'result': {'id': 777, 'username': 'secuoyachile_incidentes_bot'}}),
                                  response({'ok': True, 'result': {'url': ''}}),
                                  response({'ok': True, 'result': [self.update]})]
         module = 'content_coordination.management.commands.run_secuoya_demo'

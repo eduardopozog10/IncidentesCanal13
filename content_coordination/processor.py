@@ -15,7 +15,7 @@ from . import services as domain
 from .resolution import resolve, ChooseTask
 from .reporting import query as read_query
 from .interpretation import adapt_updates, versions_in, version_answer, focused_reference
-from .access import telegram_allowed, message_binding_valid, content_only
+from .access import telegram_allowed, message_binding_valid
 from .dialogue import response_act
 from incidents.messaging.presentation import message_blocks
 
@@ -244,11 +244,14 @@ class Processor:
         previous_pending = conv.pending.copy()
         response = contextual_response(text, conv)
         if text.strip() in {'/contenido', '/incidencia', '/start'}:
-            if text.strip() == '/incidencia' and message.channel == 'telegram' and content_only(actor):
-                return 'Este vínculo temporal funciona solo en Coordinación de Contenidos. Usa /contenido; los permisos y registros de incidencias se conservan separados.'
-            conv.module = {'/contenido': 'content', '/incidencia': 'incident', '/start': ''}[text.strip()]
-            conv.pending = {}
-            conv.context = {}
+            # Compatibilidad para llamadas internas antiguas. El receptor real
+            # consume estos comandos en telegram_routing, antes del agente.
+            if text.strip() == '/incidencia' and message.channel == 'telegram':
+                from telegram_routing.authorization import incident_account
+                if not incident_account(actor.telegram_id):
+                    return 'Tu cuenta no está autorizada para Incidencias. No se modificó tu selección ni tus permisos.'
+            if text.strip() != '/start':
+                conv.module = {'/contenido': 'content', '/incidencia': 'incident'}[text.strip()]
             return {'content': 'Estás en coordinación de contenidos. ¿Qué necesitas gestionar?',
                     'incident': 'Estás en incidencias. Cuéntame qué ocurrió.',
                     '': 'Elige /contenido para coordinar trabajos o /incidencia para reportar una falla.'}[conv.module]

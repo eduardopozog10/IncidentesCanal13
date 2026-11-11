@@ -3,7 +3,8 @@ from .qa import *  # noqa: F403
 from .settings import GEMINI_MODEL, GEMINI_API_KEY, TELEGRAM_BOT_TOKEN
 
 CONTENT_COORDINATION_ENABLED = True
-INSTALLED_APPS = [*INSTALLED_APPS, 'content_coordination.apps.ContentCoordinationConfig']  # noqa: F405
+INSTALLED_APPS = [*INSTALLED_APPS, 'content_coordination.apps.ContentCoordinationConfig',
+                  'telegram_routing.apps.TelegramRoutingConfig']  # noqa: F405
 DATABASES['default']['NAME'] = 'demo_secuoya_contenidos'  # noqa: F405
 DATABASES['default']['TEST'] = {'NAME': 'test_demo_secuoya_contenidos'}  # noqa: F405
 AI_PROVIDER = 'gemini'

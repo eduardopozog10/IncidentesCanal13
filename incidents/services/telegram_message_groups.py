@@ -28,6 +28,10 @@ class TelegramMessageGroups:
         rows = IncomingMessageService.recoverable_messages().filter(provider="telegram").order_by("pk")
         return rows.filter(technician_id=reporter) if reporter is not None else rows
 
+    def message_text(self, row):
+        """El adaptador de transporte puede normalizar comandos, sin alterar el original."""
+        return row.content
+
     def _members(self, first):
         ids = first.processing_result.get("_group_member_ids")
         if ids:
@@ -42,11 +46,12 @@ class TelegramMessageGroups:
         for row in candidates:
             if members and (row.created_at - members[-1].created_at).total_seconds() > window:
                 break
-            if row.content == "/start":
+            text = self.message_text(row)
+            if text == "/start":
                 if not members: members.append(row)
                 break
             members.append(row)
-            if row.content == "/cancelar" or natural_cancel(row.content): break
+            if text == "/cancelar" or natural_cancel(text): break
         return members
 
     def _due(self, first, members, now):
@@ -87,7 +92,7 @@ class TelegramMessageGroups:
                     if row.pk != first.pk:
                         ChannelMessage.objects.filter(pk=row.pk).update(processing_result={"_group_leader_id": first.pk})
             ordered = sorted(members, key=lambda row: row.raw_payload["message"]["message_id"])
-            texts = [row.content for row in ordered]
+            texts = [self.message_text(row) for row in ordered]
             # Cancelar dentro de la misma ráfaga invalida la confirmación aún no
             # procesada. /start delimita una secuencia; no cancela un borrador.
             if "/cancelar" in texts or any(natural_cancel(value) for value in texts):

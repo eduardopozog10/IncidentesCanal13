@@ -59,18 +59,32 @@ class TelegramPollingClient:
             return body['result']
 
 
-def inspect_pending(updates, requested_id):
+def inspect_pending(updates, requested_id, *, bot_id=None):
     """Solo lectura; texto visible únicamente para el participante autorizado."""
     update = next((u for u in updates if u.get('update_id') == requested_id), None)
     if update is None:
         return 'ID no visible entre las primeras 100 actualizaciones. No se avanzó el offset para buscarlo.'
     try:
-        actor, text = admit(update)
+        if bot_id is None:
+            actor, text = admit(update)
+            identity, name = actor.telegram_id, actor.name
+        else:
+            from telegram_routing.authorization import capabilities, command
+            from django.conf import settings
+            auth = capabilities(update, inbound_start=command(update.get('message', {}).get('text', ''), settings.CONTENT_BOT_USERNAME) == 'start')
+            if not auth:
+                raise PermissionDenied()
+            identity, name, text = str(update['message']['from']['id']), 'Identidad autorizada por módulo', update['message']['text']
     except PermissionDenied:
         return json.dumps({'update_id': requested_id, 'authorized': False,
                            'notice': 'Contenido oculto: no pertenece a una conversación admitida.'}, ensure_ascii=True)
     message = update['message']
     stored = Message.objects.filter(external_id=f'telegram:{requested_id}').first()
+    if bot_id is not None:
+        from telegram_routing.models import TelegramReceipt
+        receipt = TelegramReceipt.objects.filter(bot_id=bot_id, update_id=requested_id).first()
+        if receipt:
+            stored = receipt
     date = message.get('date')
     try:
         date = datetime.fromtimestamp(date, tz=timezone.utc).isoformat()
@@ -78,7 +92,7 @@ def inspect_pending(updates, requested_id):
         date = 'Fecha no válida o ausente'
     # JSON escapa controles de terminal y evita interpretar el texto como instrucciones.
     return json.dumps({'update_id': requested_id, 'authorized': True,
-                       'sender_id': actor.telegram_id, 'participant': actor.name,
+                        'sender_id': identity, 'participant': name,
                        'date_utc': date, 'message_id': message.get('message_id'), 'text': text,
                        'local_status': stored.status if stored else 'no persistida',
                        'notice': 'Solo inspección. No autorizada, procesada ni confirmada.'}, ensure_ascii=True)

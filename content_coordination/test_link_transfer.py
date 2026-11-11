@@ -163,7 +163,7 @@ class TransferTests(TransferFixture,TestCase):
         ai=Mock();reply=Processor(ai).process(msg)
         self.assertIn('no está autorizada',reply);ai.interpret.assert_not_called()
 
-    def test_fernando_does_not_inherit_administrator_permissions_or_incident_route(self):
+    def test_fernando_does_not_inherit_administrator_permissions_or_incident_authorization(self):
         self.transfer();self.target.refresh_from_db()
         msg=self.fresh_start(self.target,106);Message.objects.filter(pk=msg.pk).update(status='done')
         with self.assertRaises(PermissionDenied):
@@ -173,7 +173,7 @@ class TransferTests(TransferFixture,TestCase):
         update=msg.payload['update'];update['update_id']=107;update['message']['message_id']=107;update['message']['text']='/incidencia'
         command=queue_update(update)
         reply=Processor(Mock()).process(command)
-        self.assertIn('solo en Coordinación',reply)
+        self.assertIn('no está autorizada para Incidencias',reply)
         self.assertTrue(content_only(self.target))
 
     def test_restore_rejects_unexpected_link_change_and_wrong_operator(self):

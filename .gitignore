@@ -40,3 +40,5 @@ Thumbs.db
 
 # Evidencias locales de pruebas QA
 docs/qa/
+# Respaldos locales de PostgreSQL
+/backups/
