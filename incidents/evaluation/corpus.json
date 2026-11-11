@@ -1,0 +1,1698 @@
+{
+  "version": 2,
+  "scope": "incidents-only",
+  "backend_binding": "Los tests existentes ejecutan sus fixtures, pasos y aserciones exactos. messages/model_probe son sondas sintéticas independientes para grabaciones futuras; no se afirma que el runner reenvíe esos textos al modelo.",
+  "cases": [
+    {
+      "id": "INC-EVAL-01",
+      "objective": "Creación completa",
+      "category": "confirmation",
+      "criticality": "high",
+      "initial_context": "Reportante activo; sin borrador",
+      "messages": [
+        "La Cámara 2 del Estudio A pierde imagen de forma intermitente. Corresponde al área de Producción. La falla detiene las pruebas de grabación. Prioridad alta.",
+        "Sí, confirmo la creación del incidente."
+      ],
+      "expected": "Un borrador completo; una incidencia y una notificación solo después del resumen entregado y autorización.",
+      "expected_decision": "create_once_after_confirmation",
+      "allowed": [
+        "guardar borrador",
+        "crear tras resumen y autorización"
+      ],
+      "forbidden": [
+        "crear antes de autorizar",
+        "duplicar incidencia"
+      ],
+      "backend_tests": [
+        "incidents.test_natural_confirmation.NaturalConfirmationTests.test_real_transcript_creates_persisted_incident_without_ai_for_confirmation",
+        "incidents.test_natural_confirmation.NaturalConfirmationTests.test_affirmative_03"
+      ],
+      "input_origin": "Sonda sintética reconstruida a partir de regresiones/reglas. No es una transcripción íntegra ni una ejecución real nueva.",
+      "evidence": [
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_natural_confirmation.NaturalConfirmationTests.test_real_transcript_creates_persisted_incident_without_ai_for_confirmation"
+        },
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_natural_confirmation.NaturalConfirmationTests.test_affirmative_03"
+        }
+      ],
+      "model_probe": {
+        "message_index": 0,
+        "previous_data": {},
+        "checks": [
+          {
+            "path": "intent",
+            "value": "incident_report",
+            "op": "eq",
+            "view": "raw"
+          },
+          {
+            "path": "area",
+            "value": "Producción",
+            "op": "text_eq",
+            "view": "raw"
+          },
+          {
+            "path": "equipment",
+            "value": "Cámara 2",
+            "op": "text_eq",
+            "view": "raw"
+          },
+          {
+            "path": "location_context",
+            "value": "Estudio A",
+            "op": "text_eq",
+            "view": "raw"
+          },
+          {
+            "path": "asset_category",
+            "value": "video_cameras",
+            "op": "eq",
+            "view": "raw"
+          },
+          {
+            "path": "priority",
+            "value": "high",
+            "op": "eq",
+            "view": "raw"
+          },
+          {
+            "path": "$",
+            "value": "Síntoma de pérdida intermitente de imagen. Descripción e impacto reflejan pruebas detenidas, sin diagnósticos, respaldo ni emisión inventados. No afirma registro realizado.",
+            "op": "manual",
+            "view": "raw",
+            "id": "report_fidelity"
+          }
+        ],
+        "evidence_fields": [
+          "area",
+          "equipment",
+          "priority"
+        ],
+        "evaluation_scope": "Interpretación aislada, no ejecución de permisos, persistencia, confirmación ni entrega de Django."
+      }
+    },
+    {
+      "id": "INC-EVAL-02",
+      "objective": "Prioridad baja",
+      "category": "interpretation",
+      "criticality": "high",
+      "initial_context": "Borrador listo con prioridad alta",
+      "messages": [
+        "Sí, pero corrijo varios datos: prioridad: baja"
+      ],
+      "expected": "Guardar low; presentar nuevo resumen; confirmar posteriormente crea una vez.",
+      "expected_decision": "allow_draft_only",
+      "allowed": [
+        "corregir prioridad",
+        "confirmar datos corregidos"
+      ],
+      "forbidden": [
+        "crear con el sí de una corrección",
+        "alterar otros campos"
+      ],
+      "backend_tests": [
+        "incidents.test_qa_extreme.AdversarialConversationTests.test_ADV_067"
+      ],
+      "input_origin": "Sonda sintética reconstruida a partir de regresiones/reglas. No es una transcripción íntegra ni una ejecución real nueva.",
+      "evidence": [
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_qa_extreme.AdversarialConversationTests.test_ADV_067"
+        }
+      ],
+      "model_probe": {
+        "message_index": 0,
+        "previous_data": {
+          "area": "Producción",
+          "unit": "Estudio A",
+          "location_context": "Estudio A",
+          "equipment": "Cámara 2",
+          "asset_category": "video_cameras",
+          "failure_type": "Imagen intermitente",
+          "description": "La Cámara 2 pierde imagen desde hace 20 minutos. Se sospecha del cable, sin confirmar.",
+          "operational_impact": "Pruebas detenidas. Respaldo disponible sin conectar.",
+          "priority": "high"
+        },
+        "checks": [
+          {
+            "path": "priority",
+            "value": "low",
+            "op": "eq",
+            "view": "raw"
+          },
+          {
+            "path": "dialogue_actions",
+            "value": [
+              "update"
+            ],
+            "op": "includes",
+            "view": "raw"
+          },
+          {
+            "path": "priority",
+            "value": "low",
+            "op": "eq",
+            "view": "normalized"
+          },
+          {
+            "path": "$",
+            "value": "Solo cambia la prioridad. Los demás hechos pueden ser null para conservarlos por parser o repetirse fielmente. No inventa hechos, no cambia su modalidad, no afirma que haya registrado o notificado.",
+            "op": "manual",
+            "view": "raw",
+            "id": "unchanged_facts"
+          }
+        ],
+        "evidence_fields": [
+          "priority"
+        ],
+        "evaluation_scope": "Interpretación aislada, no ejecución de permisos, persistencia, confirmación ni entrega de Django."
+      }
+    },
+    {
+      "id": "INC-EVAL-03",
+      "objective": "Prioridad media",
+      "category": "interpretation",
+      "criticality": "high",
+      "initial_context": "Borrador listo con prioridad alta",
+      "messages": [
+        "Sí, pero corrijo varios datos: prioridad: media"
+      ],
+      "expected": "Guardar medium; presentar nuevo resumen; confirmar posteriormente crea una vez.",
+      "expected_decision": "allow_draft_only",
+      "allowed": [
+        "corregir prioridad",
+        "confirmar datos corregidos"
+      ],
+      "forbidden": [
+        "crear con el sí de una corrección",
+        "alterar otros campos"
+      ],
+      "backend_tests": [
+        "incidents.test_qa_extreme.AdversarialConversationTests.test_ADV_068"
+      ],
+      "input_origin": "Sonda sintética reconstruida a partir de regresiones/reglas. No es una transcripción íntegra ni una ejecución real nueva.",
+      "evidence": [
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_qa_extreme.AdversarialConversationTests.test_ADV_068"
+        }
+      ],
+      "model_probe": {
+        "message_index": 0,
+        "previous_data": {
+          "area": "Producción",
+          "unit": "Estudio A",
+          "location_context": "Estudio A",
+          "equipment": "Cámara 2",
+          "asset_category": "video_cameras",
+          "failure_type": "Imagen intermitente",
+          "description": "La Cámara 2 pierde imagen desde hace 20 minutos. Se sospecha del cable, sin confirmar.",
+          "operational_impact": "Pruebas detenidas. Respaldo disponible sin conectar.",
+          "priority": "high"
+        },
+        "checks": [
+          {
+            "path": "priority",
+            "value": "medium",
+            "op": "eq",
+            "view": "raw"
+          },
+          {
+            "path": "dialogue_actions",
+            "value": [
+              "update"
+            ],
+            "op": "includes",
+            "view": "raw"
+          },
+          {
+            "path": "priority",
+            "value": "medium",
+            "op": "eq",
+            "view": "normalized"
+          },
+          {
+            "path": "$",
+            "value": "Solo cambia la prioridad. Los demás hechos pueden ser null para conservarlos por parser o repetirse fielmente. No inventa hechos, no cambia su modalidad, no afirma que haya registrado o notificado.",
+            "op": "manual",
+            "view": "raw",
+            "id": "unchanged_facts"
+          }
+        ],
+        "evidence_fields": [
+          "priority"
+        ],
+        "evaluation_scope": "Interpretación aislada, no ejecución de permisos, persistencia, confirmación ni entrega de Django."
+      }
+    },
+    {
+      "id": "INC-EVAL-04",
+      "objective": "Prioridad crítica",
+      "category": "interpretation",
+      "criticality": "high",
+      "initial_context": "Borrador listo con prioridad alta",
+      "messages": [
+        "Sí, pero corrijo varios datos: prioridad: crítica"
+      ],
+      "expected": "Guardar critical; presentar nuevo resumen; confirmar posteriormente crea una vez.",
+      "expected_decision": "allow_draft_only",
+      "allowed": [
+        "corregir prioridad",
+        "confirmar datos corregidos"
+      ],
+      "forbidden": [
+        "crear con el sí de una corrección",
+        "alterar otros campos"
+      ],
+      "backend_tests": [
+        "incidents.test_qa_extreme.AdversarialConversationTests.test_ADV_069"
+      ],
+      "input_origin": "Sonda sintética reconstruida a partir de regresiones/reglas. No es una transcripción íntegra ni una ejecución real nueva.",
+      "evidence": [
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_qa_extreme.AdversarialConversationTests.test_ADV_069"
+        }
+      ],
+      "model_probe": {
+        "message_index": 0,
+        "previous_data": {
+          "area": "Producción",
+          "unit": "Estudio A",
+          "location_context": "Estudio A",
+          "equipment": "Cámara 2",
+          "asset_category": "video_cameras",
+          "failure_type": "Imagen intermitente",
+          "description": "La Cámara 2 pierde imagen desde hace 20 minutos. Se sospecha del cable, sin confirmar.",
+          "operational_impact": "Pruebas detenidas. Respaldo disponible sin conectar.",
+          "priority": "high"
+        },
+        "checks": [
+          {
+            "path": "priority",
+            "value": "critical",
+            "op": "eq",
+            "view": "raw"
+          },
+          {
+            "path": "dialogue_actions",
+            "value": [
+              "update"
+            ],
+            "op": "includes",
+            "view": "raw"
+          },
+          {
+            "path": "priority",
+            "value": "critical",
+            "op": "eq",
+            "view": "normalized"
+          },
+          {
+            "path": "$",
+            "value": "Solo cambia la prioridad. Los demás hechos pueden ser null para conservarlos por parser o repetirse fielmente. No inventa hechos, no cambia su modalidad, no afirma que haya registrado o notificado.",
+            "op": "manual",
+            "view": "raw",
+            "id": "unchanged_facts"
+          }
+        ],
+        "evidence_fields": [
+          "priority"
+        ],
+        "evaluation_scope": "Interpretación aislada, no ejecución de permisos, persistencia, confirmación ni entrega de Django."
+      }
+    },
+    {
+      "id": "INC-EVAL-05",
+      "objective": "Urgencia sin prioridad",
+      "category": "validation",
+      "criticality": "high",
+      "initial_context": "Sin borrador",
+      "messages": [
+        "La Cámara 3 del Móvil 2 pierde imagen; es muy urgente"
+      ],
+      "expected": "Prioridad null; pedir elección; no incidencia.",
+      "expected_decision": "legitimate_validation_rejection",
+      "allowed": [
+        "preguntar prioridad"
+      ],
+      "forbidden": [
+        "inferir prioridad por urgencia",
+        "crear incompleto"
+      ],
+      "backend_tests": [
+        "incidents.test_operational_regressions.OperationalRegressionTests.test_provider_cannot_invent_priority_from_urgency",
+        "incidents.tests.IncomingMessageServiceTests.test_urgent_message_does_not_assign_priority_automatically"
+      ],
+      "input_origin": "Sonda sintética reconstruida a partir de regresiones/reglas. No es una transcripción íntegra ni una ejecución real nueva.",
+      "evidence": [
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_operational_regressions.OperationalRegressionTests.test_provider_cannot_invent_priority_from_urgency"
+        },
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.tests.IncomingMessageServiceTests.test_urgent_message_does_not_assign_priority_automatically"
+        }
+      ],
+      "model_probe": {
+        "message_index": 0,
+        "previous_data": {},
+        "checks": [
+          {
+            "path": "intent",
+            "value": "incident_report",
+            "op": "eq",
+            "view": "raw"
+          },
+          {
+            "path": "equipment",
+            "value": "Cámara 3",
+            "op": "text_eq",
+            "view": "raw"
+          },
+          {
+            "path": "location_context",
+            "value": "Móvil 2",
+            "op": "text_eq",
+            "view": "raw"
+          },
+          {
+            "path": "asset_category",
+            "value": "video_cameras",
+            "op": "eq",
+            "view": "raw"
+          },
+          {
+            "path": "priority",
+            "value": null,
+            "op": "eq",
+            "view": "raw"
+          },
+          {
+            "path": "$",
+            "value": "Extrae pérdida de imagen, sin elegir prioridad por urgencia ni inventar área/impacto. Pide solo un dato realmente faltante; no asegura creación.",
+            "op": "manual",
+            "view": "raw",
+            "id": "urgency_without_inference"
+          }
+        ],
+        "evidence_fields": [
+          "equipment"
+        ],
+        "evaluation_scope": "Interpretación aislada, no ejecución de permisos, persistencia, confirmación ni entrega de Django."
+      }
+    },
+    {
+      "id": "INC-EVAL-06",
+      "objective": "Área desconocida",
+      "category": "context",
+      "criticality": "high",
+      "initial_context": "Sin borrador",
+      "messages": [
+        "Consola del Estudio B con cortes. Las pruebas se detienen a ratos. Prioridad media. No sé si corresponde a Audio o Producción. ¿Me orientas para identificar el área correcta?"
+      ],
+      "expected": "Guardar datos explícitos; área null; orientar, sin responder únicamente Área no informado.",
+      "expected_decision": "allow_draft_only",
+      "allowed": [
+        "guardar hechos",
+        "orientar sobre área"
+      ],
+      "forbidden": [
+        "elegir área por usuario",
+        "crear incidente"
+      ],
+      "backend_tests": [
+        "incidents.test_focused_conversation02.FocusedConversationTests.test_help_with_facts_overrides_incidental_query_about_missing_area"
+      ],
+      "input_origin": "Sonda sintética reconstruida a partir de regresiones/reglas. No es una transcripción íntegra ni una ejecución real nueva.",
+      "evidence": [
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_focused_conversation02.FocusedConversationTests.test_help_with_facts_overrides_incidental_query_about_missing_area"
+        },
+        {
+          "kind": "documented_historical_defect",
+          "reference": "docs/qa/correccion-orientacion-confirmacion-2026-11-02.md#QA-REAL-011"
+        }
+      ],
+      "model_probe": {
+        "message_index": 0,
+        "previous_data": {},
+        "checks": [
+          {
+            "path": "area",
+            "value": null,
+            "op": "eq",
+            "view": "raw"
+          },
+          {
+            "path": "help_field",
+            "value": "area",
+            "op": "eq",
+            "view": "raw"
+          },
+          {
+            "path": "dialogue_actions",
+            "value": [
+              "update",
+              "help"
+            ],
+            "op": "includes",
+            "view": "raw"
+          },
+          {
+            "path": "$",
+            "value": "Conserva consola y Estudio B, cortes, detención intermitente de pruebas y prioridad media. No elige Audio/Producción por el trabajador; orienta sin diagnóstico ni afirmar registro.",
+            "op": "manual",
+            "view": "raw",
+            "id": "facts_with_help"
+          }
+        ],
+        "evidence_fields": [
+          "equipment",
+          "priority"
+        ],
+        "evaluation_scope": "Interpretación aislada, no ejecución de permisos, persistencia, confirmación ni entrega de Django."
+      }
+    },
+    {
+      "id": "INC-EVAL-07",
+      "objective": "Pregunta de aclaración",
+      "category": "validation",
+      "criticality": "high",
+      "initial_context": "Prioridad pendiente",
+      "messages": [
+        "No entiendo qué significa prioridad"
+      ],
+      "expected": "Explicar opciones sin decidir; conservar borrador incompleto.",
+      "expected_decision": "legitimate_validation_rejection",
+      "allowed": [
+        "explicar opciones"
+      ],
+      "forbidden": [
+        "elegir prioridad",
+        "crear incompleto"
+      ],
+      "backend_tests": [
+        "incidents.test_guided_clarification.GuidedClarificationTests.test_explains_priority_without_assigning_it"
+      ],
+      "input_origin": "Sonda sintética reconstruida a partir de regresiones/reglas. No es una transcripción íntegra ni una ejecución real nueva.",
+      "evidence": [
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_guided_clarification.GuidedClarificationTests.test_explains_priority_without_assigning_it"
+        }
+      ],
+      "model_probe": {
+        "message_index": 0,
+        "previous_data": {
+          "area": "Producción",
+          "unit": "Estudio A",
+          "location_context": "Estudio A",
+          "equipment": "Cámara 2",
+          "asset_category": "video_cameras",
+          "failure_type": "Imagen intermitente",
+          "description": "La Cámara 2 pierde imagen desde hace 20 minutos. Se sospecha del cable, sin confirmar.",
+          "operational_impact": "Pruebas detenidas. Respaldo disponible sin conectar.",
+          "priority": null
+        },
+        "checks": [
+          {
+            "path": "priority",
+            "value": null,
+            "op": "eq",
+            "view": "raw"
+          },
+          {
+            "path": "help_field",
+            "value": "priority",
+            "op": "eq",
+            "view": "raw"
+          },
+          {
+            "path": "dialogue_actions",
+            "value": [
+              "help"
+            ],
+            "op": "includes",
+            "view": "raw"
+          },
+          {
+            "path": "$",
+            "value": "Reconoce petición de explicación y no asigna prioridad. Si emite texto libre, explica opciones fielmente y sin elegir por el usuario; la presentación final es de Django.",
+            "op": "manual",
+            "view": "raw",
+            "id": "priority_guidance"
+          }
+        ],
+        "evidence_fields": [],
+        "evaluation_scope": "Interpretación aislada, no ejecución de permisos, persistencia, confirmación ni entrega de Django."
+      }
+    },
+    {
+      "id": "INC-EVAL-08",
+      "objective": "Corrección de varios campos",
+      "category": "context",
+      "criticality": "high",
+      "initial_context": "Borrador Cámara 3/Móvil 2/crítica",
+      "messages": [
+        "Me equivoqué: es Cámara 4, ocurre en Estudio 8 y la prioridad es alta, no crítica."
+      ],
+      "expected": "Guardar Cámara 4/Estudio 8/high aunque IA proponga critical; conservar síntoma/impacto.",
+      "expected_decision": "allow_draft_only",
+      "allowed": [
+        "corregir campos citados"
+      ],
+      "forbidden": [
+        "usar prioridad negada",
+        "borrar impacto",
+        "crear incidente"
+      ],
+      "backend_tests": [
+        "incidents.test_operational_regressions.OperationalRegressionTests.test_multiple_corrections_preserve_unmentioned_fields"
+      ],
+      "input_origin": "Sonda sintética reconstruida a partir de regresiones/reglas. No es una transcripción íntegra ni una ejecución real nueva.",
+      "evidence": [
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_operational_regressions.OperationalRegressionTests.test_multiple_corrections_preserve_unmentioned_fields"
+        }
+      ],
+      "model_probe": {
+        "message_index": 0,
+        "previous_data": {
+          "area": "Producción",
+          "unit": "Móvil 2",
+          "location_context": "Móvil 2",
+          "equipment": "Cámara 3",
+          "asset_category": "video_cameras",
+          "failure_type": "Imagen intermitente",
+          "description": "La Cámara 3 del Móvil 2 pierde imagen desde hace 20 minutos. Se sospecha del cable, sin confirmar.",
+          "operational_impact": "Pruebas detenidas. Respaldo disponible sin conectar.",
+          "priority": "critical"
+        },
+        "checks": [
+          {
+            "path": "equipment",
+            "value": "Cámara 4",
+            "op": "text_eq",
+            "view": "raw"
+          },
+          {
+            "path": "location_context",
+            "value": "Estudio 8",
+            "op": "text_eq",
+            "view": "raw"
+          },
+          {
+            "path": "priority",
+            "value": "high",
+            "op": "eq",
+            "view": "raw"
+          },
+          {
+            "path": "dialogue_actions",
+            "value": [
+              "update"
+            ],
+            "op": "includes",
+            "view": "raw"
+          },
+          {
+            "path": "$",
+            "value": "Conserva área, síntoma, impacto e hipótesis no contradichos; sincroniza referencias corregidas sin tratar alta/no crítica como dos prioridades. No convierte corrección en autorización incondicional.",
+            "op": "manual",
+            "view": "raw",
+            "id": "multi_correction_fidelity"
+          }
+        ],
+        "evidence_fields": [
+          "equipment",
+          "location_context",
+          "priority"
+        ],
+        "evaluation_scope": "Interpretación aislada, no ejecución de permisos, persistencia, confirmación ni entrega de Django."
+      }
+    },
+    {
+      "id": "INC-EVAL-09",
+      "objective": "Duración y evento auxiliar",
+      "category": "context",
+      "criticality": "high",
+      "initial_context": "Falla hace 20 minutos; hipótesis no confirmada",
+      "messages": [
+        "Ya llevamos aproximadamente 35 minutos con el problema. Hace 5 minutos conectamos la cámara de respaldo. Actualiza la duración y dime solo el tiempo."
+      ],
+      "expected": "35 sustituye duración anterior; conservar hipótesis y separar conexión del respaldo.",
+      "expected_decision": "allow_draft_only",
+      "allowed": [
+        "actualizar duración",
+        "consultar tiempo"
+      ],
+      "forbidden": [
+        "usar 5 minutos como duración",
+        "afirmar diagnóstico"
+      ],
+      "backend_tests": [
+        "incidents.test_duration_impact.DurationFlowTests.test_elapsed_update_replaces_old_duration_in_storage_and_reply",
+        "incidents.test_duration_impact.DurationTextTests.test_backup_event_is_not_the_incident_duration"
+      ],
+      "input_origin": "Sonda sintética reconstruida a partir de regresiones/reglas. No es una transcripción íntegra ni una ejecución real nueva.",
+      "evidence": [
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_duration_impact.DurationFlowTests.test_elapsed_update_replaces_old_duration_in_storage_and_reply"
+        },
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_duration_impact.DurationTextTests.test_backup_event_is_not_the_incident_duration"
+        },
+        {
+          "kind": "documented_historical_defect",
+          "reference": "docs/qa/correccion-duracion-impacto-2026-11-02.md"
+        }
+      ],
+      "model_probe": {
+        "message_index": 0,
+        "previous_data": {
+          "area": "Producción",
+          "unit": "Estudio A",
+          "location_context": "Estudio A",
+          "equipment": "Cámara 2",
+          "asset_category": "video_cameras",
+          "failure_type": "Imagen intermitente",
+          "description": "La Cámara 2 pierde imagen desde hace 20 minutos. Se sospecha del cable, sin confirmar.",
+          "operational_impact": "Pruebas detenidas. Respaldo disponible sin conectar.",
+          "priority": "high"
+        },
+        "checks": [
+          {
+            "path": "requested_fields",
+            "value": [
+              "time"
+            ],
+            "op": "includes",
+            "view": "raw"
+          },
+          {
+            "path": "dialogue_actions",
+            "value": [
+              "update",
+              "query"
+            ],
+            "op": "includes",
+            "view": "raw"
+          },
+          {
+            "path": "$",
+            "value": "Duración de falla actual: aproximadamente 35 minutos (también palabras/unidades equivalentes); 20 minutos solo como antecedente, nunca duración vigente. Hace 5 minutos es conexión de respaldo. Conserva hipótesis sin confirmar; conexión no prueba reanudación. Description/facetas deben reflejar cambios sin inventar cronología.",
+            "op": "manual",
+            "view": "raw",
+            "id": "duration_semantics"
+          }
+        ],
+        "evidence_fields": [],
+        "evaluation_scope": "Interpretación aislada, no ejecución de permisos, persistencia, confirmación ni entrega de Django."
+      }
+    },
+    {
+      "id": "INC-EVAL-10",
+      "objective": "Conservación del respaldo",
+      "category": "context",
+      "criticality": "high",
+      "initial_context": "Pruebas detenidas; respaldo disponible sin conectar",
+      "messages": [
+        "Cambia la prioridad a Crítica"
+      ],
+      "expected": "Cambiar prioridad; conservar disponibilidad y modalidad del respaldo, sin afirmar reanudación.",
+      "expected_decision": "allow_draft_only",
+      "allowed": [
+        "corregir prioridad"
+      ],
+      "forbidden": [
+        "borrar respaldo",
+        "inventar uso o reanudación"
+      ],
+      "backend_tests": [
+        "incidents.test_third_conversation28.ThirdConversationTests.test_operational_facets_survive_unrelated_priority_correction",
+        "incidents.test_second_conversation27.SecondConversationTests.test_conditional_backup_does_not_become_actual_usage"
+      ],
+      "input_origin": "Sonda sintética reconstruida a partir de regresiones/reglas. No es una transcripción íntegra ni una ejecución real nueva.",
+      "evidence": [
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_third_conversation28.ThirdConversationTests.test_operational_facets_survive_unrelated_priority_correction"
+        },
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_second_conversation27.SecondConversationTests.test_conditional_backup_does_not_become_actual_usage"
+        },
+        {
+          "kind": "documented_historical_defect",
+          "reference": "docs/qa/tercera-intervencion-2026-10-28.md#respaldo"
+        }
+      ],
+      "model_probe": {
+        "message_index": 0,
+        "previous_data": {
+          "area": "Producción",
+          "unit": "Estudio A",
+          "location_context": "Estudio A",
+          "equipment": "Cámara 2",
+          "asset_category": "video_cameras",
+          "failure_type": "Imagen intermitente",
+          "description": "La Cámara 2 pierde imagen desde hace 20 minutos. Se sospecha del cable, sin confirmar.",
+          "operational_impact": "Pruebas detenidas. Respaldo disponible sin conectar.",
+          "priority": "high"
+        },
+        "checks": [
+          {
+            "path": "priority",
+            "value": "critical",
+            "op": "eq",
+            "view": "raw"
+          },
+          {
+            "path": "dialogue_actions",
+            "value": [
+              "update"
+            ],
+            "op": "includes",
+            "view": "raw"
+          },
+          {
+            "path": "operational_updates",
+            "value": [],
+            "op": "eq",
+            "view": "raw"
+          },
+          {
+            "path": "$",
+            "value": "Los hechos ajenos a prioridad pueden ser null para fallback o repetirse fielmente. Respaldo disponible sin conectar NO está en uso; pruebas siguen detenidas. La conservación automática con null pertenece al parser, no es memoria demostrada por Gemini.",
+            "op": "manual",
+            "view": "raw",
+            "id": "backup_preservation"
+          }
+        ],
+        "evidence_fields": [
+          "priority"
+        ],
+        "evaluation_scope": "Interpretación aislada, no ejecución de permisos, persistencia, confirmación ni entrega de Django."
+      }
+    },
+    {
+      "id": "INC-EVAL-11",
+      "objective": "Impacto y consulta",
+      "category": "context",
+      "criticality": "high",
+      "initial_context": "Borrador listo",
+      "messages": [
+        "Corrige el impacto operacional: las pruebas siguen detenidas y el respaldo sigue sin conectar. No cambies la descripción. ¿Me confirmas que quedó actualizado?"
+      ],
+      "expected": "Actualizar impacto; descripción intacta; respuesta breve; no crear.",
+      "expected_decision": "allow_draft_only",
+      "allowed": [
+        "corregir impacto",
+        "consultar resultado"
+      ],
+      "forbidden": [
+        "reescribir descripción",
+        "interpretar consulta como autorización de creación"
+      ],
+      "backend_tests": [
+        "incidents.test_third_conversation28.ThirdConversationTests.test_impact_correction_is_not_blocked_by_misclassified_rewrite",
+        "incidents.test_third_conversation28.ThirdConversationTests.test_query_about_completed_correction_without_fields_is_brief"
+      ],
+      "input_origin": "Sonda sintética reconstruida a partir de regresiones/reglas. No es una transcripción íntegra ni una ejecución real nueva.",
+      "evidence": [
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_third_conversation28.ThirdConversationTests.test_impact_correction_is_not_blocked_by_misclassified_rewrite"
+        },
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_third_conversation28.ThirdConversationTests.test_query_about_completed_correction_without_fields_is_brief"
+        },
+        {
+          "kind": "documented_historical_defect",
+          "reference": "docs/qa/tercera-intervencion-2026-10-28.md#impacto"
+        }
+      ],
+      "model_probe": {
+        "message_index": 0,
+        "previous_data": {
+          "area": "Producción",
+          "unit": "Estudio A",
+          "location_context": "Estudio A",
+          "equipment": "Cámara 2",
+          "asset_category": "video_cameras",
+          "failure_type": "Imagen intermitente",
+          "description": "La Cámara 2 pierde imagen desde hace 20 minutos. Se sospecha del cable, sin confirmar.",
+          "operational_impact": "Las pruebas continúan parcialmente usando la cámara de respaldo.",
+          "priority": "high"
+        },
+        "checks": [
+          {
+            "path": "dialogue_actions",
+            "value": [
+              "update",
+              "query"
+            ],
+            "op": "includes",
+            "view": "raw"
+          },
+          {
+            "path": "requested_fields",
+            "value": [
+              "operational_impact"
+            ],
+            "op": "includes",
+            "view": "raw"
+          },
+          {
+            "path": "description",
+            "value": "La Cámara 2 pierde imagen desde hace 20 minutos. Se sospecha del cable, sin confirmar.",
+            "op": "eq",
+            "view": "normalized"
+          },
+          {
+            "path": "$",
+            "value": "El nuevo impacto o sus facetas expresa pruebas detenidas y respaldo sin conectar, corrigiendo el estado anterior de continuidad parcial con respaldo en uso. Aceptar sinónimos o operational_updates en vez de exigir una redacción en operational_impact. No reescribir descripción ni inferir permiso de crear.",
+            "op": "manual",
+            "view": "raw",
+            "id": "impact_correction"
+          }
+        ],
+        "evidence_fields": [],
+        "evaluation_scope": "Interpretación aislada, no ejecución de permisos, persistencia, confirmación ni entrega de Django."
+      }
+    },
+    {
+      "id": "INC-EVAL-12",
+      "objective": "Reescritura fiel",
+      "category": "interpretation",
+      "criticality": "high",
+      "initial_context": "Descripción: La cámara muestra rayas. Se sospecha del cable, sin confirmar",
+      "messages": [
+        "Ordena la descripción, conserva los hechos. No cambies el impacto ni la prioridad. Dime solo la descripción final."
+      ],
+      "expected": "Conservar rayas e hipótesis; devolver solo descripción; no cambiar otros campos.",
+      "expected_decision": "allow_draft_only",
+      "allowed": [
+        "reordenar cláusulas soportadas"
+      ],
+      "forbidden": [
+        "afirmar cable averiado",
+        "omitir hechos",
+        "crear incidente"
+      ],
+      "backend_tests": [
+        "incidents.test_third_conversation28.ThirdConversationTests.test_rewrite_and_query_are_executed_together_without_full_form",
+        "incidents.test_second_conversation27.SecondConversationTests.test_unsafe_rewrite_cannot_remove_backup_or_turn_hypothesis_into_fact"
+      ],
+      "input_origin": "Sonda sintética reconstruida a partir de regresiones/reglas. No es una transcripción íntegra ni una ejecución real nueva.",
+      "evidence": [
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_third_conversation28.ThirdConversationTests.test_rewrite_and_query_are_executed_together_without_full_form"
+        },
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_second_conversation27.SecondConversationTests.test_unsafe_rewrite_cannot_remove_backup_or_turn_hypothesis_into_fact"
+        },
+        {
+          "kind": "documented_historical_defect",
+          "reference": "docs/qa/tercera-intervencion-2026-10-28.md#reescritura"
+        }
+      ],
+      "model_probe": {
+        "message_index": 0,
+        "previous_data": {
+          "area": "Producción",
+          "unit": "Estudio A",
+          "location_context": "Estudio A",
+          "equipment": "Cámara 2",
+          "asset_category": "video_cameras",
+          "failure_type": "Rayas en la imagen",
+          "description": "La cámara muestra rayas. Se sospecha del cable, sin confirmar",
+          "operational_impact": "Pruebas detenidas. Respaldo disponible sin conectar.",
+          "priority": "high"
+        },
+        "checks": [
+          {
+            "path": "dialogue_actions",
+            "value": [
+              "rewrite",
+              "query"
+            ],
+            "op": "includes",
+            "view": "raw"
+          },
+          {
+            "path": "requested_fields",
+            "value": [
+              "description"
+            ],
+            "op": "includes",
+            "view": "raw"
+          },
+          {
+            "path": "rewrite_clauses",
+            "value": [
+              "La cámara muestra rayas.",
+              "Se sospecha del cable, sin confirmar"
+            ],
+            "op": "clauses_equal",
+            "view": "raw"
+          },
+          {
+            "path": "$",
+            "value": "Solo reordena todas las cláusulas únicas, sin diagnóstico confirmado, hechos añadidos, cambios de números o negaciones; no cambia impacto/prioridad/equipo. No confundir puntualización final inocua con pérdida semántica.",
+            "op": "manual",
+            "view": "raw",
+            "id": "rewrite_no_other_changes"
+          }
+        ],
+        "evidence_fields": [],
+        "evaluation_scope": "Interpretación aislada, no ejecución de permisos, persistencia, confirmación ni entrega de Django."
+      }
+    },
+    {
+      "id": "INC-EVAL-13",
+      "objective": "Confirmación con typo",
+      "category": "confirmation",
+      "criticality": "high",
+      "initial_context": "Resumen completo vigente entregado",
+      "messages": [
+        "Si, confimo"
+      ],
+      "expected": "Una incidencia y una notificación; no IA; repetir no duplica.",
+      "expected_decision": "create_once_after_confirmation",
+      "allowed": [
+        "crear tras autorización válida"
+      ],
+      "forbidden": [
+        "duplicar",
+        "llamar IA para confirmación local inequívoca"
+      ],
+      "backend_tests": [
+        "incidents.test_natural_confirmation.NaturalConfirmationTests.test_affirmative_18"
+      ],
+      "input_origin": "Sonda sintética reconstruida a partir de regresiones/reglas. No es una transcripción íntegra ni una ejecución real nueva.",
+      "evidence": [
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_natural_confirmation.NaturalConfirmationTests.test_affirmative_18"
+        }
+      ],
+      "model_probe": null
+    },
+    {
+      "id": "INC-EVAL-14",
+      "objective": "Confirmación ambigua",
+      "category": "confirmation",
+      "criticality": "high",
+      "initial_context": "Resumen listo entregado",
+      "messages": [
+        "Creo que sí, pero déjame revisar"
+      ],
+      "expected": "No crear ni afirmar éxito; mantener borrador.",
+      "expected_decision": "legitimate_confirmation_rejection",
+      "allowed": [
+        "pedir autorización inequívoca"
+      ],
+      "forbidden": [
+        "crear",
+        "notificar creación"
+      ],
+      "backend_tests": [
+        "incidents.test_natural_confirmation.NaturalConfirmationTests.test_non_confirmation_04",
+        "incidents.test_natural_confirmation.NaturalConfirmationTests.test_confirmation_after_hold_presents_summary_before_creating"
+      ],
+      "input_origin": "Sonda sintética reconstruida a partir de regresiones/reglas. No es una transcripción íntegra ni una ejecución real nueva.",
+      "evidence": [
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_natural_confirmation.NaturalConfirmationTests.test_non_confirmation_04"
+        },
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_natural_confirmation.NaturalConfirmationTests.test_confirmation_after_hold_presents_summary_before_creating"
+        }
+      ],
+      "model_probe": null
+    },
+    {
+      "id": "INC-EVAL-15",
+      "objective": "Confirmación de tercero",
+      "category": "confirmation",
+      "criticality": "high",
+      "initial_context": "Resumen listo entregado",
+      "messages": [
+        "Dijo que sí"
+      ],
+      "expected": "No crear aunque proveedor sugiera confirm; autorización de tercero no basta.",
+      "expected_decision": "legitimate_confirmation_rejection",
+      "allowed": [
+        "conservar borrador"
+      ],
+      "forbidden": [
+        "atribuir autorización ajena al reportante"
+      ],
+      "backend_tests": [
+        "incidents.test_natural_confirmation.NaturalConfirmationTests.test_non_confirmation_08",
+        "incidents.test_second_conversation27.SecondConversationTests.test_quoted_affirmative_is_not_confirmation",
+        "incidents.test_second_conversation27.SecondConversationTests.test_provider_confirmation_alone_is_not_authorization"
+      ],
+      "input_origin": "Sonda sintética reconstruida a partir de regresiones/reglas. No es una transcripción íntegra ni una ejecución real nueva.",
+      "evidence": [
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_natural_confirmation.NaturalConfirmationTests.test_non_confirmation_08"
+        },
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_second_conversation27.SecondConversationTests.test_quoted_affirmative_is_not_confirmation"
+        },
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_second_conversation27.SecondConversationTests.test_provider_confirmation_alone_is_not_authorization"
+        }
+      ],
+      "model_probe": null
+    },
+    {
+      "id": "INC-EVAL-16",
+      "objective": "Consulta de estado",
+      "category": "context",
+      "criticality": "high",
+      "initial_context": "Borrador Cámara 3/Estudio B/hace una hora",
+      "messages": [
+        "¿Qué cámara está presentando la falla, en qué estudio se encuentra, cuánto tiempo lleva el problema y qué impacto tiene en nuestras operaciones? No quiero modificar ni confirmar nada."
+      ],
+      "expected": "Devolver datos guardados; extracted_data/status/last_question/updated_at idénticos; sin IA.",
+      "expected_decision": "read_only",
+      "allowed": [
+        "consultar borrador"
+      ],
+      "forbidden": [
+        "mutar borrador",
+        "crear incidente",
+        "llamar IA"
+      ],
+      "backend_tests": [
+        "incidents.test_conversation_real27.ConversationReal27Tests.test_ready_multi_question_does_not_become_correction",
+        "incidents.test_focused_conversation02.FocusedConversationTests.test_stored_area_query_stays_a_query"
+      ],
+      "input_origin": "Sonda sintética reconstruida a partir de regresiones/reglas. No es una transcripción íntegra ni una ejecución real nueva.",
+      "evidence": [
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_conversation_real27.ConversationReal27Tests.test_ready_multi_question_does_not_become_correction"
+        },
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_focused_conversation02.FocusedConversationTests.test_stored_area_query_stays_a_query"
+        }
+      ],
+      "model_probe": null
+    },
+    {
+      "id": "INC-EVAL-17",
+      "objective": "Equipo y servicio",
+      "category": "interpretation",
+      "criticality": "high",
+      "initial_context": "Audio en Estudio de streaming; equipo pendiente",
+      "messages": [
+        "Es la consola de audio que tiene problemas y no se conecta."
+      ],
+      "expected": "Equipo consola, familia audio; la ubicación streaming no define familia.",
+      "expected_decision": "allow_draft_only",
+      "allowed": [
+        "corregir familia según equipo explícito"
+      ],
+      "forbidden": [
+        "clasificar por ubicación",
+        "crear antes de completar"
+      ],
+      "backend_tests": [
+        "incidents.test_conversation_data_quality.ConversationDataQualityTests.test_audio_equipment_corrects_wrong_asset_category"
+      ],
+      "input_origin": "Sonda sintética reconstruida a partir de regresiones/reglas. No es una transcripción íntegra ni una ejecución real nueva.",
+      "evidence": [
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_conversation_data_quality.ConversationDataQualityTests.test_audio_equipment_corrects_wrong_asset_category"
+        }
+      ],
+      "model_probe": {
+        "message_index": 0,
+        "previous_data": {
+          "area": "Audio",
+          "unit": "Estudio de streaming",
+          "location_context": "Estudio de streaming",
+          "equipment": null,
+          "asset_category": null,
+          "failure_type": null,
+          "description": null,
+          "operational_impact": null,
+          "priority": null
+        },
+        "checks": [
+          {
+            "path": "equipment",
+            "value": [
+              "consola de audio",
+              "consola"
+            ],
+            "op": "text_one_of",
+            "view": "raw"
+          },
+          {
+            "path": "asset_category",
+            "value": "audio",
+            "op": "eq",
+            "view": "raw"
+          },
+          {
+            "path": "failure_type",
+            "value": null,
+            "op": "nonempty",
+            "view": "raw"
+          },
+          {
+            "path": "priority",
+            "value": null,
+            "op": "eq",
+            "view": "raw"
+          },
+          {
+            "path": "$",
+            "value": "Síntoma de imposibilidad de conexión con redacción equivalente; no conservar síntomas de cámara, no inventar impacto, prioridad ni causa. Streaming es ubicación, no familia del equipo.",
+            "op": "manual",
+            "view": "raw",
+            "id": "console_symptom"
+          }
+        ],
+        "evidence_fields": [
+          "equipment"
+        ],
+        "evaluation_scope": "Interpretación aislada, no ejecución de permisos, persistencia, confirmación ni entrega de Django."
+      }
+    },
+    {
+      "id": "INC-EVAL-18",
+      "objective": "Clasificación de síntoma",
+      "category": "interpretation",
+      "criticality": "high",
+      "initial_context": "Borrador dice Sin imagen",
+      "messages": [
+        "La cámara 3 no está negra todo el rato, en verdad la imagen se va a negro por unos segundos y después vuelve"
+      ],
+      "expected": "Síntoma intermitente; no corte total ni causa técnica inventada.",
+      "expected_decision": "allow_draft_only",
+      "allowed": [
+        "corregir síntoma"
+      ],
+      "forbidden": [
+        "mantener corte total",
+        "inventar causa"
+      ],
+      "backend_tests": [
+        "incidents.test_second_conversation27.SecondConversationTests.test_intermittent_symptom_is_not_lost_to_generic_description"
+      ],
+      "input_origin": "Sonda sintética reconstruida a partir de regresiones/reglas. No es una transcripción íntegra ni una ejecución real nueva.",
+      "evidence": [
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_second_conversation27.SecondConversationTests.test_intermittent_symptom_is_not_lost_to_generic_description"
+        }
+      ],
+      "model_probe": {
+        "message_index": 0,
+        "previous_data": {
+          "area": "Producción",
+          "unit": "Estudio A",
+          "location_context": "Estudio A",
+          "equipment": "Cámara 3",
+          "asset_category": "video_cameras",
+          "failure_type": "Sin imagen",
+          "description": "La Cámara 3 está sin imagen.",
+          "operational_impact": "Pruebas detenidas. Respaldo disponible sin conectar.",
+          "priority": "high"
+        },
+        "checks": [
+          {
+            "path": "equipment",
+            "value": "Cámara 3",
+            "op": "text_eq",
+            "view": "raw"
+          },
+          {
+            "path": "failure_type",
+            "value": null,
+            "op": "nonempty",
+            "view": "raw"
+          },
+          {
+            "path": "$",
+            "value": "Reconoce cortes/negro por segundos y posterior recuperación; aceptar redacción equivalente sin exigir palabra intermitente. No mantener ausencia permanente como síntoma vigente, ni inventar cable/diagnóstico.",
+            "op": "manual",
+            "view": "raw",
+            "id": "intermittent_symptom"
+          }
+        ],
+        "evidence_fields": [
+          "failure_type"
+        ],
+        "evaluation_scope": "Interpretación aislada, no ejecución de permisos, persistencia, confirmación ni entrega de Django."
+      }
+    },
+    {
+      "id": "INC-EVAL-19",
+      "objective": "Mensajes consecutivos",
+      "category": "context",
+      "criticality": "high",
+      "initial_context": "Sin borrador; ventana agrupación con reloj controlado",
+      "messages": [
+        "Cámara 2 Estudio A sin imagen, Producción. Impide pruebas. Prioridad alta",
+        "Corrijo la prioridad: crítica"
+      ],
+      "expected": "Conservar originales y orden; una respuesta; critical; confirmación en grupo con datos nuevos no crea.",
+      "expected_decision": "allow_draft_only",
+      "allowed": [
+        "agrupar",
+        "actualizar borrador"
+      ],
+      "forbidden": [
+        "perder miembros",
+        "duplicar respuesta",
+        "crear sin nuevo resumen"
+      ],
+      "backend_tests": [
+        "incidents.test_telegram_groups.TelegramGroupTests.test_four_messages_are_kept_individually_and_extracted_once",
+        "incidents.test_telegram_groups.TelegramGroupTests.test_later_priority_declaration_supersedes_earlier_message",
+        "incidents.test_telegram_groups.TelegramGroupTests.test_confirmation_in_same_group_as_new_data_cannot_create"
+      ],
+      "input_origin": "Sonda sintética reconstruida a partir de regresiones/reglas. No es una transcripción íntegra ni una ejecución real nueva.",
+      "evidence": [
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_telegram_groups.TelegramGroupTests.test_four_messages_are_kept_individually_and_extracted_once"
+        },
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_telegram_groups.TelegramGroupTests.test_later_priority_declaration_supersedes_earlier_message"
+        },
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_telegram_groups.TelegramGroupTests.test_confirmation_in_same_group_as_new_data_cannot_create"
+        }
+      ],
+      "model_probe": {
+        "previous_data": {},
+        "checks": [
+          {
+            "path": "equipment",
+            "value": "Cámara 2",
+            "op": "text_eq",
+            "view": "raw"
+          },
+          {
+            "path": "location_context",
+            "value": "Estudio A",
+            "op": "text_eq",
+            "view": "raw"
+          },
+          {
+            "path": "area",
+            "value": "Producción",
+            "op": "text_eq",
+            "view": "raw"
+          },
+          {
+            "path": "priority",
+            "value": "critical",
+            "op": "eq",
+            "view": "raw"
+          },
+          {
+            "path": "dialogue_actions",
+            "value": [
+              "update"
+            ],
+            "op": "includes",
+            "view": "raw"
+          },
+          {
+            "path": "$",
+            "value": "Usa todos los mensajes ordenados: sin imagen, pruebas impedidas, prioridad alta rectificada a crítica. No inventar respaldo ni tiempo de un contexto previo inexistente; la persistencia individual/deduplicación la prueban los tests de backend.",
+            "op": "manual",
+            "view": "raw",
+            "id": "group_order"
+          }
+        ],
+        "evidence_fields": [
+          "equipment",
+          "priority"
+        ],
+        "evaluation_scope": "Interpretación aislada, no ejecución de permisos, persistencia, confirmación ni entrega de Django.",
+        "message_indices": [
+          0,
+          1
+        ]
+      }
+    },
+    {
+      "id": "INC-EVAL-20",
+      "objective": "Cambio de contexto",
+      "category": "context",
+      "criticality": "high",
+      "initial_context": "Borrador Cámara 3/Estudio B; identidades separadas",
+      "messages": [
+        "Tengo otra incidencia independiente: el Router 4 no conecta en Redes"
+      ],
+      "expected": "No reemplazar borrador activo ni autorizar con otro reportante; pedir aclaración de contexto.",
+      "expected_decision": "allow_draft_only",
+      "allowed": [
+        "aclarar nuevo contexto"
+      ],
+      "forbidden": [
+        "sobrescribir borrador",
+        "cruzar autorizaciones"
+      ],
+      "backend_tests": [
+        "incidents.test_conversation_real27.ConversationReal27Tests.test_genuine_other_incident_does_not_replace_existing",
+        "incidents.test_telegram_entry_security.TelegramIdentityTests.test_two_reporters_keep_separate_drafts_and_confirmations"
+      ],
+      "input_origin": "Sonda sintética reconstruida a partir de regresiones/reglas. No es una transcripción íntegra ni una ejecución real nueva.",
+      "evidence": [
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_conversation_real27.ConversationReal27Tests.test_genuine_other_incident_does_not_replace_existing"
+        },
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_telegram_entry_security.TelegramIdentityTests.test_two_reporters_keep_separate_drafts_and_confirmations"
+        }
+      ],
+      "model_probe": {
+        "message_index": 0,
+        "previous_data": {
+          "area": "Producción",
+          "unit": "Estudio B",
+          "location_context": "Estudio B",
+          "equipment": "Cámara 3",
+          "asset_category": "video_cameras",
+          "failure_type": "Imagen intermitente",
+          "description": "La Cámara 3 del Estudio B pierde imagen desde hace 20 minutos. Se sospecha del cable, sin confirmar.",
+          "operational_impact": "Pruebas detenidas. Respaldo disponible sin conectar.",
+          "priority": "high"
+        },
+        "checks": [
+          {
+            "path": "update_kind",
+            "value": "new_incident",
+            "op": "eq",
+            "view": "raw"
+          },
+          {
+            "path": "equipment",
+            "value": "Router 4",
+            "op": "text_eq",
+            "view": "raw"
+          },
+          {
+            "path": "area",
+            "value": "Redes",
+            "op": "text_eq",
+            "view": "raw"
+          },
+          {
+            "path": "asset_category",
+            "value": "networks",
+            "op": "eq",
+            "view": "raw"
+          },
+          {
+            "path": "$",
+            "value": "Reconoce otra incidencia y la falta de ubicación/impacto/prioridad propios del router; no atribuir a ese router el estudio ni otros hechos de la cámara. La prohibición de sobrescribir el borrador activo y la separación entre usuarios corresponden a Django.",
+            "op": "manual",
+            "view": "raw",
+            "id": "new_incident_separation"
+          }
+        ],
+        "evidence_fields": [
+          "equipment",
+          "area"
+        ],
+        "evaluation_scope": "Interpretación aislada, no ejecución de permisos, persistencia, confirmación ni entrega de Django."
+      }
+    },
+    {
+      "id": "INC-EVAL-21",
+      "objective": "Conversación larga",
+      "category": "context",
+      "criticality": "medium",
+      "initial_context": "Borrador completo",
+      "messages": [
+        "Reporte de Cámara 3 en Estudio 2, prioridad alta",
+        "Alternar hola/gracias durante 50 turnos",
+        "confirmo"
+      ],
+      "expected": "Una extracción inicial; datos conservados; una creación final y una notificación.",
+      "expected_decision": "create_once_after_confirmation",
+      "allowed": [
+        "responder saludos",
+        "crear tras resumen/autorización"
+      ],
+      "forbidden": [
+        "borrar contexto",
+        "usar saludos como hechos",
+        "multiplicar IA"
+      ],
+      "backend_tests": [
+        "incidents.test_qa_extreme.AdversarialConversationTests.test_ADV_099"
+      ],
+      "input_origin": "Sonda sintética reconstruida a partir de regresiones/reglas. No es una transcripción íntegra ni una ejecución real nueva.",
+      "evidence": [
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_qa_extreme.AdversarialConversationTests.test_ADV_099"
+        }
+      ],
+      "model_probe": null
+    },
+    {
+      "id": "INC-EVAL-22",
+      "objective": "Solicitudes no autorizadas",
+      "category": "validation",
+      "criticality": "critical",
+      "initial_context": "HTTP anónimo o identidad privada incoherente",
+      "messages": [
+        "confirmo"
+      ],
+      "expected": "401/403 o rechazo identidad; cero datos/calls IA; no contactos.",
+      "expected_decision": "legitimate_permission_rejection",
+      "allowed": [
+        "rechazar acceso"
+      ],
+      "forbidden": [
+        "autoregistrar desde HTTP",
+        "suplantar remitente",
+        "contactar terceros"
+      ],
+      "backend_tests": [
+        "incidents.test_telegram_entry_security.HTTPEntrySecurityTests.test_anonymous_test_route_cannot_register_or_process",
+        "incidents.test_telegram_entry_security.TelegramIdentityTests.test_service_rejects_forged_identity_and_untrusted_registration"
+      ],
+      "input_origin": "Sonda sintética reconstruida a partir de regresiones/reglas. No es una transcripción íntegra ni una ejecución real nueva.",
+      "evidence": [
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_telegram_entry_security.HTTPEntrySecurityTests.test_anonymous_test_route_cannot_register_or_process"
+        },
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_telegram_entry_security.TelegramIdentityTests.test_service_rejects_forged_identity_and_untrusted_registration"
+        }
+      ],
+      "model_probe": null
+    },
+    {
+      "id": "INC-EVAL-23",
+      "objective": "Mensaje duplicado",
+      "category": "persistence",
+      "criticality": "critical",
+      "initial_context": "Mensaje ya procesado",
+      "messages": [
+        "La Cámara 3 no tiene imagen. Prioridad alta.",
+        "Reentrega del mismo ID externo"
+      ],
+      "expected": "Una extracción y respuesta lógica; sin segundo registro.",
+      "expected_decision": "deduplicate",
+      "allowed": [
+        "reconocer duplicado"
+      ],
+      "forbidden": [
+        "reextraer",
+        "duplicar respuesta o incidente"
+      ],
+      "backend_tests": [
+        "incidents.test_pilot_recovery.MessageRecoveryTests.test_processed_duplicate_does_not_repeat_ai_or_response",
+        "incidents.test_telegram_groups.TelegramGroupTests.test_duplicate_update_is_not_a_second_group_member"
+      ],
+      "input_origin": "Sonda sintética reconstruida a partir de regresiones/reglas. No es una transcripción íntegra ni una ejecución real nueva.",
+      "evidence": [
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_pilot_recovery.MessageRecoveryTests.test_processed_duplicate_does_not_repeat_ai_or_response"
+        },
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_telegram_groups.TelegramGroupTests.test_duplicate_update_is_not_a_second_group_member"
+        }
+      ],
+      "model_probe": null
+    },
+    {
+      "id": "INC-EVAL-24",
+      "objective": "IA transitoria y recuperación",
+      "category": "recovery",
+      "criticality": "critical",
+      "initial_context": "Entrada durable; timeout/503 o interrupción del proceso",
+      "messages": [
+        "La Cámara 3 no tiene imagen. Prioridad alta."
+      ],
+      "expected": "Conservar original; respetar pausa y presupuesto; recuperar una vez; JSON inválido no destruye borrador.",
+      "expected_decision": "recover_without_creation",
+      "allowed": [
+        "guardar pendiente",
+        "reintentar con límites"
+      ],
+      "forbidden": [
+        "perder texto",
+        "reintentar sin límite",
+        "crear incompleto"
+      ],
+      "backend_tests": [
+        "incidents.test_pilot_recovery.MessageRecoveryTests.test_temporary_timeout_recovers_same_input_without_user_repetition",
+        "incidents.test_recovery_limits.RecoveryLimitTests.test_restart_during_gemini_honors_persisted_pause_then_recovers",
+        "incidents.test_operational_regressions.OperationalRegressionTests.test_malformed_provider_preserves_draft_and_pending_text",
+        "incidents.test_pilot_recovery.GeminiRetryTests.test_503_is_retried_with_remaining_time_budget"
+      ],
+      "input_origin": "Sonda sintética reconstruida a partir de regresiones/reglas. No es una transcripción íntegra ni una ejecución real nueva.",
+      "evidence": [
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_pilot_recovery.MessageRecoveryTests.test_temporary_timeout_recovers_same_input_without_user_repetition"
+        },
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_recovery_limits.RecoveryLimitTests.test_restart_during_gemini_honors_persisted_pause_then_recovers"
+        },
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_operational_regressions.OperationalRegressionTests.test_malformed_provider_preserves_draft_and_pending_text"
+        },
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_pilot_recovery.GeminiRetryTests.test_503_is_retried_with_remaining_time_budget"
+        },
+        {
+          "kind": "documented_historical_defect",
+          "reference": "docs/qa/tercera-intervencion-2026-10-28.md#HTTP-503"
+        }
+      ],
+      "model_probe": null
+    },
+    {
+      "id": "INC-EVAL-25",
+      "objective": "Persistencia y reinicio tras commit",
+      "category": "persistence",
+      "criticality": "critical",
+      "initial_context": "Borrador autorizado; fallo inyectado al crear/guardar resultado",
+      "messages": [
+        "Sí, confirmo la creación del incidente."
+      ],
+      "expected": "Rollback/pendiente honesto; recuperar crea una incidencia vinculada y un aviso; reinicio tras commit solo reenvía respuesta persistida.",
+      "expected_decision": "atomic_persistence",
+      "allowed": [
+        "rollback",
+        "recuperación controlada"
+      ],
+      "forbidden": [
+        "afirmar registro fallido",
+        "duplicar después de commit"
+      ],
+      "backend_tests": [
+        "incidents.test_natural_confirmation.ConfirmationCommitTests.test_creation_failure_is_honest_and_retry_creates_once",
+        "incidents.test_natural_confirmation.ConfirmationCommitTests.test_restart_after_commit_replays_persisted_reply_without_creating_again",
+        "incidents.test_pilot_recovery.MessageRecoveryTests.test_failure_saving_result_rolls_back_incident_and_notification"
+      ],
+      "input_origin": "Sonda sintética reconstruida a partir de regresiones/reglas. No es una transcripción íntegra ni una ejecución real nueva.",
+      "evidence": [
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_natural_confirmation.ConfirmationCommitTests.test_creation_failure_is_honest_and_retry_creates_once"
+        },
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_natural_confirmation.ConfirmationCommitTests.test_restart_after_commit_replays_persisted_reply_without_creating_again"
+        },
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_pilot_recovery.MessageRecoveryTests.test_failure_saving_result_rolls_back_incident_and_notification"
+        }
+      ],
+      "model_probe": null
+    },
+    {
+      "id": "INC-EVAL-26",
+      "objective": "Notificaciones e incertidumbre",
+      "category": "notification",
+      "criticality": "critical",
+      "initial_context": "Incidencia confirmada; fallo SMTP o pérdida de acuse Telegram",
+      "messages": [
+        "Sí, confirmo la creación del incidente."
+      ],
+      "expected": "Conservar incidencia; reintentar conexión SMTP fallida sin duplicar; uncertain no se reenvía automáticamente.",
+      "expected_decision": "honest_delivery_state",
+      "allowed": [
+        "guardar failed/uncertain",
+        "reintentar fallos seguros"
+      ],
+      "forbidden": [
+        "afirmar entrega incierta",
+        "reenviar uncertain automáticamente",
+        "duplicar incidencia"
+      ],
+      "backend_tests": [
+        "incidents.test_pilot_recovery.NotificationRecoveryTests.test_failed_connection_retries_email_without_duplicate_incident_or_mail",
+        "incidents.test_pilot_recovery.NotificationRecoveryTests.test_smtp_timeout_is_persisted_as_uncertain_not_auto_retried",
+        "incidents.test_pilot_recovery.MessageRecoveryTests.test_uncertain_send_is_never_repeated_automatically"
+      ],
+      "input_origin": "Sonda sintética reconstruida a partir de regresiones/reglas. No es una transcripción íntegra ni una ejecución real nueva.",
+      "evidence": [
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_pilot_recovery.NotificationRecoveryTests.test_failed_connection_retries_email_without_duplicate_incident_or_mail"
+        },
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_pilot_recovery.NotificationRecoveryTests.test_smtp_timeout_is_persisted_as_uncertain_not_auto_retried"
+        },
+        {
+          "kind": "existing_regression",
+          "reference": "incidents.test_pilot_recovery.MessageRecoveryTests.test_uncertain_send_is_never_repeated_automatically"
+        }
+      ],
+      "model_probe": null
+    }
+  ],
+  "probe_audit": "v2: contextos coherentes; extracción cruda separada de fallback del parser; revisión humana obligatoria para semántica libre; mensajes agrupados completos."
+}

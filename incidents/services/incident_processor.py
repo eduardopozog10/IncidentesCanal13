@@ -17,7 +17,7 @@ from incidents.services.conversation_lock import conversation_lock
 from incidents.models import IncidentNotification
 from incidents.services.conversation_content import (
     join_description, preserve_modality, query_fields, time_fact, TIME,
-    is_diagnostic_uncertainty, preserve_description_context, is_query_only, replace_time, unknown_area_statement,
+    is_diagnostic_uncertainty, preserve_description_context, replace_time, unknown_area_statement,
     unknown_information, backup_reference, backup_transition, operational_description,
     sentences, faithful_rewrite, rewrite_requested, natural_confirmation, natural_cancel,
     observable_intermittence,
@@ -25,6 +25,7 @@ from incidents.services.conversation_content import (
     report_preparation_requested,
 )
 from incidents.services.incident_draft_service import IncidentDraftService
+from incidents.services.incident_dialogue import explanation_requested, saved_data_query, priority_update_statement
 
 logger = logging.getLogger(__name__)
 from incidents.services.conversation_plan import actions, fact_updates, authorized, merge_operational_facts
@@ -104,6 +105,12 @@ class IncidentProcessor:
         ),
     }
 
+    IMPACT_EXPLANATION = (
+        "Me refiero a cómo afecta la falla a tu trabajo. "
+        "Por ejemplo: interrumpe una grabación, obliga a usar "
+        "un respaldo o permite continuar normalmente."
+    )
+
     GUIDED_QUESTIONS = {
         "area": (
             "Necesito saber a qué área corresponde la falla. "
@@ -130,12 +137,7 @@ class IncidentProcessor:
             "Por ejemplo: la imagen se corta durante varios segundos "
             "y luego vuelve. ¿Puedes describir qué está pasando?"
         ),
-        "operational_impact": (
-            "Me refiero a cómo afecta la falla a tu trabajo. "
-            "Por ejemplo: interrumpe una grabación, obliga a usar "
-            "un respaldo o permite continuar normalmente. "
-            "¿Qué impacto operacional tiene?"
-        ),
+        "operational_impact": IMPACT_EXPLANATION + " ¿Qué impacto operacional tiene?",
         "priority": (
             "Necesito que elijas una prioridad explícitamente. "
             "Por ejemplo, puedes responder: Alta. "
@@ -219,18 +221,16 @@ class IncidentProcessor:
         "se presentan problemas de funcionamiento",
     )
 
+    PRIORITY_EXPLANATIONS = {
+        "low": "incidente menor, sin impacto operacional relevante y que puede esperar.",
+        "medium": "existe afectación, pero la operación puede mantenerse mediante una alternativa, redundancia o una degradación aceptable.",
+        "high": "una función importante está fuera de servicio o existe un impacto significativo en la operación o producción, sin una alternativa adecuada.",
+        "critical": "existe una interrupción o riesgo inmediato para la emisión, señal, producción en vivo, un servicio esencial o una contingencia operacional severa.",
+    }
+    PRIORITY_REFERENCE = "\n".join(f"• {Incident.Priority(value).label}: {detail}" for value, detail in PRIORITY_EXPLANATIONS.items())
     PRIORITY_GUIDANCE = (
         "Para finalizar el reporte necesito que selecciones una prioridad:\n\n"
-        "• Baja: incidente menor, sin impacto operacional relevante y que "
-        "puede esperar.\n"
-        "• Media: existe afectación, pero la operación puede mantenerse "
-        "mediante una alternativa, redundancia o una degradación aceptable.\n"
-        "• Alta: una función importante está fuera de servicio o existe un "
-        "impacto significativo en la operación o producción, sin una "
-        "alternativa adecuada.\n"
-        "• Crítica: existe una interrupción o riesgo inmediato para la "
-        "emisión, señal, producción en vivo, un servicio esencial o una "
-        "contingencia operacional severa.\n\n"
+        + PRIORITY_REFERENCE + "\n\n"
         "La prioridad debe ser seleccionada explícitamente por ti. "
         "¿Cuál corresponde: Baja, Media, Alta o Crítica?"
     )
@@ -387,6 +387,15 @@ class IncidentProcessor:
                     'Eso no determina la asignación interna de Secuoya. ¿Qué función cumple el equipo y quién lo opera o gestiona?')
         return self.GUIDED_QUESTIONS.get(field, 'Describe lo que observas sin adivinar una clasificación.')
 
+    def _answer_explanation(self, field, priority=None):
+        if field == "operational_impact":
+            return self.IMPACT_EXPLANATION
+        if priority:
+            return (f"Como referencia:\n\n• {Incident.Priority(priority).label}: "
+                    + self.PRIORITY_EXPLANATIONS[priority] + "\n\nLa categoría la eliges tú.")
+        return ("La prioridad expresa la urgencia operacional del reporte:\n\n"
+                + self.PRIORITY_REFERENCE + "\n\nTú eliges la categoría; no la asigno automáticamente.")
+
     @staticmethod
     def _dialogue_result(message, draft, action, reply):
         message.draft = draft
@@ -469,7 +478,7 @@ class IncidentProcessor:
             rows = list(ChannelMessage.objects.filter(pk__in=ids, technician_id=message.technician_id))
             rows.sort(key=lambda row: row.raw_payload["message"]["message_id"], reverse=True)
             for row in rows:
-                if is_query_only(row.content): continue
+                if saved_data_query(row.content): continue
                 value = self._extract_explicit_priority(row.content)
                 if value or re.search(r"\bprioridad\b", self._normalize_quick_text(row.content)):
                     return value
@@ -662,7 +671,10 @@ class IncidentProcessor:
 
         if natural_cancel(self._text(message)):
             return self._cancel_draft(message)
-        fields = query_fields(self._text(message)) if is_query_only(self._text(message)) else None
+        explanation = explanation_requested(self._text(message))
+        if explanation:
+            return self._dialogue_result(message, draft, "draft_help", self._answer_explanation(*explanation))
+        fields = query_fields(self._text(message)) if saved_data_query(self._text(message)) else None
         if draft is None and fields and not re.search(r"\b(?:borrador|resumen|guardad\w*|registrad\w*|indique|indicado|falta\w*)\b", self._normalize_quick_text(self._text(message))):
             # Sin borrador, «¿Es prioridad alta?» puede pertenecer a un reporte
             # incompleto. Conservar la clasificación existente del proveedor.
@@ -4567,6 +4579,12 @@ class IncidentProcessor:
         self,
         text: str,
     ) -> str | None:
+        # Una petición cortés explícita de modificar el borrador no es una
+        # consulta informativa. Reutilizar las validaciones de prioridad única,
+        # negada y declarada; no aceptar una prioridad decidida solo por IA.
+        request = priority_update_statement(text)
+        if request:
+            text = request + ". " + text
         # Ignorar preguntas, conservando una declaración independiente:
         # «¿Puedes ayudarme? La prioridad es alta» sí declara Alta.
         text = re.sub(r"¿[^?]*(?:\?|$)|[^.!?¿]*\?", " ", text)
