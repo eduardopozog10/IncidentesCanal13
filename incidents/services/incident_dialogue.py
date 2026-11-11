@@ -47,9 +47,23 @@ def priority_update_statement(text):
     return None
 
 
-def explanation_requested(text):
-    """Solo peticiones completas de definición; no consumir hechos/órdenes anexos."""
+def explanation_requested(text, *, allow_following_context=False):
+    """Definición aislada o seguida de una continuación sin hechos ni órdenes.
+
+    allow_following_context solo sirve para redactar ayuda después de que el
+    procesador interprete el mensaje completo; nunca para saltarse ese proceso.
+    """
     value = normalized(text).strip(" ¿?!.\t\n")
+    parts = re.split(r"[?!.]\s*", value, maxsplit=1)
+    if len(parts) == 2:
+        head, tail = parts
+        continuation = re.fullmatch(
+            r"(?:despues|luego|mas tarde) (?:seguimos|continuamos|retomamos)"
+            r"(?: (?:con )?(?:el|la|este|esta|mi) (?:reporte|borrador|incidente|incidencia))?",
+            tail)
+        if not allow_following_context and not continuation:
+            return None
+        value = head
     match = re.fullmatch(
         r"(?:por favor[, ]+)?(?:que significa|que es|a que te refieres con|"
         r"(?:me )?(?:puedes|podrias) explicar(?:me)?|explicame|me explicas)\s+"

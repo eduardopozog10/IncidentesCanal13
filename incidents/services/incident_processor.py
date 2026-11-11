@@ -396,6 +396,14 @@ class IncidentProcessor:
         return ("La prioridad expresa la urgencia operacional del reporte:\n\n"
                 + self.PRIORITY_REFERENCE + "\n\nTú eliges la categoría; no la asigno automáticamente.")
 
+    def _help_reply(self, text, field, data):
+        # La planificación ya decidió si hay hechos que guardar. Aquí solo se
+        # distingue una definición explícita de la orientación para llenar datos.
+        explanation = explanation_requested(text, allow_following_context=True)
+        if explanation and explanation[0] == field:
+            return self._answer_explanation(*explanation)
+        return self._field_guidance(field, data)
+
     @staticmethod
     def _dialogue_result(message, draft, action, reply):
         message.draft = draft
@@ -451,7 +459,7 @@ class IncidentProcessor:
         if action == 'help':
             field = getattr(extraction, 'help_field', None)
             if field in self.GUIDED_QUESTIONS or field == 'asset_category':
-                return self._dialogue_result(message, draft, 'draft_help', self._field_guidance(field, previous))
+                return self._dialogue_result(message, draft, 'draft_help', self._help_reply(text, field, previous))
         if action == 'rewrite' and draft:
             rewrite = faithful_rewrite(draft.extracted_data.get('description'), getattr(extraction, 'rewrite_clauses', []))
             if rewrite is None:
@@ -534,6 +542,10 @@ class IncidentProcessor:
         """Comunicar solo el resultado guardado; nunca prosa libre de IA."""
         if result.get('action') not in {'ask_clarification','draft_rewritten'} or not result.get('draft_id'):
             return result
+        if result.get('requires_update_clarification'):
+            # La decisión de Django de aclarar el contexto precede al estilo
+            # conversacional. No sustituirla por una consulta/ayuda del plan.
+            return result
         draft = IncidentDraft.objects.get(pk=result['draft_id'])
         data, acts = draft.extracted_data, actions(extraction)
         fields = set(extraction.requested_fields or [])
@@ -542,11 +554,12 @@ class IncidentProcessor:
         if explicit_fields:
             acts.add('query')
         changed = [name for name in self.CHANGE_LABELS if previous and previous.get(name) != data.get(name)]
+        acknowledgement = ('Guardé los cambios de ' + ', '.join(self.CHANGE_LABELS[name].lower() for name in changed) + '.\n\n') if changed else ''
         result['semantic_actions'] = sorted(acts)
         # Una pregunta para identificar un dato pide orientación, aunque el
         # lector local también encuentre su nombre como campo consultado.
         if 'help' in acts and extraction.help_field:
-            result['reply'] = self._field_guidance(extraction.help_field, data)
+            result['reply'] = acknowledgement + self._help_reply(self._text(message), extraction.help_field, data)
             return result
         # Los campos del reporte mencionados antes de «ayúdame a prepararlo»
         # no son por sí solos una solicitud de lectura de esos campos.
@@ -556,7 +569,6 @@ class IncidentProcessor:
         if 'query' in acts and not fields:
             fields = set(changed) or set((extraction.field_evidence or {})).intersection(self.CHANGE_LABELS)
         if 'query' in acts and fields and 'summary' not in fields:
-            acknowledgement = ('Guardé los cambios de ' + ', '.join(self.CHANGE_LABELS[name].lower() for name in changed) + '.\n\n') if changed else ''
             focus = set(changed) or set((extraction.field_evidence or {})).intersection(self.CHANGE_LABELS)
             if fields == {'missing'} and 'update' in acts and 0 < len(focus) <= 2:
                 result['reply'] = acknowledgement + self._answer_draft_query(draft, focus) + '\n\n' + self._answer_draft_query(draft, fields)
@@ -1374,6 +1386,7 @@ class IncidentProcessor:
                 "reply": clarification_question,
                 "extracted_data": extracted_data,
                 "unchanged_fields": unchanged_fields,
+                "requires_update_clarification": requires_update_clarification,
             }
 
         # Si una corrección directa necesita una aclaración,
@@ -1414,6 +1427,7 @@ class IncidentProcessor:
                 "reply": clarification_question,
                 "extracted_data": extracted_data,
                 "unchanged_fields": unchanged_fields,
+                "requires_update_clarification": requires_update_clarification,
             }
 
         confirmation_reply = self._build_confirmation_reply(
@@ -2732,6 +2746,12 @@ class IncidentProcessor:
             return None
 
         if self._is_uncertain_update(text):
+            return None
+
+        # Una corrección puede aportar también una hipótesis o incertidumbre
+        # nueva. No consumirla con el atajo de un campo: interpretar el mensaje
+        # completo y conservar su modalidad mediante las validaciones existentes.
+        if is_diagnostic_uncertainty(text) or re.search(r"\bno (?:lo )?sabemos\b", self._normalize_quick_text(text)):
             return None
 
         # Una respuesta con varios datos debe extraerse completa. Los atajos
